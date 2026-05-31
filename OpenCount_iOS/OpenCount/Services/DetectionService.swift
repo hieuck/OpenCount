@@ -4,7 +4,7 @@ import CoreML
 
 /// Service xử lý object detection sử dụng Core ML + Vision framework.
 /// Mặc định dùng YOLOv3, có thể cấu hình model khác qua `modelName`.
-actor DetectionService {
+final class DetectionService {
 
     // MARK: - Errors
     enum DetectionError: LocalizedError {
@@ -47,7 +47,7 @@ actor DetectionService {
     }
 
     /// Load model từ bundle
-    private mutating func loadModel() -> VNCoreMLModel? {
+    private func loadModel() -> VNCoreMLModel? {
         if let cached = model { return cached }
 
         guard let mlModelURL = Bundle.main.url(forResource: modelName,
