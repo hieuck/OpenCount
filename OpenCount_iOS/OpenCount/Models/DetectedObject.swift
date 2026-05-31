@@ -17,10 +17,18 @@ struct DetectedObject: Identifiable, Equatable {
 }
 
 /// Kết quả phát hiện cho một ảnh.
-struct DetectionResult: Equatable {
+struct DetectionResult: Identifiable, Equatable, Codable {
+    let id: UUID
     let image: UIImage
     let objects: [DetectedObject]
     let timestamp: Date
+
+    init(image: UIImage, objects: [DetectedObject], timestamp: Date) {
+        self.id = UUID()
+        self.image = image
+        self.objects = objects
+        self.timestamp = timestamp
+    }
 
     /// Tổng số vật thể đã đếm
     var totalCount: Int { objects.count }
@@ -34,6 +42,26 @@ struct DetectionResult: Equatable {
     }
 
     static func == (lhs: DetectionResult, rhs: DetectionResult) -> Bool {
-        lhs.objects == rhs.objects && lhs.timestamp == rhs.timestamp
+        lhs.id == rhs.id
+    }
+
+    // MARK: - Codable
+    enum CodingKeys: String, CodingKey {
+        case id, objects, timestamp
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(objects, forKey: .objects)
+        try container.encode(timestamp, forKey: .timestamp)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        objects = try container.decode([DetectedObject].self, forKey: .objects)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        image = UIImage()
     }
 }

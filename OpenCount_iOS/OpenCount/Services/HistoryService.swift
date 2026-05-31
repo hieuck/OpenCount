@@ -29,6 +29,7 @@ final class HistoryService: ObservableObject {
 
     private let userDefaults = UserDefaults.standard
     private let historyKey = "opencount_history"
+    private let detectionResultsKey = "opencount_detection_results"
     private let maxItems = 100
 
     init() {
@@ -40,12 +41,54 @@ final class HistoryService: ObservableObject {
         let history = CountHistory(from: result)
         items.insert(history, at: 0)
 
-        // Giới hạn số lượng lịch sử
         if items.count > maxItems {
             items.removeLast(items.count - maxItems)
         }
 
         saveHistory()
+    }
+
+    /// Lưu DetectionResult (cho Statistics/Export)
+    func saveResult(_ result: DetectionResult) async throws {
+        var results = try loadDetectionResults()
+        results.insert(result, at: 0)
+
+        if results.count > maxItems {
+            results.removeLast(results.count - maxItems)
+        }
+
+        let data = try JSONEncoder().encode(results)
+        userDefaults.set(data, forKey: detectionResultsKey)
+    }
+
+    /// Load tất cả DetectionResults
+    func loadResults() async throws -> [DetectionResult] {
+        try loadDetectionResults()
+    }
+
+    /// Xóa một DetectionResult
+    func deleteResult(_ id: UUID) async throws {
+        var results = try loadDetectionResults()
+        results.removeAll { $0.id == id }
+
+        let data = try JSONEncoder().encode(results)
+        userDefaults.set(data, forKey: detectionResultsKey)
+    }
+
+    /// Xóa toàn bộ
+    func clearAll() async throws {
+        items.removeAll()
+        userDefaults.removeObject(forKey: detectionResultsKey)
+        saveHistory()
+    }
+
+    // MARK: - Private
+
+    private func loadDetectionResults() throws -> [DetectionResult] {
+        guard let data = userDefaults.data(forKey: detectionResultsKey) else {
+            return []
+        }
+        return try JSONDecoder().decode([DetectionResult].self, from: data)
     }
 
     /// Xóa một mục từ lịch sử

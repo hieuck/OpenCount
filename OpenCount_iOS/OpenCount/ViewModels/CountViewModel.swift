@@ -36,6 +36,7 @@ final class CountViewModel: ObservableObject {
     @Published var showingCamera = false
     @Published var showingPhotoPicker = false
     @Published var showingModelGuide = false
+    @Published private(set) var history: [DetectionResult] = []
 
     // MARK: - Settings
     @AppStorage("min_confidence") var minConfidence: Double = Constants.minConfidence
@@ -43,6 +44,12 @@ final class CountViewModel: ObservableObject {
     // MARK: - Services
     private var detectionService: DetectionService {
         DetectionService(minConfidence: minConfidence)
+    }
+    private let historyService = HistoryService()
+
+    // MARK: - Init
+    init() {
+        loadHistory()
     }
 
     // MARK: - Computed
@@ -114,6 +121,42 @@ final class CountViewModel: ObservableObject {
 
         let result = try await service.detectObjects(in: image)
         state = .result(result)
+
+        // Lưu vào history
+        await saveToHistory(result)
+    }
+
+    /// Lưu kết quả vào history
+    private func saveToHistory(_ result: DetectionResult) {
+        history.insert(result, at: 0)
+        Task {
+            try? await historyService.saveResult(result)
+        }
+    }
+
+    /// Load history từ disk
+    private func loadHistory() {
+        Task {
+            if let loaded = try? await historyService.loadResults() {
+                self.history = loaded
+            }
+        }
+    }
+
+    /// Xóa một item từ history
+    func deleteFromHistory(_ result: DetectionResult) {
+        history.removeAll { $0.id == result.id }
+        Task {
+            try? await historyService.deleteResult(result.id)
+        }
+    }
+
+    /// Xóa toàn bộ history
+    func clearHistory() {
+        history.removeAll()
+        Task {
+            try? await historyService.clearAll()
+        }
     }
 
     /// Xử lý lỗi
