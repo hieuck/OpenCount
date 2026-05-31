@@ -8,7 +8,7 @@ struct DetectionOverlay: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                ForEach(objects) { object in
+                ForEach(objects, id: \.id) { object in
                     let rect = normalizedRectToView(
                         object.boundingBox,
                         in: proxy.size
