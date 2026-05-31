@@ -33,9 +33,6 @@ struct ContentView: View {
                 viewModel.capturedPhoto(image)
             }
         }
-        .sheet(isPresented: $viewModel.showingModelGuide) {
-            ModelGuideView()
-        }
         .onChange(of: viewModel.state) { newState in
             if case .result = newState {
                 // Haptic feedback khi có kết quả

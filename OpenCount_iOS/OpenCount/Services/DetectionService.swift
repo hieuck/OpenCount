@@ -116,7 +116,7 @@ final class DetectionService {
         for observation in observations {
             guard let topLabel = observation.labels
                 .max(by: { $0.confidence < $1.confidence }),
-                  topLabel.confidence >= minConfidence else {
+                  topLabel.confidence >= Float(minConfidence) else {
                 continue
             }
 

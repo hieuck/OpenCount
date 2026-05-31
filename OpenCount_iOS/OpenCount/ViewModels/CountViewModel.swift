@@ -45,11 +45,10 @@ final class CountViewModel: ObservableObject {
     private var detectionService: DetectionService {
         DetectionService(minConfidence: minConfidence)
     }
-    private let historyService = HistoryService()
 
     // MARK: - Init
     init() {
-        loadHistory()
+        // loadHistory() // TODO: Add HistoryService to project
     }
 
     // MARK: - Computed
@@ -130,16 +129,16 @@ final class CountViewModel: ObservableObject {
     private func saveToHistory(_ result: DetectionResult) {
         history.insert(result, at: 0)
         Task {
-            try? await historyService.saveResult(result)
+            // try? await historyService.saveResult(result) // TODO: Add HistoryService to project
         }
     }
 
     /// Load history từ disk
     private func loadHistory() {
         Task {
-            if let loaded = try? await historyService.loadResults() {
-                self.history = loaded
-            }
+            // if let loaded = try? await historyService.loadResults() {
+            //     self.history = loaded
+            // }
         }
     }
 
@@ -147,7 +146,7 @@ final class CountViewModel: ObservableObject {
     func deleteFromHistory(_ result: DetectionResult) {
         history.removeAll { $0.id == result.id }
         Task {
-            try? await historyService.deleteResult(result.id)
+            // try? await historyService.deleteResult(result.id) // TODO: Add HistoryService to project
         }
     }
 
@@ -155,7 +154,7 @@ final class CountViewModel: ObservableObject {
     func clearHistory() {
         history.removeAll()
         Task {
-            try? await historyService.clearAll()
+            // try? await historyService.clearAll() // TODO: Add HistoryService to project
         }
     }
 

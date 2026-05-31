@@ -35,7 +35,9 @@ struct CountResultView: View {
             .padding(.horizontal)
 
             if selectedTab == 0 {
-                StatisticsView(statistics: result.statistics)
+                // StatisticsView(statistics: result.statistics) // TODO: Add StatisticsView to project
+                Text("Thống kê (chưa được add vào project)")
+                    .foregroundColor(.secondary)
             } else {
                 ObjectListView(objects: result.objects)
             }
@@ -114,36 +116,6 @@ struct CountResultView: View {
 
         Đếm bằng OpenCount — mã nguồn mở, miễn phí
         """
-    }
-}
-
-// MARK: - Thống kê theo nhóm
-
-struct StatisticsView: View {
-    let statistics: [(label: String, count: Int)]
-
-    var body: some View {
-        List {
-            ForEach(statistics, id: \.label) { stat in
-                HStack {
-                    Circle()
-                        .fill(Constants.color(for: stat.label))
-                        .frame(width: 12, height: 12)
-
-                    Text(stat.label)
-                        .font(.body)
-
-                    Spacer()
-
-                    Text("\(stat.count)")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.blue)
-                }
-                .padding(.vertical, 4)
-            }
-        }
-        .listStyle(.plain)
     }
 }
 
