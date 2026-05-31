@@ -24,7 +24,8 @@ jobs:
       run: |
         cd Scripts
         chmod +x download_model.sh
-        ./download_model.sh
+        ./download_model.sh || echo "⚠️ Model download failed, continuing..."
+      continue-on-error: true
 
     - name: Build iOS App
       run: |
