@@ -19,9 +19,6 @@
 		CA001043 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA001040 /* ExportService.swift */; };
 		CA001044 /* StatisticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA001041 /* StatisticsService.swift */; };
 		CA001045 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA001042 /* StatisticsView.swift */; };
-		CA001043 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA001040 /* ExportService.swift */; };
-		CA001044 /* StatisticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA001041 /* StatisticsService.swift */; };
-		CA001045 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA001042 /* StatisticsView.swift */; };
 		CA00101E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CA00101D /* Assets.xcassets */; };
 		CA001020 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CA00101F /* LaunchScreen.storyboard */; };
 		/* End PBXBuildFile section */
@@ -41,9 +38,6 @@
 		CA00101D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CA00101F /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		CA001021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		CA001040 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportService.swift; sourceTree = "<group>"; };
-		CA001041 /* StatisticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsService.swift; sourceTree = "<group>"; };
-		CA001042 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
 		CA001040 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportService.swift; sourceTree = "<group>"; };
 		CA001041 /* StatisticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsService.swift; sourceTree = "<group>"; };
 		CA001042 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
@@ -108,7 +102,6 @@
 				CA001019 /* CountResultView.swift */,
 				CA00101B /* DetectionOverlay.swift */,
 				CA001042 /* StatisticsView.swift */,
-				CA001042 /* StatisticsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -125,8 +118,6 @@
 			isa = PBXGroup;
 			children = (
 				CA001011 /* DetectionService.swift */,
-				CA001040 /* ExportService.swift */,
-				CA001041 /* StatisticsService.swift */,
 				CA001040 /* ExportService.swift */,
 				CA001041 /* StatisticsService.swift */,
 			);
@@ -229,9 +220,6 @@
 				CA001018 /* CameraView.swift in Sources */,
 				CA00101A /* CountResultView.swift in Sources */,
 				CA00101C /* DetectionOverlay.swift in Sources */,
-				CA001043 /* ExportService.swift in Sources */,
-				CA001044 /* StatisticsService.swift in Sources */,
-				CA001045 /* StatisticsView.swift in Sources */,
 				CA001043 /* ExportService.swift in Sources */,
 				CA001044 /* StatisticsService.swift in Sources */,
 				CA001045 /* StatisticsView.swift in Sources */,
