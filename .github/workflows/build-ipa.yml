@@ -1,62 +1,60 @@
 name: Build iOS IPA
-
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
-
+    timeout-minutes: 30
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Setup Xcode
-      uses: maxim-lobanov/setup-xcode@v1
+    - uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
 
     - name: Download YOLOv3 Model
       run: |
-        cd Scripts
-        chmod +x download_model.sh
-        ./download_model.sh || echo "⚠️ Model download failed, continuing..."
-      continue-on-error: true
+        cd Scripts && chmod +x download_model.sh && ./download_model.sh
 
-    - name: Build iOS App
+    - name: Build Archive
       run: |
         cd OpenCount_iOS
         xcodebuild -project OpenCount.xcodeproj \
           -scheme OpenCount \
           -configuration Release \
           -derivedDataPath build \
-          -arch arm64 \
           -sdk iphoneos \
-          -allowProvisioningUpdates \
-          build
+          -arch arm64 \
+          CODE_SIGN_IDENTITY="-" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          archive -archivePath build/OpenCount.xcarchive
 
-    - name: Create IPA
+    - name: Export IPA
       run: |
-        cd OpenCount_iOS/build/Build/Products/Release-iphoneos
-        mkdir -p Payload
-        cp -r OpenCount.app Payload/
-        zip -r ../../../../OpenCount.ipa Payload/
+        cd OpenCount_iOS
+        xcodebuild -exportArchive \
+          -archivePath build/OpenCount.xcarchive \
+          -exportOptionsPlist ExportOptions.plist \
+          -exportPath build/ \
+          -allowProvisioningUpdates
 
-    - name: Upload IPA Artifact
+    - name: Verify IPA Created
+      run: |
+        if [ -f "OpenCount_iOS/build/OpenCount.ipa" ]; then
+          echo "✅ IPA created successfully"
+          ls -lh OpenCount_iOS/build/OpenCount.ipa
+        else
+          echo "❌ IPA not found"
+          exit 1
+        fi
+
+    - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
         name: OpenCount-IPA
         path: OpenCount_iOS/build/OpenCount.ipa
-        retention-days: 30
-
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: OpenCount_iOS/build/OpenCount.ipa
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        retention-days: 7
