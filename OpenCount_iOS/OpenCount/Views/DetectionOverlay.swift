@@ -19,11 +19,17 @@ struct DetectionOverlay: View {
                         .frame(width: rect.width, height: rect.height)
                         .position(rect.mid)
                         .overlay(
-                            Label(
-                                "\(object.label)\n\(Int(object.confidence * 100))%",
-                                systemImage: "checkmark.circle.fill"
-                            )
-                            .labelStyle(LabelStyleOverlay())
+                            VStack(spacing: 2) {
+                                Text(object.label)
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                Text("\(Int(object.confidence * 100))%")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(.white)
+                            .padding(4)
+                            .background(.black.opacity(0.7))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
                             .offset(x: 4, y: -4)
                         )
                 }
@@ -44,17 +50,5 @@ struct DetectionOverlay: View {
         let y = rect.origin.y * size.height
 
         return CGRect(x: x, y: y, width: width, height: height)
-    }
-}
-
-/// Style cho label trên bounding box
-private struct LabelStyleOverlay: LabelStyle {
-    func makeLabel(configuration: Configuration) -> some View {
-        configuration.icon
-            .font(.system(size: 10, weight: .bold))
-            .foregroundColor(.white)
-            .padding(4)
-            .background(.black.opacity(0.7))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }

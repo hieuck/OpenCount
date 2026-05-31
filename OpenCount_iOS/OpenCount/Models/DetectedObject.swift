@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 /// Một vật thể được phát hiện trong ảnh.
-struct DetectedObject: Identifiable, Equatable {
+struct DetectedObject: Identifiable, Equatable, Codable {
     let id = UUID()
     /// Nhãn của vật thể (vd: "person", "car", "bottle")
     let label: String
