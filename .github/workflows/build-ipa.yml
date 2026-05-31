@@ -29,22 +29,24 @@ jobs:
     - name: Build iOS App
       run: |
         cd OpenCount_iOS
-        xcodebuild -scheme OpenCount \
+        xcodebuild -project OpenCount.xcodeproj \
+          -scheme OpenCount \
           -configuration Release \
           -derivedDataPath build \
           -arch arm64 \
           -sdk iphoneos \
+          -allowProvisioningUpdates \
           build
 
     - name: Create IPA
       run: |
-        cd OpenCount_iOS/build
+        cd OpenCount_iOS/build/Build/Products/Release-iphoneos
         mkdir -p Payload
-        cp -r build/Release-iphoneos/OpenCount.app Payload/
-        zip -r OpenCount.ipa Payload/
+        cp -r OpenCount.app Payload/
+        zip -r ../../../../OpenCount.ipa Payload/
 
     - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: OpenCount-IPA
         path: OpenCount_iOS/build/OpenCount.ipa
