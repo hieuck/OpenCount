@@ -1,0 +1,25 @@
+/* Export column headers — English (en)
+   Used by LocalizationManager.localizedExportHeader(for:)
+   Requirement 30.4, 30.6, 30.7 */
+
+/* CSV / JSON shared column headers */
+"export.column.object_type"     = "object_type";
+"export.column.tally"           = "tally";
+"export.column.marker_x"        = "marker_x";
+"export.column.marker_y"        = "marker_y";
+"export.column.region_name"     = "region_name";
+"export.column.timestamp"       = "timestamp";
+"export.column.is_ai_derived"   = "is_ai_derived";
+
+/* JSON-only session metadata field names */
+"export.column.session_id"      = "id";
+"export.column.session_name"    = "name";
+"export.column.description"     = "description";
+"export.column.created_at"      = "created_at";
+"export.column.modified_at"     = "modified_at";
+
+/* PDF section labels */
+"export.pdf.title"              = "Counting Report";
+"export.pdf.last_modified"      = "Last modified";
+"export.pdf.total_markers"      = "Total markers";
+"export.pdf.object_type_tallies" = "Object Type Tallies";

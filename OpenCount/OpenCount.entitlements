@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- iCloud CloudKit for session sync (Requirement 15.1) -->
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+        <string>iCloud.com.opencount.app</string>
+    </array>
+
+    <!-- iCloud key-value store -->
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>$(TeamIdentifierPrefix)com.opencount.app</string>
+
+    <!-- Associated domains for Handoff + App Clip (Requirement 38, 45) -->
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+        <string>applinks:opencount.app</string>
+        <string>appclip:opencount.app</string>
+    </array>
+</dict>
+</plist>

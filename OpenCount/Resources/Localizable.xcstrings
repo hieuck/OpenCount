@@ -1,0 +1,351 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "session.list.title" : {
+      "comment" : "Navigation title for the session list screen",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "الجلسات" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Sitzungen" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sessions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sesiones" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Sessions" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッション" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "세션" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Sessões" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Phiên" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "会话" } }
+      }
+    },
+    "session.search.placeholder" : {
+      "comment" : "Placeholder text in the session search bar",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "بحث في الجلسات" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Sitzungen suchen" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search sessions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Buscar sesiones" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Rechercher des sessions" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッションを検索" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "세션 검색" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Pesquisar sessões" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Tìm kiếm phiên" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "搜索会话" } }
+      }
+    },
+    "session.new.title" : {
+      "comment" : "Title for the new session sheet",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "جلسة جديدة" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Neue Sitzung" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Session" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nueva sesión" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Nouvelle session" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "新しいセッション" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "새 세션" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Nova sessão" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Phiên mới" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建会话" } }
+      }
+    },
+    "session.name.label" : {
+      "comment" : "Label for the session name text field",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "الاسم" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Name" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Name" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nombre" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Nom" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "名前" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이름" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Nome" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Tên" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "名称" } }
+      }
+    },
+    "session.description.label" : {
+      "comment" : "Label for the optional session description text field",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "الوصف" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Beschreibung" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Description" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Descripción" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Description" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "説明" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "설명" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Descrição" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Mô tả" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "描述" } }
+      }
+    },
+    "session.delete.confirm.title" : {
+      "comment" : "Title of the delete session confirmation dialog",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "حذف الجلسة؟" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Sitzung löschen?" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete Session?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Eliminar sesión?" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Supprimer la session ?" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッションを削除しますか？" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "세션을 삭제하시겠습니까?" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Excluir sessão?" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Xóa phiên?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除会话？" } }
+      }
+    },
+    "session.delete.confirm.message" : {
+      "comment" : "Body of the delete session confirmation dialog",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "سيتم حذف هذه الجلسة وجميع بياناتها بشكل دائم." } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Diese Sitzung und alle zugehörigen Daten werden dauerhaft gelöscht." } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This session and all its data will be permanently deleted." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Esta sesión y todos sus datos se eliminarán de forma permanente." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Cette session et toutes ses données seront définitivement supprimées." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このセッションとすべてのデータが完全に削除されます。" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 세션과 모든 데이터가 영구적으로 삭제됩니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Esta sessão e todos os seus dados serão excluídos permanentemente." } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Phiên này và tất cả dữ liệu của nó sẽ bị xóa vĩnh viễn." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此会话及其所有数据将被永久删除。" } }
+      }
+    },
+    "button.cancel" : {
+      "comment" : "Generic Cancel button label",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "إلغاء" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Abbrechen" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cancelar" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Annuler" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "キャンセル" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "취소" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Cancelar" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Hủy" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "取消" } }
+      }
+    },
+    "button.delete" : {
+      "comment" : "Generic Delete button label (destructive)",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "حذف" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Löschen" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Eliminar" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Supprimer" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "削除" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "삭제" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Excluir" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Xóa" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "删除" } }
+      }
+    },
+    "button.duplicate" : {
+      "comment" : "Duplicate session context menu action",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "تكرار" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Duplizieren" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Duplicate" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Duplicar" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Dupliquer" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "複製" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "복제" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Duplicar" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Nhân bản" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制" } }
+      }
+    },
+    "button.save" : {
+      "comment" : "Generic Save button label",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "حفظ" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Sichern" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Guardar" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Enregistrer" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "保存" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "저장" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Salvar" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Lưu" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保存" } }
+      }
+    },
+    "counting.tally.label" : {
+      "comment" : "Label shown next to the tally count on the counting screen",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "العدد" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Anzahl" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Count" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Conteo" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Comptage" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "カウント" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "카운트" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Contagem" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Đếm" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "计数" } }
+      }
+    },
+    "counting.undo.button" : {
+      "comment" : "Undo button accessibility label on the counting toolbar",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "تراجع" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Rückgängig" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Undo" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Deshacer" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Annuler" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "元に戻す" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "실행 취소" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Desfazer" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Hoàn tác" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "撤销" } }
+      }
+    },
+    "counting.redo.button" : {
+      "comment" : "Redo button accessibility label on the counting toolbar",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "إعادة" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wiederholen" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Redo" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Rehacer" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Rétablir" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "やり直す" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "다시 실행" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Refazer" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Làm lại" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重做" } }
+      }
+    },
+    "export.sheet.title" : {
+      "comment" : "Title of the export sheet",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "تصدير" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Exportieren" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Export" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Exportar" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Exporter" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エクスポート" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "내보내기" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Exportar" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Xuất" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导出" } }
+      }
+    },
+    "export.format.csv" : {
+      "comment" : "CSV export format label",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "CSV" } }
+      }
+    },
+    "export.format.json" : {
+      "comment" : "JSON export format label",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "JSON" } }
+      }
+    },
+    "export.format.annotated_image" : {
+      "comment" : "Annotated Image export format label",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "صورة مشروحة" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kommentiertes Bild" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Annotated Image" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Imagen anotada" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Image annotée" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "注釈付き画像" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "주석 이미지" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Imagem anotada" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Hình ảnh có chú thích" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "带注释的图像" } }
+      }
+    },
+    "export.format.pdf" : {
+      "comment" : "PDF export format label",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "PDF" } }
+      }
+    },
+    "ai.accept_all.button" : {
+      "comment" : "Accept All AI detections button label",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "قبول الكل" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Alle akzeptieren" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accept All" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aceptar todo" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Tout accepter" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "すべて承認" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "모두 수락" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Aceitar tudo" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Chấp nhận tất cả" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部接受" } }
+      }
+    },
+    "settings.title" : {
+      "comment" : "Navigation title for the Settings screen",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "الإعدادات" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Einstellungen" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajustes" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réglages" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "設定" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "설정" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Configurações" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Cài đặt" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "设置" } }
+      }
+    },
+    "settings.reset_defaults.button" : {
+      "comment" : "Reset to defaults button in Settings",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "إعادة تعيين الإعدادات الافتراضية" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Auf Standardwerte zurücksetzen" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset to Defaults" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Restablecer valores predeterminados" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réinitialiser les paramètres" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "デフォルトにリセット" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "기본값으로 재설정" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Redefinir padrões" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Đặt lại mặc định" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复默认设置" } }
+      }
+    },
+    "error.generic.title" : {
+      "comment" : "Generic error alert title",
+      "localizations" : {
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "خطأ" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Fehler" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Error" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Erreur" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エラー" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "오류" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Erro" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Lỗi" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "错误" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

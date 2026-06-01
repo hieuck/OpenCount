@@ -1,0 +1,80 @@
+{
+  "id": "00000000-0000-0000-0000-000000000001",
+  "name": "Sample Session",
+  "sessionDescription": "A pre-loaded demo session showing manual markers, AI-derived markers, and a region of interest. Use this to explore OpenCount before counting your own objects.",
+  "isSample": true,
+  "createdAt": "2024-01-01T00:00:00Z",
+  "modifiedAt": "2024-01-01T00:00:00Z",
+  "objectTypes": [
+    {
+      "id": "10000000-0000-0000-0000-000000000001",
+      "name": "Person",
+      "colorHex": "#FF5733",
+      "iconName": "person.fill",
+      "sortOrder": 0
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000002",
+      "name": "Car",
+      "colorHex": "#3380FF",
+      "iconName": "car.fill",
+      "sortOrder": 1
+    }
+  ],
+  "markers": [
+    {
+      "id": "20000000-0000-0000-0000-000000000001",
+      "normalizedX": 0.25,
+      "normalizedY": 0.30,
+      "objectTypeID": "10000000-0000-0000-0000-000000000001",
+      "isAIDerived": false,
+      "createdAt": "2024-01-01T00:01:00Z"
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000002",
+      "normalizedX": 0.45,
+      "normalizedY": 0.35,
+      "objectTypeID": "10000000-0000-0000-0000-000000000001",
+      "isAIDerived": false,
+      "createdAt": "2024-01-01T00:01:05Z"
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000003",
+      "normalizedX": 0.65,
+      "normalizedY": 0.28,
+      "objectTypeID": "10000000-0000-0000-0000-000000000001",
+      "isAIDerived": true,
+      "createdAt": "2024-01-01T00:01:10Z"
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000004",
+      "normalizedX": 0.30,
+      "normalizedY": 0.65,
+      "objectTypeID": "10000000-0000-0000-0000-000000000002",
+      "isAIDerived": true,
+      "createdAt": "2024-01-01T00:01:15Z"
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000005",
+      "normalizedX": 0.70,
+      "normalizedY": 0.70,
+      "objectTypeID": "10000000-0000-0000-0000-000000000002",
+      "isAIDerived": true,
+      "createdAt": "2024-01-01T00:01:20Z"
+    }
+  ],
+  "regions": [
+    {
+      "id": "30000000-0000-0000-0000-000000000001",
+      "name": "Left Zone",
+      "colorHex": "#FF9500",
+      "shapeType": "rectangle",
+      "normalizedPoints": [
+        { "x": 0.05, "y": 0.10 },
+        { "x": 0.50, "y": 0.10 },
+        { "x": 0.50, "y": 0.90 },
+        { "x": 0.05, "y": 0.90 }
+      ]
+    }
+  ]
+}

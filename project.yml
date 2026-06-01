@@ -1,0 +1,254 @@
+name: OpenCount
+options:
+  bundleIdPrefix: com.opencount
+  deploymentTarget:
+    iOS: "16.0"
+    watchOS: "9.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: true
+
+# ─── Shared settings ──────────────────────────────────────────────────────────
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    ENABLE_PREVIEWS: YES
+    DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+    ALWAYS_SEARCH_USER_PATHS: NO
+    CLANG_ENABLE_MODULES: YES
+    SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: ""
+
+# ─── Packages ─────────────────────────────────────────────────────────────────
+packages:
+  SwiftCheck:
+    url: https://github.com/typelift/SwiftCheck
+    from: "0.12.0"
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: "0.9.19"
+
+# ─── Targets ──────────────────────────────────────────────────────────────────
+targets:
+
+  # ── Main iOS app ─────────────────────────────────────────────────────────────
+  OpenCount:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    bundleId: com.opencount.app
+    info:
+      path: OpenCount/Info.plist
+      properties:
+        CFBundleDisplayName: OpenCount
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSCameraUsageDescription: "OpenCount uses the camera for live counting and AR counting."
+        NSPhotoLibraryUsageDescription: "OpenCount accesses your photo library to import images for counting."
+        NSMicrophoneUsageDescription: "OpenCount may use the microphone when recording video for counting."
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - opencount
+            CFBundleURLName: com.opencount.app
+        NSUserActivityTypes:
+          - com.opencount.counting
+    entitlements:
+      path: OpenCount/OpenCount.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.opencount.app
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)com.opencount.app
+        com.apple.developer.associated-domains:
+          - applinks:opencount.app
+          - appclip:opencount.app
+    sources:
+      - path: OpenCount
+        excludes:
+          - "**/*.md"
+    dependencies:
+      - target: OpenCountWidget
+        embed: true
+      - package: ZIPFoundation
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app
+        DEVELOPMENT_TEAM: ""          # Set via CI secret or local override
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1,2" # iPhone + iPad
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SUPPORTS_MACCATALYST: YES     # Requirement 57 (Req 46): macOS Catalyst support
+
+  # ── Unit + property tests ─────────────────────────────────────────────────────
+  OpenCountTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    bundleId: com.opencount.app.tests
+    sources:
+      - path: OpenCountTests
+    dependencies:
+      - target: OpenCount
+      - package: SwiftCheck
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app.tests
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+
+  # ── WidgetKit extension ───────────────────────────────────────────────────────
+  OpenCountWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.0"
+    bundleId: com.opencount.app.widget
+    info:
+      path: OpenCountWidget/Info.plist
+      properties:
+        CFBundleDisplayName: OpenCountWidget
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    sources:
+      - path: OpenCountWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app.widget
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+
+  # ── watchOS companion app ─────────────────────────────────────────────────────
+  OpenCountWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "9.0"
+    bundleId: com.opencount.app.watchkitapp
+    info:
+      path: OpenCountWatch/Info.plist
+      properties:
+        CFBundleDisplayName: OpenCount
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        WKApplication: true
+    sources:
+      - path: OpenCountWatch
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app.watchkitapp
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "4"
+
+  # ── App Clip ──────────────────────────────────────────────────────────────────
+  # Requirement 56 (Req 45): lightweight App Clip for quick counting via NFC/QR.
+  # Binary must remain under 15 MB.
+  OpenCountClip:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    bundleId: com.opencount.app.clip
+    info:
+      path: OpenCountClip/Info.plist
+      properties:
+        CFBundleDisplayName: OpenCount
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSCameraUsageDescription: "OpenCount uses the camera for live counting."
+        NSAppClip:
+          NSAppClipRequestEphemeralUserNotification: false
+          NSAppClipRequestLocationConfirmation: false
+    entitlements:
+      path: OpenCountClip/OpenCountClip.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - appclip:opencount.app
+    sources:
+      - path: OpenCountClip
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app.clip
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+  # ── UI Tests ──────────────────────────────────────────────────────────────────
+  OpenCountUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "16.0"
+    bundleId: com.opencount.app.uitests
+    sources:
+      - path: OpenCountUITests
+    dependencies:
+      - target: OpenCount
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app.uitests
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        TEST_TARGET_NAME: OpenCount
+
+# ─── Schemes ──────────────────────────────────────────────────────────────────
+schemes:
+  OpenCount:
+    build:
+      targets:
+        OpenCount: all
+        OpenCountTests: [test]
+        OpenCountWidget: all
+        OpenCountClip: all
+        OpenCountUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - name: OpenCountTests
+          parallelizable: true
+          randomExecutionOrder: true
+        - name: OpenCountUITests
+          parallelizable: false
+          randomExecutionOrder: false
+      commandLineArguments:
+        "-com.apple.CoreData.ConcurrencyDebug": "1"
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  OpenCountWatch:
+    build:
+      targets:
+        OpenCountWatch: all
+    run:
+      config: Debug
+    archive:
+      config: Release

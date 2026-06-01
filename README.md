@@ -1,189 +1,131 @@
-# OpenCount 📸
+# OpenCount
 
-Ứng dụng iOS **miễn phí, mã nguồn mở** để đếm vật thể bằng AI — thay thế mã nguồn mở cho [ZapCount](https://zapcount.com).
+[![CI — Build & Test](https://github.com/opencount-app/opencount/actions/workflows/ci.yml/badge.svg)](https://github.com/opencount-app/opencount/actions/workflows/ci.yml)
+[![Build IPA](https://github.com/opencount-app/opencount/actions/workflows/build-ipa.yml/badge.svg)](https://github.com/opencount-app/opencount/actions/workflows/build-ipa.yml)
 
-## Tính năng
+A free, open-source, native iOS application for AI-powered object counting in photos and live camera feeds.
 
-- 📷 **Chụp ảnh hoặc chọn từ thư viện**
-- 🤖 **AI tự động phát hiện** và đếm vật thể (Core ML + Vision)
-- 📊 **Thống kê theo nhóm** — xem số lượng từng loại vật thể
-- 🎨 **Overlay trực quan** — bounding box + label cho mỗi vật thể
-- 📤 **Chia sẻ kết quả** — export text + thống kê
-- 🌙 **Haptic feedback** khi có kết quả
-- 🔒 **100% offline** — model chạy trên thiết bị, không cần internet
-- 📜 **Lịch sử đếm** — xem lại các lần đếm trước
-- ⚙️ **Tùy chỉnh độ nhạy** — điều chỉnh ngưỡng confidence
+## Features
 
-## Cài đặt
+- Zero-shot on-device AI detection (no templates required)
+- Manual tap-to-count with undo/redo
+- Multi-class counting with custom object types
+- Region-of-interest filtering (rectangle, ellipse, polygon)
+- Live camera counting
+- Batch processing
+- Rich export (CSV, JSON, annotated image, PDF)
+- iCloud sync via CloudKit
 
-### Yêu cầu
+## Requirements
 
-- macOS 14+
-- Xcode 15+
-- iOS 17+ (simulator hoặc device)
-
-### 1. Clone repo
-
-```bash
-git clone https://github.com/your-org/OpenCount.git
-cd OpenCount
-```
-
-### 2. Tải model AI
-
-```bash
-cd Scripts
-./download_model.sh
-```
-
-### 3. Mở trong Xcode
-
-```bash
-open OpenCount_iOS/OpenCount.xcodeproj
-```
-
-### 4. Build & Run
-
-Nhấn `Cmd+R` hoặc chọn Product → Run
-
-## Hướng dẫn Build IPA
-
-Xem [**BUILD.md**](BUILD.md) — hướng dẫn chi tiết từ clone → build → IPA → phân phối.
-
-Bao gồm:
-- Cài đặt môi trường
-- Tải model
-- Cấu hình signing
-- Build cho simulator & device
-- Export IPA
-- Troubleshooting
-
-## Hướng dẫn Cài đặt IPA
-
-Xem [**DISTRIBUTION.md**](DISTRIBUTION.md) — các cách cài đặt OpenCount trên thiết bị iOS.
-
-- Qua Xcode
-- Qua Apple Configurator 2
-- Qua TestFlight
-- Qua Safari (OTA install)
-
-## Cấu trúc project
-
-```
-OpenCount_iOS/
-├── OpenCountApp.swift           # Entry point
-├── OpenCount/
-│   ├── Models/
-│   │   └── DetectedObject.swift # Data models
-│   ├── Views/
-│   │   ├── ContentView.swift    # Màn hình chính
-│   │   ├── CameraView.swift     # Camera wrapper
-│   │   ├── CountResultView.swift# Kết quả đếm
-│   │   ├── DetectionOverlay.swift # Bounding box overlay
-│   │   ├── HistoryView.swift    # Lịch sử đếm
-│   │   ├── HistoryDetailView.swift # Chi tiết lịch sử
-│   │   ├── SettingsView.swift   # Cài đặt
-│   │   ├── StatisticsView.swift # Thống kê
-│   │   └── ModelGuideView.swift # Hướng dẫn model
-│   ├── ViewModels/
-│   │   └── CountViewModel.swift # MVVM state
-│   ├── Services/
-│   │   ├── DetectionService.swift # Core ML + Vision
-│   │   ├── ExportService.swift  # Export CSV/JSON/PDF
-│   │   ├── HistoryService.swift # Lịch sử
-│   │   └── StatisticsService.swift # Thống kê
-│   ├── Utils/
-│   │   └── Constants.swift      # Cấu hình
-│   └── Resources/               # Model, storyboard
-├── Assets.xcassets/             # App icons, images
-└── Scripts/
-    └── download_model.sh        # Tải YOLOv3 model
-```
-
-## Kiến trúc
-
-```
-┌─────────────────────────────────────────────┐
-│                   UI Layer                   │
-│  ContentView → CameraView → CountResultView  │
-├─────────────────────────────────────────────┤
-│                ViewModel Layer               │
-│           CountViewModel (MVVM)              │
-├─────────────────────────────────────────────┤
-│                 Service Layer                │
-│        DetectionService (Core ML)            │
-├─────────────────────────────────────────────┤
-│                   Data Layer                 │
-│     DetectedObject, DetectionResult          │
-└─────────────────────────────────────────────┘
-```
-
-## Model AI
-
-OpenCount sử dụng **YOLOv3** được convert sang Core ML format. Model chạy hoàn toàn **on-device** — không cần internet, không gửi dữ liệu ra ngoài.
-
-### Model thay thế
-
-Bạn có thể dùng model khác bằng cách:
-1. Download `.mlmodel` hoặc `.mlpackage`
-2. Đặt vào thư mục `OpenCount/Resources/`
-3. Sửa `Constants.modelName` thành tên model mới
-
-## So sánh với ZapCount
-
-- **Miễn phí**: OpenCount hoàn toàn free, ZapCount iOS có phí
-- **Mã nguồn mở**: OpenCount MIT License, ZapCount đóng
-- **Offline**: OpenCount 100% on-device, ZapCount cần internet
-- **Privacy**: Ảnh không rời máy
-
-## Phát triển
-
-### Build IPA
-
-```bash
-# 1. Build archive
-cd OpenCount_iOS
-xcodebuild -project OpenCount.xcodeproj \
-  -scheme OpenCount \
-  -configuration Release \
-  -derivedDataPath build \
-  -arch arm64 \
-  -sdk iphoneos \
-  -allowProvisioningUpdates \
-  archive -archivePath build/OpenCount.xcarchive
-
-# 2. Export IPA
-xcodebuild -exportArchive \
-  -archivePath build/OpenCount.xcarchive \
-  -exportOptionsPlist ExportOptions.plist \
-  -exportPath build/
-```
-
-### CI/CD
-
-GitHub Actions tự động build IPA khi push lên `main`:
-- **Platform**: `macos-latest`
-- **Model**: YOLOv3 được tải tự động
-- **Output**: IPA artifact, sẵn sàng tải về trong 30 ngày
-- **Release**: Tự động tạo release cho tag
-
-## Đóng góp
-
-Pull requests được chào đón! Các hướng cần giúp:
-- [x] Hoàn thiện SwiftUI views
-- [x] CI/CD GitHub Actions
-- [x] Hướng dẫn build và cài đặt
-- [ ] Port model YOLOv8 sang Core ML
-- [ ] Thêm Apple Vision (iOS 17+)
-- [ ] Hỗ trợ iPad multi-window
-- [ ] Widget đếm nhanh từ Home Screen
-- [ ] Export kết quả PDF/CSV
-- [ ] Dark mode support
-
-## License
-
-MIT — Tự do sử dụng, chỉnh sửa, phân phối
+- iOS 16.0+
+- Xcode 15.0+
+- Swift 5.9+
 
 ---
 
-*Được tạo bởi AI, dành cho cộng đồng. Không giới hạn, không quảng cáo, không tracking.*
+## Project Setup
+
+### 1. Create the Xcode Project
+
+1. Open Xcode and choose **File → New → Project**.
+2. Select **iOS → App** and click **Next**.
+3. Fill in the fields:
+   - **Product Name:** `OpenCount`
+   - **Team:** Your Apple Developer team
+   - **Organization Identifier:** e.g. `com.yourname`
+   - **Interface:** SwiftUI
+   - **Language:** Swift
+   - **Storage:** SwiftData
+4. Uncheck "Include Tests" (we add the test target manually below).
+5. Choose `e:\GitHub\OpenCount` as the save location and click **Create**.
+
+### 2. Add Source Files
+
+All Swift source files are already created in this repository. Add them to the Xcode project:
+
+1. In the Xcode Project Navigator, right-click the `OpenCount` group and choose **Add Files to "OpenCount"**.
+2. Select all files under `OpenCount/` and `OpenCount/Models/`, making sure **"Copy items if needed"** is unchecked (files are already in place).
+
+### 3. Add the Test Target
+
+1. In Xcode, go to **File → New → Target**.
+2. Select **iOS → Unit Testing Bundle** and click **Next**.
+3. Name it `OpenCountTests`, set the **Target to be Tested** to `OpenCount`, and click **Finish**.
+4. Add the files under `OpenCountTests/` to the new test target.
+
+### 4. Add SwiftCheck via Swift Package Manager
+
+SwiftCheck is used for property-based testing.
+
+1. In Xcode, go to **File → Add Package Dependencies…**
+2. Enter the package URL:
+   ```
+   https://github.com/typelift/SwiftCheck
+   ```
+3. Select **Up to Next Major Version** starting from `0.12.0`.
+4. Add the `SwiftCheck` library to the **`OpenCountTests`** target only (not the main app target).
+
+### 5. Configure Deployment Target
+
+1. Select the `OpenCount` project in the Navigator.
+2. Under **Targets → OpenCount → General → Minimum Deployments**, set **iOS 16.0**.
+
+### 6. Add the CoreML Model (Task 11)
+
+The AI counting feature requires a YOLOv8-nano CoreML model:
+
+```bash
+# Install coremltools
+pip install coremltools ultralytics
+
+# Export YOLOv8n to CoreML
+python -c "from ultralytics import YOLO; YOLO('yolov8n.pt').export(format='coreml', nms=True)"
+```
+
+Drag the resulting `yolov8n.mlpackage` into the Xcode project, adding it to the `OpenCount` app target.
+
+---
+
+## Project Structure
+
+```
+OpenCount/
+├── OpenCountApp.swift          # @main App struct, ModelContainer setup
+├── ContentView.swift           # Root view (replaced by SessionListView in Task 3)
+└── Models/
+    ├── CountSession.swift      # SwiftData model: counting session
+    ├── ObjectType.swift        # SwiftData model: object type definition
+    ├── CountMarker.swift       # SwiftData model: placed count marker
+    ├── CountRegion.swift       # SwiftData model: ROI region + RegionShapeType enum
+    ├── SessionImage.swift      # SwiftData model: imported image reference
+    ├── VideoFrameCount.swift   # SwiftData model: per-frame video count
+    ├── AIDetection.swift       # In-memory struct: AI detection result
+    └── AppError.swift          # Typed error enum conforming to LocalizedError
+
+OpenCountTests/
+└── PropertyTests/
+    └── SessionPersistenceTests.swift  # PBT: Property 8 — session round-trip
+```
+
+---
+
+## Architecture
+
+MVVM + Coordinator pattern:
+
+```
+SwiftUI Views
+    ↓ @StateObject / @ObservedObject
+ViewModels (SessionListVM, CountingVM, LiveCountVM, ExportVM)
+    ↓ async/await
+Services (CountingService, AIService, ExportService, StorageService)
+    ↓
+Data / Infrastructure (SwiftData, CloudKit, CoreML/Vision)
+```
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
