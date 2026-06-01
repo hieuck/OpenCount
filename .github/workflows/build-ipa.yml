@@ -82,18 +82,22 @@ jobs:
       - name: Build unsigned .app
         run: |
           set -o pipefail
+
+          # Install iOS platform if not present
+          xcodebuild -downloadPlatform iOS 2>/dev/null || true
+
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
-            -destination "generic/platform=iOS" \
             -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
+            ONLY_ACTIVE_ARCH=NO \
             build \
           | xcbeautify --renderer github-actions || \
           xcodebuild \
@@ -101,13 +105,13 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
-            -destination "generic/platform=iOS" \
             -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
+            ONLY_ACTIVE_ARCH=NO \
             build
 
       # ── Find the built .app ──────────────────────────────────────────────────
