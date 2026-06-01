@@ -34,6 +34,8 @@ struct SettingsView: View {
     @State private var isShowingOnboarding = false
     @State private var isShowingRestoreSampleConfirmation = false
     @State private var isShowingPerformanceDashboard = false
+    @State private var isShowingBackupShare = false
+    @State private var backupURL: URL? = nil
     @State private var versionTapCount = 0
 
     // MARK: - Onboarding replay (Req 29.3)
@@ -63,6 +65,7 @@ struct SettingsView: View {
                 aiDetectionSection
                 exportSection
                 iCloudSection
+                backupSection
                 feedbackSection
                 developerSection
                 aboutSection
@@ -85,6 +88,12 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $isShowingPerformanceDashboard) {
                 PerformanceDashboardView()
+            }
+            .sheet(isPresented: $isShowingBackupShare) {
+                if let url = backupURL {
+                    ShareSheet(activityItems: [url])
+                        .ignoresSafeArea()
+                }
             }
             // Reset confirmation alert — Req 17.4
             .alert("Reset to Defaults", isPresented: $isShowingResetConfirmation) {
@@ -216,6 +225,35 @@ struct SettingsView: View {
             .accessibilityHint("Choose the format used when exporting counting results.")
         } header: {
             Text("Export")
+        }
+    }
+
+    /// iCloud backup export/import section.
+    private var backupSection: some View {
+        Section {
+            Button {
+                exportBackup()
+            } label: {
+                Label("Export Backup", systemImage: "arrow.down.doc.fill")
+            }
+            .accessibilityLabel("Export all sessions as backup file")
+            .accessibilityHint("Creates a .opencount backup file you can save to Files or share.")
+        } header: {
+            Text("Backup")
+        } footer: {
+            Text("Export all sessions as a .opencount file for safekeeping or transfer to another device.")
+        }
+    }
+
+    private func exportBackup() {
+        Task {
+            let sessions = (try? await StorageService.shared.fetchAllSessions()) ?? []
+            if let url = try? syncViewModel.exportBackup(sessions: sessions) {
+                await MainActor.run {
+                    backupURL = url
+                    isShowingBackupShare = true
+                }
+            }
         }
     }
 
