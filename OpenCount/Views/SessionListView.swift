@@ -1,5 +1,25 @@
 import SwiftUI
 
+// MARK: - SessionSortOrder
+
+enum SessionSortOrder: String, CaseIterable, Identifiable {
+    case modifiedDate = "Recently Modified"
+    case createdDate  = "Date Created"
+    case name         = "Name"
+    case markerCount  = "Marker Count"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .modifiedDate: return "clock"
+        case .createdDate:  return "calendar"
+        case .name:         return "textformat.abc"
+        case .markerCount:  return "number"
+        }
+    }
+}
+
 /// The root screen of the app. Displays all counting sessions sorted by most-recently-modified
 /// date descending, with a search bar and controls to create, duplicate, and delete sessions.
 ///
@@ -24,6 +44,7 @@ struct SessionListView: View {
     @State private var isShowingTemplateGallery: Bool = false
     @State private var isShowingDashboard: Bool = false
     @State private var isShowingBulkExport: Bool = false
+    @State private var sortOrder: SessionSortOrder = .modifiedDate
 
     /// Session UUID received from a deep-link URL (`opencount://session/<id>`).
     /// When set, the NavigationStack navigates directly to the corresponding CountingView.
@@ -120,6 +141,27 @@ struct SessionListView: View {
                     .accessibilityLabel("Bulk Export")
                     .accessibilityHint("Export multiple sessions as a ZIP archive.")
                     .disabled(viewModel.sessions.isEmpty)
+                }
+                // Sort menu
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        ForEach(SessionSortOrder.allCases) { order in
+                            Button {
+                                sortOrder = order
+                            } label: {
+                                HStack {
+                                    Label(order.rawValue, systemImage: order.systemImage)
+                                    if sortOrder == order {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                    .accessibilityLabel("Sort sessions")
+                    .accessibilityHint("Choose how to sort the session list.")
                 }
             }
             .sheet(isPresented: $isShowingNewSessionSheet) {
@@ -220,9 +262,25 @@ struct SessionListView: View {
 
     // MARK: - Subviews
 
+    /// Sessions sorted by the current `sortOrder`.
+    private var sortedSessions: [CountSession] {
+        switch sortOrder {
+        case .modifiedDate:
+            return viewModel.filteredSessions.sorted { $0.modifiedAt > $1.modifiedAt }
+        case .createdDate:
+            return viewModel.filteredSessions.sorted { $0.createdAt > $1.createdAt }
+        case .name:
+            return viewModel.filteredSessions.sorted {
+                $0.name.localizedCompare($1.name) == .orderedAscending
+            }
+        case .markerCount:
+            return viewModel.filteredSessions.sorted { $0.markers.count > $1.markers.count }
+        }
+    }
+
     private var sessionList: some View {
         List(selection: $selectedSession) {
-            ForEach(viewModel.filteredSessions) { session in
+            ForEach(sortedSessions) { session in
                 NavigationLink(value: session) {
                     SessionRowView(
                         session: session,
@@ -246,7 +304,7 @@ struct SessionListView: View {
             .onDelete { indexSet in
                 // Swipe-to-delete: show confirmation for the first session in the set
                 if let index = indexSet.first {
-                    sessionToDelete = viewModel.filteredSessions[index]
+                    sessionToDelete = sortedSessions[index]
                     isShowingDeleteConfirmation = true
                 }
             }

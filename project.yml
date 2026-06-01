@@ -79,6 +79,8 @@ targets:
         com.apple.developer.associated-domains:
           - applinks:opencount.app
           - appclip:opencount.app
+        com.apple.security.application-groups:
+          - group.com.opencount.app
     sources:
       - path: OpenCount
         excludes:
