@@ -1,7 +1,6 @@
 import Foundation
 import SwiftUI
 import ARKit
-import RealityKit
 import Combine
 
 // MARK: - ARCountAnchor
@@ -114,12 +113,46 @@ final class ARCountViewModel: ObservableObject {
     /// Saves all AR-placed anchors as CountMarkers in the current session.
     /// Requirement 19.5: save all AR-placed Count_Markers to the current Session.
     func saveToSession(_ session: CountSession) async throws {
+        guard let frame = arSession.currentFrame else {
+            // Fallback: save with center coordinates if no AR frame available
+            for anchor in arAnchors {
+                let marker = CountMarker(
+                    normalizedX: 0.5,
+                    normalizedY: 0.5,
+                    objectType: anchor.objectType,
+                    isAIDerived: false,
+                    session: session
+                )
+                session.markers.append(marker)
+            }
+            session.modifiedAt = Date()
+            return
+        }
+
+        let camera = frame.camera
+        let viewportSize = CGSize(width: 1920, height: 1080) // Standard HD viewport
+
         for anchor in arAnchors {
-            // Project world position to normalized 2D for storage
-            // We store the anchor's screen-projected position as a normalized marker
+            // Project 3D world position to 2D screen coordinates
+            let worldPos = simd_float3(
+                anchor.worldTransform.columns.3.x,
+                anchor.worldTransform.columns.3.y,
+                anchor.worldTransform.columns.3.z
+            )
+
+            let screenPoint = camera.projectPoint(
+                worldPos,
+                orientation: .landscapeRight,
+                viewportSize: viewportSize
+            )
+
+            // Normalize to [0, 1] range
+            let normalizedX = Double(screenPoint.x / viewportSize.width).clamped(to: 0...1)
+            let normalizedY = Double(screenPoint.y / viewportSize.height).clamped(to: 0...1)
+
             let marker = CountMarker(
-                normalizedX: 0.5, // placeholder — AR markers use 3D world coords
-                normalizedY: 0.5,
+                normalizedX: normalizedX,
+                normalizedY: normalizedY,
                 objectType: anchor.objectType,
                 isAIDerived: false,
                 session: session
@@ -168,5 +201,13 @@ final class ARCountViewModel: ObservableObject {
                                     anchorTransform.columns.3.y,
                                     anchorTransform.columns.3.z)
         return simd_distance(cameraPos, anchorPos)
+    }
+}
+
+// MARK: - Comparable clamped helper
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }

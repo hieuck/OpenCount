@@ -1,6 +1,8 @@
 import SwiftUI
 import UIKit
 import PencilKit
+import PhotosUI
+import UniformTypeIdentifiers
 
 // MARK: - CountingView
 
@@ -76,6 +78,22 @@ struct CountingView: View {
     /// Requirement 47 (Req 36): audit log of all tally changes.
     @State private var isCountHistoryPresented: Bool = false
 
+    /// Whether the collaboration sheet is presented.
+    /// Requirement 28.1–28.6: real-time collaborative counting.
+    @State private var isCollaborationPresented: Bool = false
+
+    /// Whether the tally counter (distraction-free mode) is presented.
+    @State private var isTallyCounterPresented: Bool = false
+
+    /// Whether the image picker (Photos) is presented.
+    @State private var isPhotoPickerPresented: Bool = false
+    /// Whether the camera picker is presented.
+    @State private var isCameraPresented: Bool = false
+    /// Whether the file importer is presented.
+    @State private var isFileImporterPresented: Bool = false
+    /// Photo picker selection item.
+    @State private var photoPickerItem: PhotosPickerItem? = nil
+
     /// Annotation layer view model for advanced annotation tools.
     @StateObject private var annotationViewModel = AnnotationLayerViewModel()
 
@@ -91,7 +109,7 @@ struct CountingView: View {
         VStack(spacing: 0) {
             // Image canvas fills available space, with optional grid overlay
             ZStack {
-                ImageCanvas(viewModel: viewModel)
+                ImageCanvas(viewModel: viewModel, annotationViewModel: annotationViewModel)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Grid overlay — rendered on top of the canvas when enabled
@@ -184,6 +202,9 @@ struct CountingView: View {
 
             // Horizontal object-type toolbar at the bottom
             ObjectTypeToolbar(viewModel: viewModel)
+
+            // Multi-image navigator — shown when session has multiple images
+            MultiImageNavigatorView(session: viewModel.session, viewModel: viewModel)
         }
         .navigationTitle(viewModel.session.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -200,6 +221,27 @@ struct CountingView: View {
                 .accessibilityHint("Tap to export this session as CSV, JSON, annotated image, or PDF.")
                 // Keyboard shortcut ⌘E — Requirement 31.6
                 .keyboardShortcut("e", modifiers: .command)
+
+                // Collaboration button — Requirement 28.1
+                Button {
+                    isCollaborationPresented = true
+                } label: {
+                    Image(systemName: viewModel.isCollaborating
+                          ? "person.2.fill"
+                          : "person.2")
+                }
+                .foregroundStyle(viewModel.isCollaborating ? .green : .primary)
+                .accessibilityLabel(viewModel.isCollaborating ? "Collaboration active" : "Start collaboration")
+                .accessibilityHint("Tap to manage real-time collaborative counting.")
+
+                // Tally counter — distraction-free counting mode
+                Button {
+                    isTallyCounterPresented = true
+                } label: {
+                    Image(systemName: "hand.tap")
+                }
+                .accessibilityLabel("Tally counter")
+                .accessibilityHint("Tap to open the large-button tally counter for quick counting.")
 
                 // Statistics button
                 // Requirements 13.1–13.6: open statistics and history view
@@ -305,6 +347,46 @@ struct CountingView: View {
                         : "Tap to show a grid over the image for systematic counting."
                 )
 
+                // Heatmap toggle button
+                Button {
+                    viewModel.isHeatmapEnabled.toggle()
+                } label: {
+                    Image(systemName: viewModel.isHeatmapEnabled
+                          ? "flame.fill"
+                          : "flame")
+                }
+                .accessibilityLabel(viewModel.isHeatmapEnabled ? "Hide heatmap" : "Show heatmap")
+                .accessibilityHint(
+                    viewModel.isHeatmapEnabled
+                        ? "Tap to hide the density heatmap."
+                        : "Tap to show a density heatmap of marker positions."
+                )
+
+                // Import image button
+                Menu {
+                    Button {
+                        isPhotoPickerPresented = true
+                    } label: {
+                        Label("Choose from Photos", systemImage: "photo.on.rectangle")
+                    }
+                    Button {
+                        isCameraPresented = true
+                    } label: {
+                        Label("Take Photo", systemImage: "camera")
+                    }
+                    Button {
+                        isFileImporterPresented = true
+                    } label: {
+                        Label("Import from Files", systemImage: "folder")
+                    }
+                } label: {
+                    Image(systemName: viewModel.currentImage == nil
+                          ? "photo.badge.plus"
+                          : "photo.badge.arrow.down")
+                }
+                .accessibilityLabel("Import image")
+                .accessibilityHint("Choose an image from Photos, Camera, or Files to count objects on.")
+
                 // Redo
                 Button {
                     viewModel.redo()
@@ -333,6 +415,21 @@ struct CountingView: View {
         // Shake-to-undo via onShake (iOS 16+ motion notification)
         .onReceive(NotificationCenter.default.publisher(for: .deviceDidShake)) { _ in
             viewModel.undo()
+        }
+        // Run AI Detection — triggered from AIControlPanel button
+        .onReceive(NotificationCenter.default.publisher(for: .runAIDetectionRequested)) { _ in
+            guard let image = viewModel.currentImage else { return }
+            Task {
+                try? await viewModel.runAIDetection(on: image)
+            }
+        }
+        // Find Missed Objects — triggered from AIControlPanel button
+        .onReceive(NotificationCenter.default.publisher(for: .findMissedObjectsRequested)) { _ in
+            guard let image = viewModel.currentImage else { return }
+            let aiService = CoreMLAIService()
+            Task {
+                await viewModel.findMissedObjects(in: image, aiService: aiService)
+            }
         }
         // Keyboard shortcut: Space — place a marker at the canvas center (Requirement 31.6)
         // This is registered as a hidden button so it participates in the responder chain.
@@ -388,7 +485,11 @@ struct CountingView: View {
         // Export sheet — presented as a sheet.
         // Requirement 12.5: allow the user to export session data in multiple formats.
         .sheet(isPresented: $isExportSheetPresented) {
-            ExportSheet(session: viewModel.session, annotationViewModel: annotationViewModel)
+            ExportSheet(
+                session: viewModel.session,
+                image: viewModel.currentImage,
+                annotationViewModel: annotationViewModel
+            )
         }
         // Statistics view — presented as a sheet.
         // Requirements 13.1–13.6: allow the user to view statistics and tally history.
@@ -414,6 +515,60 @@ struct CountingView: View {
         // Requirement 47 (Req 36)
         .sheet(isPresented: $isCountHistoryPresented) {
             CountHistoryView(session: viewModel.session)
+        }
+        // Collaboration sheet — Requirement 28.1–28.6
+        .sheet(isPresented: $isCollaborationPresented) {
+            CollaborationView(session: viewModel.session, viewModel: viewModel)
+        }
+        // Tally counter — distraction-free counting mode
+        .sheet(isPresented: $isTallyCounterPresented) {
+            TallyCounterView(session: viewModel.session, viewModel: viewModel)
+        }
+        // Photos picker — import image from Photos library
+        .photosPicker(
+            isPresented: $isPhotoPickerPresented,
+            selection: $photoPickerItem,
+            matching: .images
+        )
+        .onChange(of: photoPickerItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await viewModel.importImage(image, session: viewModel.session)
+                }
+                photoPickerItem = nil
+            }
+        }
+        // Camera picker — take a new photo
+        .fullScreenCover(isPresented: $isCameraPresented) {
+            CameraPickerView { image in
+                Task {
+                    await viewModel.importImage(image, session: viewModel.session)
+                }
+            }
+            .ignoresSafeArea()
+        }
+        // File importer — import image from Files app
+        .fileImporter(
+            isPresented: $isFileImporterPresented,
+            allowedContentTypes: [.image, .jpeg, .png, .heic, .tiff],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                let accessing = url.startAccessingSecurityScopedResource()
+                defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                if let data = try? Data(contentsOf: url),
+                   let image = UIImage(data: data) {
+                    Task {
+                        await viewModel.importImage(image, session: viewModel.session)
+                    }
+                }
+            case .failure:
+                break
+            }
         }
         // Fatigue warning banner — shown when counting velocity is too high.
         // Requirement 35.4
@@ -452,6 +607,7 @@ struct CountingView: View {
 struct ImageCanvas: View {
 
     @ObservedObject var viewModel: CountingViewModel
+    @ObservedObject var annotationViewModel: AnnotationLayerViewModel
 
     // MARK: - Zoom / pan state
 
@@ -545,6 +701,11 @@ struct ImageCanvas: View {
             }
             .drawingGroup()
 
+            // Heatmap overlay — shown when enabled in the AI panel
+            if viewModel.isHeatmapEnabled {
+                HeatmapView(markers: viewModel.markers, canvasSize: canvasSize)
+            }
+
             // Advanced annotation layers — text labels, measure lines, arrows.
             // Rendered above markers so annotations are always visible.
             // Requirement 34.1–34.4: render all annotation types on the canvas.
@@ -555,23 +716,33 @@ struct ImageCanvas: View {
 
     @ViewBuilder
     private func imagePlaceholder(canvasSize: CGSize) -> some View {
-        // When a real image is available (Task 2 / SessionImage), it would be
-        // loaded here. For now we show a placeholder that fills the canvas.
-        Rectangle()
-            .fill(Color(.secondarySystemBackground))
-            .frame(width: canvasSize.width, height: canvasSize.height)
-            .overlay(
-                VStack(spacing: 8) {
-                    Image(systemName: "photo")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
-                    Text("No image loaded")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            )
-            .accessibilityLabel("Image canvas. No image loaded.")
+        if let image = viewModel.currentImage {
+            // Display the actual session image
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: canvasSize.width, height: canvasSize.height)
+                .accessibilityLabel("Counting canvas with loaded image.")
+        } else {
+            // Placeholder when no image is loaded yet
+            Rectangle()
+                .fill(Color(.secondarySystemBackground))
+                .frame(width: canvasSize.width, height: canvasSize.height)
+                .overlay(
+                    VStack(spacing: 12) {
+                        Image(systemName: "photo.badge.plus")
+                            .font(.system(size: 56))
+                            .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                        Text("Tap  to import an image")
+                            .font(.subheadline)
+                            .foregroundStyle(.tertiary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                )
+                .accessibilityLabel("Image canvas. No image loaded. Use the import button in the toolbar to add an image.")
+        }
     }
 
     // MARK: - Gestures
@@ -948,6 +1119,39 @@ struct AIControlPanel: View {
 
             Divider()
 
+            // Run AI button — triggers actual AI detection on the current image
+            // Requirement 5.1, 5.3: run AI detection on the current session image
+            Button {
+                NotificationCenter.default.post(name: .runAIDetectionRequested, object: nil)
+            } label: {
+                HStack(spacing: 6) {
+                    if viewModel.isAIRunning {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .accessibilityLabel("Running AI detection…")
+                    } else {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 15, weight: .semibold))
+                            .accessibilityHidden(true)
+                    }
+                    Text(viewModel.isAIRunning ? "Detecting…" : "Run AI Detection")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(viewModel.isAIRunning ? Color(.systemGray3) : Color.blue)
+                )
+                .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isAIRunning || viewModel.currentImage == nil)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .accessibilityLabel("Run AI detection")
+            .accessibilityHint("Runs AI object detection on the current image and shows bounding boxes.")
+
             // Accept All button
             // Requirement 5.4: Accept All converts all filtered detections to markers
             Button {
@@ -979,9 +1183,6 @@ struct AIControlPanel: View {
 
             // Find Missed Objects button — Requirement 35.2, 35.3
             Button {
-                // Caller must supply an image; for now we trigger via ViewModel
-                // The actual image is passed from CountingView when available.
-                // This button is wired in CountingView via the viewModel action.
                 NotificationCenter.default.post(name: .findMissedObjectsRequested, object: nil)
             } label: {
                 HStack(spacing: 6) {
@@ -1706,19 +1907,5 @@ struct ReviewModeSheet: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-    }
-}
-
-// MARK: - Color hex extension (local)
-
-private extension Color {
-    init?(hex: String) {
-        var str = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if str.hasPrefix("#") { str.removeFirst() }
-        guard str.count == 6, let value = UInt64(str, radix: 16) else { return nil }
-        let r = Double((value >> 16) & 0xFF) / 255
-        let g = Double((value >> 8) & 0xFF) / 255
-        let b = Double(value & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
     }
 }

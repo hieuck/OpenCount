@@ -1,5 +1,7 @@
 import SwiftUI
 import Charts
+import Darwin
+import QuartzCore
 
 // MARK: - PerformanceMonitor
 

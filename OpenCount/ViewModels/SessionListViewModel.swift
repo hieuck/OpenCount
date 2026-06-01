@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import SwiftData
+import AppIntents
 
 // MARK: - SessionListViewModel
 
@@ -26,7 +27,7 @@ final class SessionListViewModel: ObservableObject {
 
     // MARK: Private
 
-    private let storage: StorageServiceProtocol
+    let storage: StorageServiceProtocol
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: Init
@@ -98,21 +99,57 @@ final class SessionListViewModel: ObservableObject {
 
     // MARK: - CRUD
 
-    /// Creates a new session with the given name and optional description, persists it,
-    /// and refreshes the session list.
-    ///
-    /// - Parameters:
-    ///   - name: Required non-empty name for the session (Requirement 1.1).
-    ///   - description: Optional description for the session.
-    /// - Returns: The newly created `CountSession`.
+    /// Creates a new session with the given name, optional description, and object types.
     @discardableResult
-    func createSession(name: String, description: String?) async throws -> CountSession {
+    func createSession(
+        name: String,
+        description: String?,
+        objectTypeNames: [String] = []
+    ) async throws -> CountSession {
         let session = CountSession(
             name: name,
             sessionDescription: description
         )
+
+        // Create default object types from provided names
+        let colors = ["#FF5733", "#3498DB", "#2ECC71", "#F39C12", "#9B59B6",
+                      "#1ABC9C", "#E74C3C", "#34495E", "#F1C40F", "#E67E22"]
+        let icons = ["circle.fill", "star.fill", "heart.fill", "leaf.fill",
+                     "bolt.fill", "flame.fill", "drop.fill", "moon.fill",
+                     "sun.max.fill", "cloud.fill"]
+
+        for (index, typeName) in objectTypeNames.enumerated() {
+            let objectType = ObjectType(
+                name: typeName,
+                colorHex: colors[index % colors.count],
+                iconName: icons[index % icons.count],
+                sortOrder: index,
+                session: session
+            )
+            session.objectTypes.append(objectType)
+        }
+
+        // If no object types provided, add a default one
+        if objectTypeNames.isEmpty {
+            let defaultType = ObjectType(
+                name: "Object",
+                colorHex: "#FF5733",
+                iconName: "circle.fill",
+                sortOrder: 0,
+                session: session
+            )
+            session.objectTypes.append(defaultType)
+        }
+
         try await storage.save(session)
         await loadSessions()
+
+        // Donate Siri shortcut for session creation — Requirement 23.1
+        IntentDonationService.donateSessionCreated(
+            sessionID: session.id.uuidString,
+            sessionName: session.name
+        )
+
         return session
     }
 

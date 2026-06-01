@@ -17,4 +17,6 @@ extension Notification.Name {
     static let deviceDidShake = Notification.Name("DeviceDidShakeNotification")
     /// Posted by the AI panel's "Find Missed Objects" button.
     static let findMissedObjectsRequested = Notification.Name("com.opencount.findMissedObjectsRequested")
+    /// Posted by the AI panel's "Run AI Detection" button.
+    static let runAIDetectionRequested = Notification.Name("com.opencount.runAIDetectionRequested")
 }

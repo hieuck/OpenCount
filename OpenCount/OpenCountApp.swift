@@ -9,12 +9,15 @@ struct OpenCountApp: App {
 
     @StateObject private var syncViewModel = iCloudSyncViewModel()
     @StateObject private var networkMonitor = NetworkMonitor()
+    @StateObject private var localAPIServer = LocalAPIServer()
 
     @Environment(\.scenePhase) private var scenePhase
 
     /// Whether to show the crash report consent sheet.
     @State private var isShowingCrashConsent: Bool = false
     @State private var pendingCrashDescription: String = ""
+
+    @AppStorage("localAPIServerEnabled") private var localAPIServerEnabled: Bool = false
 
     // MARK: - Deep-link state (Requirement 27.1–27.4)
 
@@ -115,6 +118,19 @@ struct OpenCountApp: App {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
                 try? modelContainer.mainContext.save()
+            }
+            if newPhase == .active {
+                // Start local API server if enabled
+                if localAPIServerEnabled && !localAPIServer.isRunning {
+                    localAPIServer.start(modelContext: modelContainer.mainContext)
+                }
+            }
+        }
+        .onChange(of: localAPIServerEnabled) { _, enabled in
+            if enabled {
+                localAPIServer.start(modelContext: modelContainer.mainContext)
+            } else {
+                localAPIServer.stop()
             }
         }
     }

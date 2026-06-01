@@ -1,6 +1,7 @@
 import AppIntents
 import SwiftData
 import Foundation
+import UniformTypeIdentifiers
 
 // MARK: - ExportFormatAppEnum
 // Requirement 23.1, 23.6

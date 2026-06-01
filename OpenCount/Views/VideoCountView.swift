@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import UniformTypeIdentifiers
 
 // MARK: - VideoCountView
 
@@ -12,40 +13,47 @@ struct VideoCountView: View {
     @StateObject private var viewModel = VideoPlayerViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var showTimeline: Bool = false
+    @State private var isFileImporterPresented: Bool = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Frame display
-                frameView
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 280)
-                    .background(Color.black)
+                // Video import prompt when no video is loaded
+                if viewModel.duration == 0 {
+                    videoImportPrompt
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    // Frame display
+                    frameView
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 280)
+                        .background(Color.black)
 
-                // Timeline scrubber
-                timelineScrubber
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
+                    // Timeline scrubber
+                    timelineScrubber
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
 
-                Divider()
+                    Divider()
 
-                // Navigation controls
-                navigationControls
-                    .padding(.vertical, 8)
+                    // Navigation controls
+                    navigationControls
+                        .padding(.vertical, 8)
 
-                Divider()
+                    Divider()
 
-                // Auto-sampling controls
-                autoSamplingControls
-                    .padding()
-
-                // Timeline chart (toggle)
-                if showTimeline && !viewModel.countedFrames.isEmpty {
-                    timelineChart
+                    // Auto-sampling controls
+                    autoSamplingControls
                         .padding()
-                }
 
-                Spacer()
+                    // Timeline chart (toggle)
+                    if showTimeline && !viewModel.countedFrames.isEmpty {
+                        timelineChart
+                            .padding()
+                    }
+
+                    Spacer()
+                }
             }
             .navigationTitle("Video Counting")
             .navigationBarTitleDisplayMode(.inline)
@@ -53,16 +61,73 @@ struct VideoCountView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        withAnimation { showTimeline.toggle() }
-                    } label: {
-                        Image(systemName: showTimeline ? "chart.line.uptrend.xyaxis.circle.fill" : "chart.line.uptrend.xyaxis.circle")
+                if viewModel.duration > 0 {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            withAnimation { showTimeline.toggle() }
+                        } label: {
+                            Image(systemName: showTimeline
+                                  ? "chart.line.uptrend.xyaxis.circle.fill"
+                                  : "chart.line.uptrend.xyaxis.circle")
+                        }
+                        .accessibilityLabel(showTimeline ? "Hide timeline chart" : "Show timeline chart")
                     }
-                    .accessibilityLabel(showTimeline ? "Hide timeline chart" : "Show timeline chart")
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isFileImporterPresented = true
+                    } label: {
+                        Image(systemName: "video.badge.plus")
+                    }
+                    .accessibilityLabel("Import video")
+                    .accessibilityHint("Choose a video file to count objects frame by frame.")
+                }
+            }
+            .fileImporter(
+                isPresented: $isFileImporterPresented,
+                allowedContentTypes: [.movie, .video, .mpeg4Movie, .quickTimeMovie],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    let accessing = url.startAccessingSecurityScopedResource()
+                    Task {
+                        await viewModel.loadVideo(url: url)
+                        if accessing { url.stopAccessingSecurityScopedResource() }
+                    }
+                case .failure:
+                    break
                 }
             }
         }
+    }
+
+    // MARK: - Video import prompt
+
+    private var videoImportPrompt: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "video.badge.plus")
+                .font(.system(size: 64))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text("Import a Video")
+                .font(.title2)
+                .fontWeight(.semibold)
+            Text("Count objects frame by frame with AI assistance.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button {
+                isFileImporterPresented = true
+            } label: {
+                Label("Choose Video", systemImage: "folder")
+                    .frame(minWidth: 200)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityLabel("Choose a video file to import")
+        }
+        .padding()
     }
 
     // MARK: - Frame view

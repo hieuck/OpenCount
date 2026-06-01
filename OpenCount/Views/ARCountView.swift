@@ -212,11 +212,13 @@ struct ARSceneView: UIViewRepresentable {
             let location = gesture.location(in: sceneView)
 
             // Raycast against detected planes
-            let results = sceneView.raycastQuery(
+            guard let query = sceneView.raycastQuery(
                 from: location,
                 allowing: .estimatedPlane,
                 alignment: .any
-            ).flatMap { sceneView.session.raycast($0) } ?? []
+            ) else { return }
+
+            let results = sceneView.session.raycast(query)
 
             if let result = results.first {
                 Task { @MainActor in
@@ -266,16 +268,4 @@ struct ARSceneView: UIViewRepresentable {
     }
 }
 
-// MARK: - Color extension (reuse from existing)
-
-private extension Color {
-    init?(hex: String) {
-        var str = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if str.hasPrefix("#") { str.removeFirst() }
-        guard str.count == 6, let value = UInt64(str, radix: 16) else { return nil }
-        let r = Double((value >> 16) & 0xFF) / 255
-        let g = Double((value >> 8) & 0xFF) / 255
-        let b = Double(value & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-}
+// Color(hex:) is defined in Models/ColorExtensions.swift

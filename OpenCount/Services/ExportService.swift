@@ -7,6 +7,7 @@ import SwiftUI
 enum ExportFormat: String, CaseIterable, Identifiable {
     case csv = "CSV"
     case json = "JSON"
+    case coco = "COCO JSON"
     case annotatedImage = "Annotated Image"
     case pdf = "PDF"
 
@@ -16,6 +17,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         switch self {
         case .csv: return "tablecells"
         case .json: return "curlybraces"
+        case .coco: return "brain.head.profile"
         case .annotatedImage: return "photo.badge.checkmark"
         case .pdf: return "doc.richtext"
         }
@@ -25,6 +27,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         switch self {
         case .csv: return "csv"
         case .json: return "json"
+        case .coco: return "json"
         case .annotatedImage: return "png"
         case .pdf: return "pdf"
         }
@@ -36,6 +39,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
 protocol ExportServiceProtocol {
     func exportCSV(session: CountSession) throws -> Data
     func exportJSON(session: CountSession) throws -> Data
+    func exportCOCO(session: CountSession, imageWidth: Int, imageHeight: Int) throws -> Data
     func exportAnnotatedImage(session: CountSession, image: UIImage,
                               annotationData: AnnotationExportData?) throws -> UIImage
     func exportPDF(session: CountSession, image: UIImage,
@@ -114,6 +118,104 @@ final class ExportService: ExportServiceProtocol {
             return try encoder.encode(dto)
         } catch {
             throw AppError.exportWriteFailure(reason: "JSON encoding failed: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - COCO JSON Export
+
+    /// Exports session results in COCO (Common Objects in Context) JSON format.
+    ///
+    /// The COCO format is the standard for object detection datasets and is compatible
+    /// with tools like Roboflow, CVAT, and Label Studio.
+    ///
+    /// Requirement: COCOExportTests — COCO format export.
+    func exportCOCO(session: CountSession, imageWidth: Int = 1024, imageHeight: Int = 1024) throws -> Data {
+        // Build category list from ObjectTypes
+        let categories: [[String: Any]] = session.objectTypes
+            .sorted { $0.sortOrder < $1.sortOrder }
+            .enumerated()
+            .map { index, objectType in
+                [
+                    "id": index + 1,
+                    "name": objectType.name,
+                    "supercategory": "object"
+                ]
+            }
+
+        // Category name → COCO id mapping
+        let categoryIDMap: [UUID: Int] = Dictionary(
+            uniqueKeysWithValues: session.objectTypes
+                .sorted { $0.sortOrder < $1.sortOrder }
+                .enumerated()
+                .map { ($1.id, $0 + 1) }
+        )
+
+        // Build image list (one entry per SessionImage, or a synthetic entry)
+        let images: [[String: Any]]
+        if session.images.isEmpty {
+            images = [[
+                "id": 1,
+                "file_name": "\(session.name).jpg",
+                "width": imageWidth,
+                "height": imageHeight
+            ]]
+        } else {
+            images = session.images.enumerated().map { index, img in
+                [
+                    "id": index + 1,
+                    "file_name": img.filename,
+                    "width": imageWidth,
+                    "height": imageHeight
+                ]
+            }
+        }
+
+        // Build annotation list — each marker becomes a point annotation
+        // with a 1% bounding box centred on the marker
+        let markerSize = 0.01 // 1% of image dimension
+        let annotations: [[String: Any]] = session.markers.enumerated().map { index, marker in
+            let x = marker.normalizedX * Double(imageWidth)
+            let y = marker.normalizedY * Double(imageHeight)
+            let bboxW = markerSize * Double(imageWidth)
+            let bboxH = markerSize * Double(imageHeight)
+            let categoryID = categoryIDMap[marker.objectType.id] ?? 1
+            return [
+                "id": index + 1,
+                "image_id": 1,
+                "category_id": categoryID,
+                "bbox": [x - bboxW / 2, y - bboxH / 2, bboxW, bboxH],
+                "area": bboxW * bboxH,
+                "segmentation": [] as [Any],
+                "iscrowd": 0,
+                "attributes": [
+                    "is_ai_derived": marker.isAIDerived,
+                    "created_at": ISO8601DateFormatter().string(from: marker.createdAt)
+                ]
+            ]
+        }
+
+        let cocoDict: [String: Any] = [
+            "info": [
+                "description": session.name,
+                "version": "1.0",
+                "year": Calendar.current.component(.year, from: Date()),
+                "contributor": "OpenCount",
+                "date_created": ISO8601DateFormatter().string(from: session.createdAt)
+            ],
+            "licenses": [] as [Any],
+            "images": images,
+            "annotations": annotations,
+            "categories": categories
+        ]
+
+        do {
+            let data = try JSONSerialization.data(
+                withJSONObject: cocoDict,
+                options: [.prettyPrinted, .sortedKeys]
+            )
+            return data
+        } catch {
+            throw AppError.exportWriteFailure(reason: "COCO JSON encoding failed: \(error.localizedDescription)")
         }
     }
 

@@ -130,19 +130,17 @@ final class CustomModelService: CustomModelServiceProtocol, ObservableObject {
         // Check for object detection output (VNRecognizedObjectObservation compatible)
         let hasDetectionOutput = desc.outputDescriptionsByName.values.contains { output in
             // Object detection models typically have a "coordinates" or "confidence" output
-            // or are tagged with the "objectDetector" model type
             output.name.lowercased().contains("coordinate") ||
             output.name.lowercased().contains("confidence") ||
-            output.name.lowercased().contains("iouThreshold") ||
-            desc.metadata[MLModelMetadataKey.creatorDefinedKey] != nil
+            output.name.lowercased().contains("iouThreshold")
         }
 
         // Extract class labels from metadata
         let classLabels: [String]
-        if let labelsString = desc.metadata[MLModelMetadataKey.creatorDefinedKey] as? String {
-            classLabels = labelsString.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-        } else if let labelsArray = desc.metadata["classes"] as? [String] {
+        if let labelsArray = desc.metadata["classes"] as? [String] {
             classLabels = labelsArray
+        } else if let labelsString = desc.metadata["com.apple.coreml.model.userDefinedMetadata"] as? String {
+            classLabels = labelsString.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         } else {
             // Fallback: try to extract from output feature names
             classLabels = desc.outputDescriptionsByName.keys.sorted()
@@ -150,9 +148,13 @@ final class CustomModelService: CustomModelServiceProtocol, ObservableObject {
 
         // Extract input size
         let inputSize: CGSize
-        if let firstInput = desc.inputDescriptionsByName.values.first,
-           case .image(let size, _) = firstInput.type {
-            inputSize = CGSize(width: size.width, height: size.height)
+        if let firstInput = desc.inputDescriptionsByName.values.first {
+            // Try to get image constraint from the feature description
+            if let imageConstraint = firstInput.imageConstraint {
+                inputSize = CGSize(width: imageConstraint.pixelsWide, height: imageConstraint.pixelsHigh)
+            } else {
+                inputSize = CGSize(width: 640, height: 640) // YOLO default
+            }
         } else {
             inputSize = CGSize(width: 640, height: 640) // YOLO default
         }

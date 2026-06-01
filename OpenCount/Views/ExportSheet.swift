@@ -306,6 +306,8 @@ struct ExportSheet: View {
             return "Spreadsheet-compatible file with all marker coordinates, tallies, and metadata."
         case .json:
             return "Structured JSON file with full session data, suitable for programmatic processing."
+        case .coco:
+            return "COCO JSON format compatible with Roboflow, CVAT, Label Studio, and ML training pipelines."
         case .annotatedImage:
             return "PNG image with all markers and region outlines drawn on the source image."
         case .pdf:
@@ -361,6 +363,16 @@ struct ExportSheet: View {
 
         case .json:
             let data = try exportService.exportJSON(session: session)
+            try data.write(to: fileURL, options: .atomic)
+
+        case .coco:
+            // Use image dimensions if available, otherwise default to 1024×1024
+            let imageSize = image?.size ?? CGSize(width: 1024, height: 1024)
+            let data = try exportService.exportCOCO(
+                session: session,
+                imageWidth: Int(imageSize.width),
+                imageHeight: Int(imageSize.height)
+            )
             try data.write(to: fileURL, options: .atomic)
 
         case .annotatedImage:

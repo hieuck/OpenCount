@@ -104,9 +104,36 @@ struct SessionListView: View {
                 }
             }
             .sheet(isPresented: $isShowingNewSessionSheet) {
-                NewSessionSheet { name, description, _ in
+                NewSessionSheet { name, description, _, images, objectTypeNames in
                     Task {
-                        try? await viewModel.createSession(name: name, description: description)
+                        let session = try? await viewModel.createSession(
+                            name: name,
+                            description: description,
+                            objectTypeNames: objectTypeNames
+                        )
+                        // Import images into the session if provided
+                        if let session, !images.isEmpty {
+                            let imagesDir = FileManager.default
+                                .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                                .appendingPathComponent("images")
+                                .appendingPathComponent(session.id.uuidString)
+                            try? FileManager.default.createDirectory(
+                                at: imagesDir, withIntermediateDirectories: true)
+                            for image in images {
+                                let filename = "\(UUID().uuidString).jpg"
+                                let fileURL = imagesDir.appendingPathComponent(filename)
+                                if let data = image.jpegData(compressionQuality: 0.85) {
+                                    try? data.write(to: fileURL)
+                                }
+                                let sessionImage = SessionImage(
+                                    filename: filename,
+                                    session: session
+                                )
+                                session.images.append(sessionImage)
+                            }
+                            session.modifiedAt = Date()
+                            try? await viewModel.storage.save(session)
+                        }
                     }
                 }
             }

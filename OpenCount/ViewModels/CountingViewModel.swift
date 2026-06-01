@@ -2,6 +2,8 @@ import Foundation
 import SwiftUI
 import UIKit
 import Combine
+import PhotosUI
+import UniformTypeIdentifiers
 
 // MARK: - CountingViewModel
 
@@ -24,6 +26,7 @@ final class CountingViewModel: ObservableObject {
     @Published var regions: [CountRegion] = []
     @Published var confidenceThreshold: Float = 0.5
     @Published var isGridOverlayEnabled: Bool = false
+    @Published var isHeatmapEnabled: Bool = false
     @Published var gridDensity: Int = 5 {
         didSet {
             // Reset completed cells whenever the grid density changes,
@@ -66,6 +69,14 @@ final class CountingViewModel: ObservableObject {
     /// Watch connectivity service — sends session updates to the paired Watch.
     /// Requirement 22.1, 22.2
     private let watchService = WatchConnectivityService.shared
+
+    /// Collaboration service for real-time multi-device sync.
+    /// Requirement 28.1–28.6
+    private let collaborationService = CollaborationService.shared
+
+    // MARK: - Collaboration state
+
+    @Published var isCollaborating: Bool = false
 
     // MARK: - Smart count state
 
@@ -117,6 +128,9 @@ final class CountingViewModel: ObservableObject {
         // Send initial session state to Watch when session opens.
         // Requirement 22.1
         watchService.sendSessionUpdate(session)
+
+        // Load the most recent image for this session from disk
+        loadCurrentImage()
     }
 
     // MARK: - Watch sync helper
@@ -216,6 +230,15 @@ final class CountingViewModel: ObservableObject {
 
         // Requirement 22.1: sync updated tallies to paired Watch.
         syncToWatch()
+
+        // Requirement 28.2: push marker to CloudKit for collaborative sync.
+        if isCollaborating {
+            let capturedMarker = marker
+            let capturedSessionID = session.id
+            Task {
+                await collaborationService.pushMarker(capturedMarker, sessionID: capturedSessionID)
+            }
+        }
     }
 
     /// Dismisses the fatigue warning banner.
@@ -346,10 +369,114 @@ final class CountingViewModel: ObservableObject {
         completedCells.count
     }
 
-    // MARK: - AI counting stubs (implemented in Task 12)
+    // MARK: - Image import
 
+    /// Saves an imported image to disk, creates a SessionImage record, and sets it as current.
+    ///
+    /// Images are stored in Documents/images/<sessionID>/<uuid>.jpg
+    func importImage(_ image: UIImage, session: CountSession) async {
+        let imagesDir = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("images")
+            .appendingPathComponent(session.id.uuidString)
+
+        try? FileManager.default.createDirectory(at: imagesDir,
+                                                  withIntermediateDirectories: true)
+
+        let filename = "\(UUID().uuidString).jpg"
+        let fileURL = imagesDir.appendingPathComponent(filename)
+
+        // Compress to JPEG at 0.85 quality to balance size and fidelity
+        if let data = image.jpegData(compressionQuality: 0.85) {
+            try? data.write(to: fileURL)
+        }
+
+        // Generate thumbnail (256×256 max)
+        let thumbFilename = "thumb_\(filename)"
+        let thumbURL = imagesDir.appendingPathComponent(thumbFilename)
+        if let thumb = image.preparingThumbnail(of: CGSize(width: 256, height: 256)),
+           let thumbData = thumb.jpegData(compressionQuality: 0.7) {
+            try? thumbData.write(to: thumbURL)
+        }
+
+        let sessionImage = SessionImage(
+            filename: filename,
+            thumbnailFilename: thumbFilename,
+            session: session
+        )
+        session.images.append(sessionImage)
+        session.modifiedAt = Date()
+        CrashRecoveryService.saveRecovery(session: session)
+
+        // Set as the active canvas image
+        currentImage = image
+    }
+
+    /// Loads the most recent SessionImage from disk for the current session.
+    func loadCurrentImage() {
+        guard let sessionImage = session.images.sorted(by: { $0.importedAt > $1.importedAt }).first else {
+            return
+        }
+        let imagesDir = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("images")
+            .appendingPathComponent(session.id.uuidString)
+        let fileURL = imagesDir.appendingPathComponent(sessionImage.filename)
+        if let image = UIImage(contentsOfFile: fileURL.path) {
+            currentImage = image
+        }
+    }
+
+    // MARK: - Current image
+
+    /// The currently displayed image in the canvas. Set by CountingView after import.
+    @Published var currentImage: UIImage?
+
+    // MARK: - AI counting
+
+    /// Runs AI object detection on the given image and populates `detections`.
+    ///
+    /// Requirements: 5.1, 5.3, 5.7, 5.8, 5.9, 5.10, 5.11
     func runAIDetection(on image: UIImage) async throws {
-        // Implemented in Task 12
+        guard !isAIRunning else { return }
+        isAIRunning = true
+        aiProgress = 0.0
+        defer {
+            isAIRunning = false
+            aiProgress = 1.0
+        }
+
+        let aiService = CoreMLAIService()
+        let results = try await aiService.detect(
+            in: image,
+            confidenceThreshold: confidenceThreshold
+        )
+
+        // Merge with existing detections (avoid duplicates by bounding-box overlap)
+        let newDetections = results.filter { newDet in
+            !detections.contains { existing in
+                existing.normalizedBoundingBox.intersection(newDet.normalizedBoundingBox).area
+                    / max(newDet.normalizedBoundingBox.area, 0.0001) > 0.5
+            }
+        }
+        detections.append(contentsOf: newDetections)
+    }
+
+    /// Runs zero-shot similarity detection using a sample crop.
+    ///
+    /// Requirement 5.2
+    func runSimilarityDetection(sampleRect: CGRect, in image: UIImage) async throws {
+        guard !isAIRunning else { return }
+        isAIRunning = true
+        aiProgress = 0.0
+        defer {
+            isAIRunning = false
+            aiProgress = 1.0
+        }
+
+        let aiService = CoreMLAIService()
+        let results = try await aiService.detectSimilar(to: sampleRect, in: image)
+        detections.append(contentsOf: results)
     }
 
     func acceptDetection(_ detection: AIDetection) {
@@ -417,4 +544,10 @@ final class CountingViewModel: ObservableObject {
         }
         return tally
     }
+}
+
+// MARK: - CGRect area helper
+
+private extension CGRect {
+    var area: CGFloat { width * height }
 }

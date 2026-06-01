@@ -1,10 +1,13 @@
 import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
 
 /// The image source the user wants to use when creating a new session.
 enum ImageSource: String, CaseIterable, Identifiable {
     case photos = "Photos Library"
     case camera = "Camera"
     case files  = "Files"
+    case none   = "No Image (manual counting)"
 
     var id: String { rawValue }
 
@@ -13,12 +16,13 @@ enum ImageSource: String, CaseIterable, Identifiable {
         case .photos: return "photo.on.rectangle"
         case .camera: return "camera"
         case .files:  return "folder"
+        case .none:   return "hand.tap"
         }
     }
 }
 
 /// Sheet presented when the user taps the "+" button in `SessionListView`.
-/// Collects a required name, optional description, and an image source selection.
+/// Collects a required name, optional description, image source, and object types.
 /// Requirement 1.1: Create button is disabled when name is empty.
 struct NewSessionSheet: View {
 
@@ -30,10 +34,21 @@ struct NewSessionSheet: View {
     @State private var description: String = ""
     @State private var selectedSource: ImageSource = .photos
 
+    // MARK: - Image picker state
+
+    @State private var photoPickerItems: [PhotosPickerItem] = []
+    @State private var selectedImages: [UIImage] = []
+    @State private var isCameraPresented: Bool = false
+    @State private var isFileImporterPresented: Bool = false
+
+    // MARK: - Object type quick-add
+
+    @State private var objectTypeNames: [String] = [""]
+
     // MARK: - Callbacks
 
-    /// Called with the entered name, description, and chosen source when the user taps Create.
-    let onCreate: (String, String?, ImageSource) -> Void
+    /// Called with the entered name, description, chosen source, pre-selected images, and object type names.
+    let onCreate: (String, String?, ImageSource, [UIImage], [String]) -> Void
 
     // MARK: - Computed
 
@@ -60,11 +75,48 @@ struct NewSessionSheet: View {
                         .accessibilityHint("Optional. Describe what you are counting.")
                 }
 
+                // MARK: Object types quick-add
+                Section {
+                    ForEach(objectTypeNames.indices, id: \.self) { index in
+                        HStack {
+                            TextField("Object type (e.g. Bird, Car)", text: $objectTypeNames[index])
+                                .font(.body)
+                            if objectTypeNames.count > 1 {
+                                Button {
+                                    objectTypeNames.remove(at: index)
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    Button {
+                        objectTypeNames.append("")
+                    } label: {
+                        Label("Add Object Type", systemImage: "plus.circle")
+                    }
+                } header: {
+                    Text("Object Types")
+                } footer: {
+                    Text("Define what you'll be counting. You can add more later.")
+                }
+
                 // MARK: Image source picker
                 Section("Image Source") {
                     ForEach(ImageSource.allCases) { source in
                         Button {
                             selectedSource = source
+                            // Trigger picker immediately on selection
+                            switch source {
+                            case .camera:
+                                isCameraPresented = true
+                            case .files:
+                                isFileImporterPresented = true
+                            default:
+                                break
+                            }
                         } label: {
                             HStack {
                                 Label(source.rawValue, systemImage: source.systemImage)
@@ -82,6 +134,68 @@ struct NewSessionSheet: View {
                         .accessibilityAddTraits(selectedSource == source ? .isSelected : [])
                     }
                 }
+
+                // MARK: Photos picker (inline when Photos selected)
+                if selectedSource == .photos {
+                    Section {
+                        PhotosPicker(
+                            selection: $photoPickerItems,
+                            maxSelectionCount: 20,
+                            matching: .images
+                        ) {
+                            Label(
+                                selectedImages.isEmpty
+                                    ? "Choose Images"
+                                    : "\(selectedImages.count) image\(selectedImages.count == 1 ? "" : "s") selected",
+                                systemImage: "photo.on.rectangle.angled"
+                            )
+                        }
+                        .onChange(of: photoPickerItems) { _, items in
+                            Task {
+                                var images: [UIImage] = []
+                                for item in items {
+                                    if let data = try? await item.loadTransferable(type: Data.self),
+                                       let img = UIImage(data: data) {
+                                        images.append(img)
+                                    }
+                                }
+                                selectedImages = images
+                            }
+                        }
+
+                        // Thumbnail strip
+                        if !selectedImages.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(selectedImages.indices, id: \.self) { i in
+                                        Image(uiImage: selectedImages[i])
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 60, height: 60)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                                            .overlay(
+                                                Button {
+                                                    selectedImages.remove(at: i)
+                                                    if i < photoPickerItems.count {
+                                                        photoPickerItems.remove(at: i)
+                                                    }
+                                                } label: {
+                                                    Image(systemName: "xmark.circle.fill")
+                                                        .foregroundStyle(.white)
+                                                        .background(Color.black.opacity(0.5), in: Circle())
+                                                }
+                                                .padding(4),
+                                                alignment: .topTrailing
+                                            )
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    } header: {
+                        Text("Selected Images")
+                    }
+                }
             }
             .navigationTitle("New Session")
             .navigationBarTitleDisplayMode(.inline)
@@ -97,10 +211,15 @@ struct NewSessionSheet: View {
                     Button("Create") {
                         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedDesc = description.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let validTypes = objectTypeNames
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
                         onCreate(
                             trimmedName,
                             trimmedDesc.isEmpty ? nil : trimmedDesc,
-                            selectedSource
+                            selectedSource,
+                            selectedImages,
+                            validTypes
                         )
                         dismiss()
                     }
@@ -109,12 +228,39 @@ struct NewSessionSheet: View {
                     .accessibilityHint(isCreateEnabled ? "Creates the new session." : "Enter a name to enable.")
                 }
             }
+            // Camera picker
+            .fullScreenCover(isPresented: $isCameraPresented) {
+                CameraPickerView { image in
+                    selectedImages.append(image)
+                }
+                .ignoresSafeArea()
+            }
+            // File importer
+            .fileImporter(
+                isPresented: $isFileImporterPresented,
+                allowedContentTypes: [.image, .jpeg, .png, .heic, .tiff],
+                allowsMultipleSelection: true
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    for url in urls {
+                        let accessing = url.startAccessingSecurityScopedResource()
+                        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                        if let data = try? Data(contentsOf: url),
+                           let img = UIImage(data: data) {
+                            selectedImages.append(img)
+                        }
+                    }
+                case .failure:
+                    break
+                }
+            }
         }
     }
 }
 
 #Preview {
-    NewSessionSheet { name, description, source in
-        print("Create: \(name), \(description ?? ""), \(source.rawValue)")
+    NewSessionSheet { name, description, source, images, types in
+        print("Create: \(name), \(description ?? ""), \(source.rawValue), \(images.count) images, types: \(types)")
     }
 }

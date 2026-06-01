@@ -21,22 +21,22 @@ final class AnnotationLayerViewModel: ObservableObject {
     /// Requirement 34.5: show or hide each annotation layer independently.
     @Published var visibleLayers: Set<AnnotationLayerType> = Set(AnnotationLayerType.allCases)
 
-    /// The currently active annotation tool.
-    @Published var activeTool: AnnotationTool = .none
+    // MARK: - Tool enum
+
+    enum AnnotationLayerTool: Equatable {
+        case none
+        case textLabel
+        case measureLine
+        case arrow
+    }
 
     // MARK: - Active drawing state
 
     /// Start point for in-progress line/arrow drawing (normalized coords).
     @Published var drawingStartPoint: CGPoint?
 
-    // MARK: - Tool enum
-
-    enum AnnotationTool: Equatable {
-        case none
-        case textLabel
-        case measureLine
-        case arrow
-    }
+    /// The currently active annotation tool.
+    @Published var activeTool: AnnotationLayerTool = .none
 
     // MARK: - Layer visibility
 
@@ -138,8 +138,6 @@ final class AnnotationLayerViewModel: ObservableObject {
         }
         drawingStartPoint = nil
     }
-
-    // MARK: - Export layer selection
 
     /// Returns the set of layers that should be included in an export.
     /// Requirement 34.6: allow the user to choose which annotation layers to include.

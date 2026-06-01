@@ -64,8 +64,15 @@ final class VideoPlayerViewModel: ObservableObject {
         currentTimestamp = seconds
 
         do {
-            let (cgImage, _) = try await generator.image(at: time)
-            currentFrame = UIImage(cgImage: cgImage)
+            if #available(iOS 16.0, *) {
+                let (cgImage, _) = try await generator.image(at: time)
+                currentFrame = UIImage(cgImage: cgImage)
+            } else {
+                // Fallback for older iOS (shouldn't happen since we target 16+)
+                var actualTime = CMTime.zero
+                let cgImage = try generator.copyCGImage(at: time, actualTime: &actualTime)
+                currentFrame = UIImage(cgImage: cgImage)
+            }
         } catch {
             self.error = .videoFrameExtractionFailure
         }
