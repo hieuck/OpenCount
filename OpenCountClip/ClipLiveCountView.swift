@@ -26,7 +26,7 @@ struct ClipLiveCountView: View {
                 HStack {
                     Image(systemName: "number.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                     Text("OpenCount")
                         .font(.headline)
@@ -39,7 +39,7 @@ struct ClipLiveCountView: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(Capsule().fill(Color.accentColor.opacity(0.15)))
-                            .foregroundStyle(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                     }
                     .accessibilityLabel("Install the full OpenCount app")
                 }
@@ -80,7 +80,7 @@ struct ClipLiveCountView: View {
                         Circle()
                             .fill(Color.accentColor)
                             .frame(width: 120, height: 120)
-                            .shadow(color: .accentColor.opacity(0.4), radius: 20, y: 8)
+                            .shadow(color: Color.accentColor.opacity(0.4), radius: 20, y: 8)
 
                         Image(systemName: "plus")
                             .font(.system(size: 48, weight: .bold))

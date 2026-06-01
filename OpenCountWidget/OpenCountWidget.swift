@@ -119,9 +119,7 @@ struct OpenCountWidgetEntryView: View {
 
         widgetContent
             .widgetURL(deepLink)
-            .containerBackground(for: .widget) {
-                Color(.systemBackground)
-            }
+            .background(Color(.systemBackground))
     }
 
     @ViewBuilder
@@ -276,7 +274,7 @@ struct OpenCountWidget: Widget {
 
 // MARK: - Preview
 
-#Preview(as: .systemSmall) {
+#Preview("Small Widget", as: .systemSmall) {
     OpenCountWidget()
 } timeline: {
     WidgetTallyEntry(
@@ -287,9 +285,17 @@ struct OpenCountWidget: Widget {
         sessionID: UUID(),
         isPlaceholder: false
     )
+    WidgetTallyEntry(
+        date: Date(),
+        sessionName: "Bird Survey",
+        objectTypeName: "Sparrows",
+        tally: 18,
+        sessionID: UUID(),
+        isPlaceholder: false
+    )
 }
 
-#Preview(as: .systemMedium) {
+#Preview("Medium Widget", as: .systemMedium) {
     OpenCountWidget()
 } timeline: {
     WidgetTallyEntry(
@@ -302,7 +308,7 @@ struct OpenCountWidget: Widget {
     )
 }
 
-#Preview(as: .systemLarge) {
+#Preview("Large Widget", as: .systemLarge) {
     OpenCountWidget()
 } timeline: {
     WidgetTallyEntry(
