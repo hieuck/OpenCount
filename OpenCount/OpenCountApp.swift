@@ -33,6 +33,8 @@ struct OpenCountApp: App {
             SessionImage.self,
             VideoFrameCount.self,
             SessionTemplate.self,
+            SessionTag.self,
+            CountFormula.self,
         ])
 
         let iCloudSyncEnabled = UserDefaults.standard.bool(forKey: "iCloudSyncEnabled")

@@ -63,6 +63,7 @@ targets:
         NSCameraUsageDescription: "OpenCount uses the camera for live counting and AR counting."
         NSPhotoLibraryUsageDescription: "OpenCount accesses your photo library to import images for counting."
         NSMicrophoneUsageDescription: "OpenCount may use the microphone when recording video for counting."
+        NSSpeechRecognitionUsageDescription: "OpenCount uses speech recognition for hands-free voice counting."
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - opencount
@@ -86,6 +87,8 @@ targets:
       - target: OpenCountWidget
         embed: true
       - package: ZIPFoundation
+      - sdk: Speech.framework
+      - sdk: AVFoundation.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app

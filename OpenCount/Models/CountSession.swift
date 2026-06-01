@@ -42,6 +42,9 @@ final class CountSession {
     @Relationship(deleteRule: .cascade, inverse: \VideoFrameCount.session)
     var videoTimestamps: [VideoFrameCount]
 
+    @Relationship(deleteRule: .cascade, inverse: \CountFormula.session)
+    var formulas: [CountFormula]
+
     /// Timestamped log of tally changes (marker placed / removed) within this session.
     /// Requirement 13.6
     var tallyHistory: [TallyHistoryEntry]
@@ -57,6 +60,7 @@ final class CountSession {
         regions: [CountRegion] = [],
         markers: [CountMarker] = [],
         videoTimestamps: [VideoFrameCount] = [],
+        formulas: [CountFormula] = [],
         tallyHistory: [TallyHistoryEntry] = []
     ) {
         self.id = id
@@ -69,6 +73,7 @@ final class CountSession {
         self.regions = regions
         self.markers = markers
         self.videoTimestamps = videoTimestamps
+        self.formulas = formulas
         self.tallyHistory = tallyHistory
     }
 }

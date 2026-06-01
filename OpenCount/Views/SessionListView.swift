@@ -24,6 +24,8 @@ struct SessionListView: View {
     @State private var isShowingDeleteConfirmation = false
     @State private var isSettingsPresented: Bool = false
     @State private var isShowingTemplateGallery: Bool = false
+    @State private var isShowingDashboard: Bool = false
+    @State private var isShowingBulkExport: Bool = false
 
     /// Session UUID received from a deep-link URL (`opencount://session/<id>`).
     /// When set, the NavigationStack navigates directly to the corresponding CountingView.
@@ -102,6 +104,25 @@ struct SessionListView: View {
                     .accessibilityLabel("Template Gallery")
                     .accessibilityHint("Browse and install community Object Type templates.")
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isShowingDashboard = true
+                    } label: {
+                        Image(systemName: "chart.xyaxis.line")
+                    }
+                    .accessibilityLabel("Dashboard")
+                    .accessibilityHint("View aggregate statistics across all sessions.")
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isShowingBulkExport = true
+                    } label: {
+                        Image(systemName: "arrow.down.doc")
+                    }
+                    .accessibilityLabel("Bulk Export")
+                    .accessibilityHint("Export multiple sessions as a ZIP archive.")
+                    .disabled(viewModel.sessions.isEmpty)
+                }
             }
             .sheet(isPresented: $isShowingNewSessionSheet) {
                 NewSessionSheet { name, description, _, images, objectTypeNames in
@@ -146,6 +167,14 @@ struct SessionListView: View {
             .sheet(isPresented: $isShowingTemplateGallery) {
                 TemplateGalleryView(targetSession: nil)
                     .environmentObject(networkMonitor)
+            }
+            // Dashboard — aggregate statistics across all sessions
+            .sheet(isPresented: $isShowingDashboard) {
+                SessionDashboardView(sessions: viewModel.sessions)
+            }
+            // Bulk Export — export multiple sessions as ZIP
+            .sheet(isPresented: $isShowingBulkExport) {
+                BulkExportView(sessions: viewModel.sessions)
             }
             // Confirmation alert before deleting — Requirements 1.4, 16.6
             .alert(

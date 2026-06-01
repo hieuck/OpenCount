@@ -7,21 +7,20 @@ final class VideoFrameCount {
     var id: UUID
     /// Timestamp in seconds from the start of the video
     var timestampSeconds: Double
-
-    @Relationship(deleteRule: .cascade)
-    var markers: [CountMarker]
-
+    /// IDs of CountMarkers placed on this frame (stored as UUIDs to avoid
+    /// a complex many-to-many SwiftData relationship)
+    var markerIDs: [UUID]
     var session: CountSession?
 
     init(
         id: UUID = UUID(),
         timestampSeconds: Double,
-        markers: [CountMarker] = [],
+        markerIDs: [UUID] = [],
         session: CountSession? = nil
     ) {
         self.id = id
         self.timestampSeconds = timestampSeconds
-        self.markers = markers
+        self.markerIDs = markerIDs
         self.session = session
     }
 }

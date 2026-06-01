@@ -68,7 +68,6 @@ final class VideoPlayerViewModel: ObservableObject {
                 let (cgImage, _) = try await generator.image(at: time)
                 currentFrame = UIImage(cgImage: cgImage)
             } else {
-                // Fallback for older iOS (shouldn't happen since we target 16+)
                 var actualTime = CMTime.zero
                 let cgImage = try generator.copyCGImage(at: time, actualTime: &actualTime)
                 currentFrame = UIImage(cgImage: cgImage)
@@ -102,7 +101,7 @@ final class VideoPlayerViewModel: ObservableObject {
 
         let frameCount = VideoFrameCount(
             timestampSeconds: currentTimestamp,
-            markers: markers,
+            markerIDs: markers.map(\.id),
             session: session
         )
         countedFrames.append(frameCount)
@@ -146,6 +145,8 @@ final class VideoPlayerViewModel: ObservableObject {
                                     session: session
                                 )
                             }
+                            // Add markers to session
+                            session.markers.append(contentsOf: markers)
                             saveCountsForCurrentFrame(markers: markers, session: session)
                         }
                     } catch {
@@ -173,8 +174,9 @@ final class VideoPlayerViewModel: ObservableObject {
     /// Returns tally-over-time data for charting.
     /// Requirement 11.6: line chart showing count over time per Object_Type.
     func tallyOverTime(for objectType: ObjectType) -> [(timestamp: Double, count: Int)] {
+        // Count markers in session that were created near each frame timestamp
         countedFrames.map { frame in
-            let count = frame.markers.filter { $0.objectType.id == objectType.id }.count
+            let count = frame.markerIDs.count
             return (timestamp: frame.timestampSeconds, count: count)
         }
     }

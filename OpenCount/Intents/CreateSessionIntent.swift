@@ -26,9 +26,7 @@ struct CreateSessionIntent: AppIntent {
         }
 
         // Create the session using the shared model container
-        let container = try ModelContainer(for: CountSession.self, ObjectType.self,
-                                           CountMarker.self, CountRegion.self,
-                                           SessionImage.self, VideoFrameCount.self)
+        let container = try IntentModelContainer.makeContainer()
         let context = container.mainContext
 
         let session = CountSession(

@@ -47,6 +47,19 @@ protocol ExportServiceProtocol {
     func plainTextSummary(session: CountSession) -> String
 }
 
+// MARK: - Default parameter convenience extensions
+extension ExportServiceProtocol {
+    func exportCOCO(session: CountSession) throws -> Data {
+        try exportCOCO(session: session, imageWidth: 1024, imageHeight: 1024)
+    }
+    func exportAnnotatedImage(session: CountSession, image: UIImage) throws -> UIImage {
+        try exportAnnotatedImage(session: session, image: image, annotationData: nil)
+    }
+    func exportPDF(session: CountSession, image: UIImage) throws -> Data {
+        try exportPDF(session: session, image: image, annotationData: nil)
+    }
+}
+
 // MARK: - ExportService
 
 /// Handles all export formats for a counting session.

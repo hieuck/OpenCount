@@ -10,6 +10,7 @@ final class CountMarker {
     var normalizedX: Double
     /// Normalized Y coordinate (0.0–1.0 relative to image height)
     var normalizedY: Double
+    @Relationship
     var objectType: ObjectType
     /// true if this marker was converted from an AI detection
     var isAIDerived: Bool

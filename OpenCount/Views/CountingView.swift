@@ -85,6 +85,15 @@ struct CountingView: View {
     /// Whether the tally counter (distraction-free mode) is presented.
     @State private var isTallyCounterPresented: Bool = false
 
+    /// Whether the voice counting view is presented.
+    @State private var isVoiceCountingPresented: Bool = false
+
+    /// Whether the count formula view is presented.
+    @State private var isFormulaViewPresented: Bool = false
+
+    /// Whether the session tag manager is presented.
+    @State private var isTagManagerPresented: Bool = false
+
     /// Whether the image picker (Photos) is presented.
     @State private var isPhotoPickerPresented: Bool = false
     /// Whether the camera picker is presented.
@@ -191,6 +200,16 @@ struct CountingView: View {
                         .allowsHitTesting(false)
                         .ignoresSafeArea()
                 }
+
+                // Quick Actions FAB — fast access to voice, tally, review, formulas
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        QuickActionsView(viewModel: viewModel, session: viewModel.session)
+                    }
+                }
+                .allowsHitTesting(true)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -242,6 +261,33 @@ struct CountingView: View {
                 }
                 .accessibilityLabel("Tally counter")
                 .accessibilityHint("Tap to open the large-button tally counter for quick counting.")
+
+                // Voice counting — hands-free counting via voice commands
+                Button {
+                    isVoiceCountingPresented = true
+                } label: {
+                    Image(systemName: "mic.circle")
+                }
+                .accessibilityLabel("Voice counting")
+                .accessibilityHint("Tap to count hands-free using voice commands.")
+
+                // Count formulas — derived values from tallies
+                Button {
+                    isFormulaViewPresented = true
+                } label: {
+                    Image(systemName: "function")
+                }
+                .accessibilityLabel("Count formulas")
+                .accessibilityHint("Tap to manage custom counting formulas.")
+
+                // Session tags
+                Button {
+                    isTagManagerPresented = true
+                } label: {
+                    Image(systemName: "tag.circle")
+                }
+                .accessibilityLabel("Session tags")
+                .accessibilityHint("Tap to manage tags for this session.")
 
                 // Statistics button
                 // Requirements 13.1–13.6: open statistics and history view
@@ -523,6 +569,18 @@ struct CountingView: View {
         // Tally counter — distraction-free counting mode
         .sheet(isPresented: $isTallyCounterPresented) {
             TallyCounterView(session: viewModel.session, viewModel: viewModel)
+        }
+        // Voice counting — hands-free counting via voice commands
+        .sheet(isPresented: $isVoiceCountingPresented) {
+            VoiceCountingView(session: viewModel.session, viewModel: viewModel)
+        }
+        // Count formulas — derived values from tallies
+        .sheet(isPresented: $isFormulaViewPresented) {
+            CountFormulaView(session: viewModel.session, viewModel: viewModel)
+        }
+        // Session tags
+        .sheet(isPresented: $isTagManagerPresented) {
+            SessionTagManagerView(session: viewModel.session)
         }
         // Photos picker — import image from Photos library
         .photosPicker(

@@ -50,9 +50,7 @@ struct ExportSessionIntent: AppIntent {
             throw IntentError.general
         }
 
-        let container = try ModelContainer(for: CountSession.self, ObjectType.self,
-                                           CountMarker.self, CountRegion.self,
-                                           SessionImage.self, VideoFrameCount.self)
+        let container = try IntentModelContainer.makeContainer()
         let context = container.mainContext
 
         let descriptor = FetchDescriptor<CountSession>(

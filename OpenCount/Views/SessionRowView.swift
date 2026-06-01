@@ -75,6 +75,9 @@ struct SessionRowView: View {
                     }
                 }
 
+                // Session tags
+                TagChipsView(sessionID: session.id)
+
                 HStack(spacing: 12) {
                     Label(formattedDate, systemImage: "clock")
                         .font(.caption)
