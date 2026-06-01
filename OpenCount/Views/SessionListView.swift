@@ -88,6 +88,14 @@ struct SessionListView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Search sessions"
             )
+            .searchSuggestions {
+                SessionSearchSuggestionsView(
+                    sessions: viewModel.sessions,
+                    onSelect: { suggestion in
+                        viewModel.searchQuery = suggestion
+                    }
+                )
+            }
             .toolbar {
                 // iCloud sync status indicator — Requirement 15.4
                 ToolbarItem(placement: .navigationBarLeading) {
