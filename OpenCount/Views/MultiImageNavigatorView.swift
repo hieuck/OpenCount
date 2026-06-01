@@ -11,7 +11,6 @@ struct MultiImageNavigatorView: View {
 
     let session: CountSession
     @ObservedObject var viewModel: CountingViewModel
-    @State private var selectedIndex: Int = 0
 
     private var images: [SessionImage] {
         session.images.sorted { $0.importedAt < $1.importedAt }
@@ -28,11 +27,10 @@ struct MultiImageNavigatorView: View {
                             ThumbnailCell(
                                 sessionImage: sessionImage,
                                 sessionID: session.id,
-                                isSelected: selectedIndex == index
+                                isSelected: viewModel.currentImageIndex == index
                             )
                             .onTapGesture {
-                                selectedIndex = index
-                                loadImage(sessionImage)
+                                viewModel.selectImage(at: index, session: session)
                             }
                         }
                     }
@@ -41,17 +39,6 @@ struct MultiImageNavigatorView: View {
                 }
                 .background(.regularMaterial)
             }
-        }
-    }
-
-    private func loadImage(_ sessionImage: SessionImage) {
-        let imagesDir = FileManager.default
-            .urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("images")
-            .appendingPathComponent(session.id.uuidString)
-        let fileURL = imagesDir.appendingPathComponent(sessionImage.filename)
-        if let image = UIImage(contentsOfFile: fileURL.path) {
-            viewModel.currentImage = image
         }
     }
 }

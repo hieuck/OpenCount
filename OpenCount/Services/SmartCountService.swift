@@ -62,6 +62,130 @@ final class SmartCountService {
     }
 }
 
+// MARK: - Density-based auto-grid
+
+extension SmartCountService {
+
+    /// Analyzes the spatial distribution of markers and suggests an optimal grid
+    /// density in the range 2–20.
+    ///
+    /// The heuristic divides the canvas into candidate grid sizes and picks the
+    /// density whose average cell population is closest to 5 markers per cell —
+    /// a density that keeps each cell visually manageable without being too sparse.
+    ///
+    /// - Parameters:
+    ///   - markers: The current set of placed markers (normalized coordinates).
+    ///   - canvasSize: The pixel dimensions of the canvas (used for aspect-ratio
+    ///                 weighting; pass `.zero` to treat the canvas as square).
+    /// - Returns: Suggested grid density (number of rows/columns), clamped to 2–20.
+    func suggestGridDensity(for markers: [CountMarker], canvasSize: CGSize) -> Int {
+        guard !markers.isEmpty else { return 5 }
+
+        let targetMarkersPerCell: Double = 5.0
+        let count = Double(markers.count)
+
+        // Ideal total cells = total markers / target-per-cell
+        let idealCells = count / targetMarkersPerCell
+
+        // density^2 ≈ idealCells  →  density ≈ sqrt(idealCells)
+        let rawDensity = sqrt(idealCells)
+
+        // Adjust for non-square canvases: if the canvas is wider than tall, prefer
+        // a slightly higher density so cells remain roughly square.
+        var aspectAdjustment: Double = 1.0
+        if canvasSize.height > 0 && canvasSize.width > 0 {
+            let ratio = Double(canvasSize.width / canvasSize.height)
+            aspectAdjustment = max(1.0, sqrt(ratio))
+        }
+
+        let adjusted = rawDensity * aspectAdjustment
+        let clamped = Int(adjusted.rounded()).clamped(to: 2...20)
+        return clamped
+    }
+
+    /// Groups nearby markers into clusters using a simple single-linkage
+    /// distance-based algorithm (normalized coordinate space).
+    ///
+    /// Two markers are considered neighbours if their Euclidean distance in
+    /// normalized coordinates is less than `clusterRadius`.  The algorithm
+    /// performs a breadth-first flood-fill so that transitively close markers
+    /// end up in the same cluster.
+    ///
+    /// - Parameters:
+    ///   - markers: The markers to cluster.
+    ///   - clusterRadius: Maximum normalized distance between two markers for
+    ///                    them to be considered part of the same cluster.
+    ///                    Defaults to 0.05 (5 % of the image dimension).
+    /// - Returns: An array of clusters, each cluster being an array of markers.
+    func detectClusters(
+        in markers: [CountMarker],
+        clusterRadius: Double = 0.05
+    ) -> [[CountMarker]] {
+        guard !markers.isEmpty else { return [] }
+
+        var visited = Set<UUID>()
+        var clusters: [[CountMarker]] = []
+
+        for seed in markers {
+            guard !visited.contains(seed.id) else { continue }
+
+            // BFS from this seed
+            var cluster: [CountMarker] = []
+            var queue: [CountMarker] = [seed]
+            visited.insert(seed.id)
+
+            while !queue.isEmpty {
+                let current = queue.removeFirst()
+                cluster.append(current)
+
+                for candidate in markers where !visited.contains(candidate.id) {
+                    let dx = current.normalizedX - candidate.normalizedX
+                    let dy = current.normalizedY - candidate.normalizedY
+                    let distance = sqrt(dx * dx + dy * dy)
+                    if distance < clusterRadius {
+                        visited.insert(candidate.id)
+                        queue.append(candidate)
+                    }
+                }
+            }
+
+            clusters.append(cluster)
+        }
+
+        return clusters
+    }
+
+    /// Estimates the total object count in an image by extrapolating from a
+    /// sampled sub-area.
+    ///
+    /// Uses the formula:  estimatedTotal = detected × (imageArea / sampleArea)
+    /// with a small Poisson-style correction for sampling variance.
+    ///
+    /// - Parameters:
+    ///   - detected: Number of objects counted in the sampled area.
+    ///   - imageArea: Total area of the image in consistent units (e.g. px²).
+    ///   - sampleArea: Area of the sampled region in the same units.
+    /// - Returns: Estimated total count rounded to the nearest integer.
+    ///            Returns `detected` unchanged if `sampleArea` ≥ `imageArea`.
+    func estimateMissedCount(
+        detected: Int,
+        imageArea: CGFloat,
+        sampleArea: CGFloat
+    ) -> Int {
+        guard sampleArea > 0, imageArea > sampleArea else { return detected }
+
+        let scaleFactor = Double(imageArea / sampleArea)
+        let rawEstimate = Double(detected) * scaleFactor
+
+        // Poisson variance correction: add half a standard deviation to avoid
+        // systematic under-counting when the sample is small.
+        let poissonCorrection = sqrt(rawEstimate) * 0.5
+        let corrected = rawEstimate + poissonCorrection
+
+        return max(detected, Int(corrected.rounded()))
+    }
+}
+
 // MARK: - CountingVelocityTracker
 
 /// Tracks counting velocity (markers placed per minute) using a sliding 60-second window.

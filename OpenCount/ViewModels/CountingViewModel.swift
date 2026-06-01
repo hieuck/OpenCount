@@ -432,6 +432,30 @@ final class CountingViewModel: ObservableObject {
     /// The currently displayed image in the canvas. Set by CountingView after import.
     @Published var currentImage: UIImage?
 
+    /// Zero-based index of the currently displayed image within the session's
+    /// sorted image list.  Used by MultiImageNavigatorView to highlight the
+    /// active thumbnail.
+    @Published var currentImageIndex: Int = 0
+
+    /// Loads the image at `index` from `session.images` (sorted by importedAt)
+    /// and sets it as the active canvas image.
+    ///
+    /// Called by MultiImageNavigatorView when the user taps a thumbnail.
+    func selectImage(at index: Int, session: CountSession) {
+        let sorted = session.images.sorted { $0.importedAt < $1.importedAt }
+        guard sorted.indices.contains(index) else { return }
+        let sessionImage = sorted[index]
+        let imagesDir = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("images")
+            .appendingPathComponent(session.id.uuidString)
+        let fileURL = imagesDir.appendingPathComponent(sessionImage.filename)
+        if let image = UIImage(contentsOfFile: fileURL.path) {
+            currentImage = image
+            currentImageIndex = index
+        }
+    }
+
     // MARK: - AI counting
 
     /// Runs AI object detection on the given image and populates `detections`.
