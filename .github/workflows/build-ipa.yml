@@ -1,28 +1,26 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Build IPA — Development signing for AltStore / Sideloadly
+# Build IPA — Unsigned build for Sideloadly / AltStore re-signing
 #
 # Triggered manually (workflow_dispatch) or on version tags (v*).
 #
-# Required GitHub Secrets:
-#   BUILD_CERTIFICATE_BASE64   — base64-encoded .p12 development certificate
-#   P12_PASSWORD               — password for the .p12 file
-#   BUILD_PROVISION_PROFILE_BASE64 — base64-encoded .mobileprovision
-#   KEYCHAIN_PASSWORD          — any strong password for the temp keychain
-#   DEVELOPMENT_TEAM           — your 10-char Apple Team ID (e.g. ABC1234567)
+# NO signing secrets required. The workflow builds an unsigned .app,
+# packages it into an IPA, and uploads it as a GitHub Actions artifact.
 #
-# How to get these (free Apple ID path):
-#   1. Open Xcode → Preferences → Accounts → add your Apple ID
-#   2. Xcode auto-creates a development certificate in Keychain Access
-#   3. Export it: Keychain Access → My Certificates → right-click → Export
-#      Save as .p12, set a password → that's BUILD_CERTIFICATE_BASE64 + P12_PASSWORD
-#   4. In Xcode, build once for a connected device → Xcode creates a provisioning profile
-#      Find it at ~/Library/MobileDevice/Provisioning Profiles/ → that's BUILD_PROVISION_PROFILE_BASE64
-#   5. DEVELOPMENT_TEAM: Xcode → project settings → Signing & Capabilities → Team ID
+# To install on your iPhone:
+#   Option A — Sideloadly (Mac/PC): https://sideloadly.io
+#     1. Download the IPA from the Actions artifacts tab
+#     2. Connect iPhone via USB, open Sideloadly
+#     3. Drag the IPA in, enter your Apple ID, click Start
+#     4. Trust the developer certificate on iPhone: Settings → General → VPN & Device Management
 #
-# The resulting IPA is uploaded as a GitHub Actions artifact.
-# Download it, then use AltStore or Sideloadly to install on your iPhone.
+#   Option B — AltStore (Mac/PC): https://altstore.io
+#     1. Install AltStore on your iPhone
+#     2. Download the IPA, open AltStore → My Apps → + → select the IPA
+#
+#   Option C — TrollStore (no re-signing needed, jailbreak-free):
+#     If your device supports TrollStore, install the IPA directly.
 # ─────────────────────────────────────────────────────────────────────────────
-name: Build IPA (AltStore / Sideloadly)
+name: Build IPA (Unsigned — Sideloadly / AltStore)
 
 on:
   workflow_dispatch:
@@ -34,19 +32,19 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - master
 
 env:
   SCHEME: OpenCount
-  CONFIGURATION: Release
   DERIVED_DATA: ${{ github.workspace }}/.build/DerivedData
-  ARCHIVE_PATH: ${{ github.workspace }}/.build/OpenCount.xcarchive
-  EXPORT_PATH: ${{ github.workspace }}/.build/IPA
+  APP_PATH: ${{ github.workspace }}/.build/DerivedData/Build/Products/Release-iphoneos/OpenCount.app
+  IPA_DIR: ${{ github.workspace }}/.build/IPA
   XCODE_VERSION: "16.2"
-  KEYCHAIN_NAME: build-keychain
 
 jobs:
   build-ipa:
-    name: Archive & Export IPA
+    name: Build Unsigned IPA
     runs-on: macos-15
 
     steps:
@@ -69,86 +67,66 @@ jobs:
           restore-keys: |
             spm-${{ runner.os }}-
 
-      # ── Install XcodeGen ─────────────────────────────────────────────────────
+      # ── Install tools ────────────────────────────────────────────────────────
       - name: Install tools (xcodegen, xcbeautify)
-        run: brew install xcodegen xcbeautify
+        run: |
+          brew install xcodegen xcbeautify || true
+          xcodegen --version
+          xcbeautify --version || true
 
       # ── Generate Xcode project ───────────────────────────────────────────────
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
 
-      # ── Install signing certificate ──────────────────────────────────────────
-      - name: Install signing certificate
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          # Decode certificate
-          CERT_PATH=$RUNNER_TEMP/build_certificate.p12
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
-
-          # Create a temporary keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_NAME"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-
-          # Import certificate into keychain
-          security import "$CERT_PATH" \
-            -P "$P12_PASSWORD" \
-            -A \
-            -t cert \
-            -f pkcs12 \
-            -k "$KEYCHAIN_NAME"
-
-          # Allow codesign to access the keychain
-          security set-key-partition-list \
-            -S apple-tool:,apple: \
-            -s \
-            -k "$KEYCHAIN_PASSWORD" \
-            "$KEYCHAIN_NAME"
-
-          # Make it the default keychain
-          security list-keychain -d user -s "$KEYCHAIN_NAME"
-
-      # ── Install provisioning profile ─────────────────────────────────────────
-      - name: Install provisioning profile
-        env:
-          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-        run: |
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
-
-          # Copy to the standard location Xcode looks in
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
-
-      # ── Archive ──────────────────────────────────────────────────────────────
-      - name: Archive
-        env:
-          DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
+      # ── Build (unsigned, for device) ─────────────────────────────────────────
+      - name: Build unsigned .app
         run: |
           set -o pipefail
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
-            -configuration "$CONFIGURATION" \
-            -archivePath "$ARCHIVE_PATH" \
+            -configuration Release \
+            -sdk iphoneos \
             -derivedDataPath "$DERIVED_DATA" \
-            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-            CODE_SIGN_STYLE=Automatic \
-            archive \
-          | xcbeautify --renderer github-actions
-
-      # ── Export IPA ───────────────────────────────────────────────────────────
-      - name: Export IPA
-        run: |
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build \
+          | xcbeautify --renderer github-actions || \
           xcodebuild \
-            -exportArchive \
-            -archivePath "$ARCHIVE_PATH" \
-            -exportPath "$EXPORT_PATH" \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates
+            -project OpenCount.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+
+      # ── Find the built .app ──────────────────────────────────────────────────
+      - name: Locate .app bundle
+        id: locate_app
+        run: |
+          APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" | grep "Release-iphoneos" | head -1)
+          if [ -z "$APP" ]; then
+            APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" | head -1)
+          fi
+          echo "app_path=$APP" >> $GITHUB_OUTPUT
+          echo "Found .app at: $APP"
+          ls -la "$APP" || echo "App not found at expected path"
+
+      # ── Package into IPA ─────────────────────────────────────────────────────
+      - name: Package .app into IPA
+        run: |
+          APP="${{ steps.locate_app.outputs.app_path }}"
+          mkdir -p "$IPA_DIR/Payload"
+          cp -R "$APP" "$IPA_DIR/Payload/OpenCount.app"
+          cd "$IPA_DIR"
+          zip -r OpenCount-unsigned.ipa Payload
+          echo "IPA created: $(ls -lh OpenCount-unsigned.ipa)"
 
       # ── Compute version string ───────────────────────────────────────────────
       - name: Compute version
@@ -171,47 +149,42 @@ jobs:
       # ── Rename IPA ───────────────────────────────────────────────────────────
       - name: Rename IPA
         run: |
-          IPA_FILE=$(find "$EXPORT_PATH" -name "*.ipa" | head -1)
-          mv "$IPA_FILE" "$EXPORT_PATH/OpenCount-${{ steps.version.outputs.version }}.ipa"
+          mv "$IPA_DIR/OpenCount-unsigned.ipa" \
+             "$IPA_DIR/OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
 
       # ── Upload IPA artifact ──────────────────────────────────────────────────
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: OpenCount-IPA-${{ steps.version.outputs.version }}
-          path: ${{ env.EXPORT_PATH }}/OpenCount-*.ipa
-          retention-days: 30
-
-      # ── Upload dSYMs for crash symbolication ─────────────────────────────────
-      - name: Upload dSYMs
-        uses: actions/upload-artifact@v4
-        with:
-          name: OpenCount-dSYMs-${{ steps.version.outputs.version }}
-          path: ${{ env.ARCHIVE_PATH }}/dSYMs/
-          retention-days: 30
-
-      # ── Cleanup keychain ─────────────────────────────────────────────────────
-      - name: Cleanup keychain
-        if: always()
-        run: security delete-keychain "$KEYCHAIN_NAME" || true
+          path: ${{ env.IPA_DIR }}/OpenCount-*.ipa
+          retention-days: 90
 
       # ── Print install instructions ───────────────────────────────────────────
       - name: Install instructions
         run: |
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  ✅  IPA built: OpenCount-${{ steps.version.outputs.version }}.ipa"
+          echo "  ✅  IPA built: OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
           echo ""
-          echo "  To install on your iPhone:"
+          echo "  This is an UNSIGNED IPA. To install on your iPhone:"
           echo ""
-          echo "  Option A — AltStore (recommended, free):"
-          echo "    1. Install AltStore on your iPhone: https://altstore.io"
-          echo "    2. Download the IPA from the Actions artifacts tab"
-          echo "    3. Open AltStore → My Apps → + → select the IPA"
-          echo "    4. Re-sign every 7 days (free Apple ID limit)"
+          echo "  ── Option A: Sideloadly (easiest, Mac or PC) ──────────────"
+          echo "  1. Download Sideloadly: https://sideloadly.io"
+          echo "  2. Download the IPA from the Actions → Artifacts tab above"
+          echo "  3. Connect iPhone via USB"
+          echo "  4. Drag the IPA into Sideloadly"
+          echo "  5. Enter your Apple ID (free account works)"
+          echo "  6. Click Start — Sideloadly re-signs and installs"
+          echo "  7. On iPhone: Settings → General → VPN & Device Management"
+          echo "     → Trust your Apple ID certificate"
+          echo "  Note: Free Apple ID = re-sign every 7 days"
           echo ""
-          echo "  Option B — Sideloadly:"
-          echo "    1. Install Sideloadly on your Mac/PC: https://sideloadly.io"
-          echo "    2. Connect iPhone via USB"
-          echo "    3. Drag the IPA into Sideloadly and click Start"
+          echo "  ── Option B: AltStore (Mac or PC) ─────────────────────────"
+          echo "  1. Install AltStore: https://altstore.io"
+          echo "  2. Open AltStore on iPhone → My Apps → + → select IPA"
+          echo ""
+          echo "  ── Option C: TrollStore (no re-signing, no expiry) ────────"
+          echo "  If your device supports TrollStore, install directly."
+          echo "  Check compatibility: https://ios.cfw.guide/trollstore"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
