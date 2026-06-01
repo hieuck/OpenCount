@@ -1,16 +1,13 @@
 import Foundation
-import SwiftData
+
+// MARK: - VideoFrameCount
 
 /// Counting results associated with a specific video frame timestamp.
-@Model
-final class VideoFrameCount {
+final class VideoFrameCount: ObservableObject, Identifiable, Codable {
     var id: UUID
-    /// Timestamp in seconds from the start of the video
     var timestampSeconds: Double
-    /// IDs of CountMarkers placed on this frame (stored as UUIDs to avoid
-    /// a complex many-to-many SwiftData relationship)
     var markerIDs: [UUID]
-    var session: CountSession?
+    weak var session: CountSession?
 
     init(
         id: UUID = UUID(),
@@ -22,5 +19,23 @@ final class VideoFrameCount {
         self.timestampSeconds = timestampSeconds
         self.markerIDs = markerIDs
         self.session = session
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, timestampSeconds, markerIDs
+    }
+
+    required init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id               = try c.decode(UUID.self,   forKey: .id)
+        timestampSeconds = try c.decode(Double.self, forKey: .timestampSeconds)
+        markerIDs        = try c.decode([UUID].self, forKey: .markerIDs)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,               forKey: .id)
+        try c.encode(timestampSeconds, forKey: .timestampSeconds)
+        try c.encode(markerIDs,        forKey: .markerIDs)
     }
 }

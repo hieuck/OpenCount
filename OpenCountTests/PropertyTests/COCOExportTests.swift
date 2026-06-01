@@ -1,5 +1,4 @@
 import XCTest
-import SwiftData
 import SwiftCheck
 @testable import OpenCount
 
@@ -110,22 +109,6 @@ private func exportCOCO(session: CountSession) throws -> Data {
     return try encoder.encode(doc)
 }
 
-// MARK: - Helpers
-
-/// Builds an in-memory `ModelContainer` for isolated test use.
-private func makeInMemoryContainerForCOCO() throws -> ModelContainer {
-    let schema = Schema([
-        CountSession.self,
-        ObjectType.self,
-        CountMarker.self,
-        CountRegion.self,
-        SessionImage.self,
-        VideoFrameCount.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [config])
-}
-
 // MARK: - Tests
 
 final class COCOExportTests: XCTestCase {
@@ -183,12 +166,8 @@ final class COCOExportTests: XCTestCase {
         aiMarkerCount: Int,
         manualMarkerCount: Int
     ) async throws -> Bool {
-        let container = try makeInMemoryContainerForCOCO()
-        let context = ModelContext(container)
-
         // 1. Build the session
         let session = CountSession(name: "COCO Test Session")
-        context.insert(session)
 
         // 2. Add object types
         var objectTypes: [ObjectType] = []
@@ -200,7 +179,6 @@ final class COCOExportTests: XCTestCase {
                 sortOrder: i,
                 session: session
             )
-            context.insert(ot)
             objectTypes.append(ot)
             session.objectTypes.append(ot)
         }
@@ -220,7 +198,6 @@ final class COCOExportTests: XCTestCase {
                 isAIDerived: true,
                 session: session
             )
-            context.insert(marker)
             session.markers.append(marker)
             aiMarkerCoords.append((x: x, y: y, typeIndex: typeIndex))
         }
@@ -237,7 +214,6 @@ final class COCOExportTests: XCTestCase {
                 isAIDerived: false,
                 session: session
             )
-            context.insert(marker)
             session.markers.append(marker)
         }
 
@@ -308,11 +284,7 @@ final class COCOExportTests: XCTestCase {
 
     /// Empty session: COCO export produces zero annotations and zero categories.
     func testCOCOExportEmptySession() throws {
-        let container = try makeInMemoryContainerForCOCO()
-        let context = ModelContext(container)
-
         let session = CountSession(name: "Empty Session")
-        context.insert(session)
 
         let cocoData = try exportCOCO(session: session)
         let doc = try JSONDecoder().decode(COCODocument.self, from: cocoData)
@@ -324,9 +296,6 @@ final class COCOExportTests: XCTestCase {
 
     /// Only manual markers: COCO export produces zero annotations.
     func testCOCOExportOnlyManualMarkersProducesNoAnnotations() throws {
-        let container = try makeInMemoryContainerForCOCO()
-        let context = ModelContext(container)
-
         let session = CountSession(name: "Manual Only")
         let ot = ObjectType(name: "People", colorHex: "#FF0000", iconName: "person.fill",
                             sortOrder: 0, session: session)
@@ -335,9 +304,6 @@ final class COCOExportTests: XCTestCase {
                         objectType: ot, isAIDerived: false, session: session)
         }
 
-        context.insert(session)
-        context.insert(ot)
-        markers.forEach { context.insert($0) }
         session.objectTypes.append(ot)
         session.markers.append(contentsOf: markers)
 
@@ -350,9 +316,6 @@ final class COCOExportTests: XCTestCase {
 
     /// Mixed session: annotation count equals only the AI-derived marker count.
     func testCOCOExportMixedMarkersCountsOnlyAIDerived() throws {
-        let container = try makeInMemoryContainerForCOCO()
-        let context = ModelContext(container)
-
         let session = CountSession(name: "Mixed Session")
         let ot = ObjectType(name: "Birds", colorHex: "#0000FF", iconName: "leaf.fill",
                             sortOrder: 0, session: session)
@@ -367,10 +330,6 @@ final class COCOExportTests: XCTestCase {
                         objectType: ot, isAIDerived: false, session: session)
         }
 
-        context.insert(session)
-        context.insert(ot)
-        aiMarkers.forEach { context.insert($0) }
-        manualMarkers.forEach { context.insert($0) }
         session.objectTypes.append(ot)
         session.markers.append(contentsOf: aiMarkers + manualMarkers)
 
@@ -385,9 +344,6 @@ final class COCOExportTests: XCTestCase {
 
     /// Category IDs in annotations all reference valid entries in the categories array.
     func testCOCOExportCategoryIDsAreValid() throws {
-        let container = try makeInMemoryContainerForCOCO()
-        let context = ModelContext(container)
-
         let session = CountSession(name: "Category Validity Test")
         let typeA = ObjectType(name: "TypeA", colorHex: "#FF0000", iconName: "circle.fill",
                                sortOrder: 0, session: session)
@@ -403,11 +359,6 @@ final class COCOExportTests: XCTestCase {
                         objectType: typeB, isAIDerived: true, session: session)
         }
 
-        context.insert(session)
-        context.insert(typeA)
-        context.insert(typeB)
-        markersA.forEach { context.insert($0) }
-        markersB.forEach { context.insert($0) }
         session.objectTypes.append(contentsOf: [typeA, typeB])
         session.markers.append(contentsOf: markersA + markersB)
 
@@ -426,9 +377,6 @@ final class COCOExportTests: XCTestCase {
 
     /// Bounding box coordinates round-trip within 0.001 tolerance.
     func testCOCOExportBoundingBoxRoundTrip() throws {
-        let container = try makeInMemoryContainerForCOCO()
-        let context = ModelContext(container)
-
         let session = CountSession(name: "BBox Round-Trip Test")
         let ot = ObjectType(name: "Objects", colorHex: "#FF5733", iconName: "circle.fill",
                             sortOrder: 0, session: session)
@@ -446,9 +394,6 @@ final class COCOExportTests: XCTestCase {
                         objectType: ot, isAIDerived: true, session: session)
         }
 
-        context.insert(session)
-        context.insert(ot)
-        markers.forEach { context.insert($0) }
         session.objectTypes.append(ot)
         session.markers.append(contentsOf: markers)
 
@@ -473,9 +418,6 @@ final class COCOExportTests: XCTestCase {
 
     /// iscrowd is always 0 for all annotations.
     func testCOCOExportIsCrowdIsAlwaysZero() throws {
-        let container = try makeInMemoryContainerForCOCO()
-        let context = ModelContext(container)
-
         let session = CountSession(name: "IsCrowd Test")
         let ot = ObjectType(name: "Items", colorHex: "#123456", iconName: "circle.fill",
                             sortOrder: 0, session: session)
@@ -485,9 +427,6 @@ final class COCOExportTests: XCTestCase {
                         objectType: ot, isAIDerived: true, session: session)
         }
 
-        context.insert(session)
-        context.insert(ot)
-        markers.forEach { context.insert($0) }
         session.objectTypes.append(ot)
         session.markers.append(contentsOf: markers)
 

@@ -1,18 +1,14 @@
 import Foundation
-import SwiftData
+
+// MARK: - SessionImage
 
 /// An image associated with a counting session.
-/// The actual image file is stored in the app's Documents/images/ directory;
-/// only the filename is persisted here.
-@Model
-final class SessionImage {
+final class SessionImage: ObservableObject, Identifiable, Codable {
     var id: UUID
-    /// Filename in the app's Documents/images/ directory
     var filename: String
-    /// Optional thumbnail filename in the app's Documents/thumbnails/ directory
     var thumbnailFilename: String?
     var importedAt: Date
-    var session: CountSession?
+    weak var session: CountSession?
 
     init(
         id: UUID = UUID(),
@@ -26,5 +22,25 @@ final class SessionImage {
         self.thumbnailFilename = thumbnailFilename
         self.importedAt = importedAt
         self.session = session
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, filename, thumbnailFilename, importedAt
+    }
+
+    required init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id                = try c.decode(UUID.self,   forKey: .id)
+        filename          = try c.decode(String.self, forKey: .filename)
+        thumbnailFilename = try c.decodeIfPresent(String.self, forKey: .thumbnailFilename)
+        importedAt        = try c.decode(Date.self,   forKey: .importedAt)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,       forKey: .id)
+        try c.encode(filename, forKey: .filename)
+        try c.encodeIfPresent(thumbnailFilename, forKey: .thumbnailFilename)
+        try c.encode(importedAt, forKey: .importedAt)
     }
 }

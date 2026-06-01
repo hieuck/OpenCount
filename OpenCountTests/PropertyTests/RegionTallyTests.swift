@@ -1,5 +1,4 @@
 import XCTest
-import SwiftData
 import SwiftCheck
 import CoreGraphics
 @testable import OpenCount
@@ -8,20 +7,6 @@ import CoreGraphics
 // Validates: Requirements 8.5, 8.7
 
 // MARK: - Helpers
-
-/// Builds an in-memory `ModelContainer` for isolated test use.
-private func makeInMemoryContainer() throws -> ModelContainer {
-    let schema = Schema([
-        CountSession.self,
-        ObjectType.self,
-        CountMarker.self,
-        CountRegion.self,
-        SessionImage.self,
-        VideoFrameCount.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [config])
-}
 
 /// Generates a random normalized coordinate strictly inside (0.0, 1.0).
 private let innerCoordGen: Gen<Double> = Gen<Double>.choose((0.01, 0.99))

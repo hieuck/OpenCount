@@ -24,8 +24,6 @@ struct QuickActionsView: View {
     @State private var isReviewPresented: Bool = false
     @State private var isFormulaPresented: Bool = false
 
-    private let actions: [(icon: String, label: String, color: Color, action: () -> Void)] = []
-
     var body: some View {
         VStack(alignment: .trailing, spacing: 12) {
             // Expanded action buttons

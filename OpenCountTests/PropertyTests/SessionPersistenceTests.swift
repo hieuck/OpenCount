@@ -1,5 +1,4 @@
 import XCTest
-import SwiftData
 import SwiftCheck
 @testable import OpenCount
 
@@ -25,36 +24,57 @@ private let iconNameGen: Gen<String> = Gen<String>.fromElements(of: [
     "car.fill", "leaf.fill", "pawprint.fill", "house.fill",
 ])
 
-/// Generates a random ObjectType (not yet inserted into a context)
-private func makeObjectTypeGen() -> Gen<(UUID, String, String, String, Int)> {
-    Gen<(UUID, String, String, String, Int)>.zip(
-        UUID.arbitrary,
-        String.arbitrary.suchThat { !$0.isEmpty },
-        hexColorGen,
-        iconNameGen,
-        Int.arbitrary.map { abs($0) % 100 }
-    )
-}
-
-/// Generates a random normalized coordinate in [0.0, 1.0]
-private let normalizedCoordGen: Gen<Double> = Gen<Double>.choose((0.0, 1.0))
-
 /// Generates a random CountSession name
 private let sessionNameGen: Gen<String> = String.arbitrary.suchThat { !$0.isEmpty }
 
-// MARK: - Helper: build an in-memory ModelContainer
+// MARK: - TempStorageService: writes to a temp directory for JSON round-trip testing
 
-private func makeInMemoryContainer() throws -> ModelContainer {
-    let schema = Schema([
-        CountSession.self,
-        ObjectType.self,
-        CountMarker.self,
-        CountRegion.self,
-        SessionImage.self,
-        VideoFrameCount.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [config])
+@MainActor
+private final class TempStorageService: StorageServiceProtocol {
+    let tempDir: URL
+
+    init() {
+        tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: tempDir)
+    }
+
+    private func fileURL(for session: CountSession) -> URL {
+        tempDir.appendingPathComponent("\(session.id.uuidString).json")
+    }
+
+    func save(_ session: CountSession) async throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(session)
+        try data.write(to: fileURL(for: session), options: .atomic)
+    }
+
+    func delete(_ session: CountSession) async throws {
+        try? FileManager.default.removeItem(at: fileURL(for: session))
+    }
+
+    func fetchAllSessions() async throws -> [CountSession] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: tempDir, includingPropertiesForKeys: nil)) ?? []
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return files.compactMap { url -> CountSession? in
+            guard url.pathExtension == "json",
+                  let data = try? Data(contentsOf: url),
+                  let session = try? decoder.decode(CountSession.self, from: data) else { return nil }
+            return session
+        }.sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    func fetchSessions(matching query: String) async throws -> [CountSession] {
+        let all = try await fetchAllSessions()
+        guard !query.isEmpty else { return all }
+        return all.filter { $0.name.localizedStandardContains(query) }
+    }
 }
 
 // MARK: - Tests
@@ -64,14 +84,14 @@ final class SessionPersistenceTests: XCTestCase {
     // MARK: Property 8: Session persistence round-trip preserves state
     //
     // For any CountSession state (including all markers and regions), persisting
-    // the session to SwiftData and then fetching it back SHALL produce a session
-    // that is structurally equivalent to the original.
+    // the session to the JSON StorageService and then fetching it back SHALL
+    // produce a session that is structurally equivalent to the original.
     //
     // Validates: Requirements 18.5, 1.3
 
     func testSessionPersistenceRoundTrip() {
         // SwiftCheck property: for any random session configuration, the round-trip
-        // through an in-memory SwiftData store preserves all structural data.
+        // through a temp-directory JSON store preserves all structural data.
         property("Session persistence round-trip preserves name, description, and marker count") <- forAll(
             sessionNameGen,
             String.arbitrary,                          // description (may be empty)
@@ -110,15 +130,13 @@ final class SessionPersistenceTests: XCTestCase {
         objectTypeCount: Int,
         markerCount: Int
     ) async throws -> Bool {
-        let container = try makeInMemoryContainer()
-        let context = ModelContext(container)
+        let storage = TempStorageService()
 
         // 1. Build the session
         let session = CountSession(
             name: name,
             sessionDescription: description
         )
-        context.insert(session)
 
         // 2. Add object types
         var objectTypes: [ObjectType] = []
@@ -130,7 +148,6 @@ final class SessionPersistenceTests: XCTestCase {
                 sortOrder: i,
                 session: session
             )
-            context.insert(ot)
             objectTypes.append(ot)
             session.objectTypes.append(ot)
         }
@@ -147,7 +164,6 @@ final class SessionPersistenceTests: XCTestCase {
                     isAIDerived: j % 2 == 0,
                     session: session
                 )
-                context.insert(marker)
                 session.markers.append(marker)
                 originalMarkerCount += 1
             }
@@ -164,18 +180,14 @@ final class SessionPersistenceTests: XCTestCase {
             ],
             session: session
         )
-        context.insert(region)
         session.regions.append(region)
 
-        // 5. Save
-        try context.save()
+        // 5. Save via JSON StorageService
+        try await storage.save(session)
 
         // 6. Fetch back
-        let descriptor = FetchDescriptor<CountSession>(
-            predicate: #Predicate { $0.id == session.id }
-        )
-        let fetched = try context.fetch(descriptor)
-        guard let fetchedSession = fetched.first else { return false }
+        let fetched = try await storage.fetchAllSessions()
+        guard let fetchedSession = fetched.first(where: { $0.id == session.id }) else { return false }
 
         // 7. Assert structural equivalence
         let nameMatches = fetchedSession.name == name
@@ -208,8 +220,7 @@ final class SessionPersistenceTests: XCTestCase {
     // MARK: - Unit test: basic round-trip with known values
 
     func testBasicSessionRoundTrip() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
+        let storage = await MainActor.run { TempStorageService() }
 
         let sessionID = UUID()
         let session = CountSession(
@@ -234,25 +245,14 @@ final class SessionPersistenceTests: XCTestCase {
             session: session
         )
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(objectType)
-            context.insert(marker)
-            session.objectTypes.append(objectType)
-            session.markers.append(marker)
-        }
+        session.objectTypes.append(objectType)
+        session.markers.append(marker)
 
-        try await MainActor.run { try context.save() }
+        try await storage.save(session)
 
-        let fetched = try await MainActor.run {
-            let descriptor = FetchDescriptor<CountSession>(
-                predicate: #Predicate { $0.id == sessionID }
-            )
-            return try context.fetch(descriptor)
-        }
+        let fetched = try await storage.fetchAllSessions()
+        let fetchedSession = try XCTUnwrap(fetched.first(where: { $0.id == sessionID }))
 
-        XCTAssertEqual(fetched.count, 1)
-        let fetchedSession = try XCTUnwrap(fetched.first)
         XCTAssertEqual(fetchedSession.name, "Test Session")
         XCTAssertEqual(fetchedSession.sessionDescription, "A test description")
         XCTAssertEqual(fetchedSession.objectTypes.count, 1)
@@ -266,24 +266,16 @@ final class SessionPersistenceTests: XCTestCase {
     // MARK: - Unit test: empty session round-trip
 
     func testEmptySessionRoundTrip() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
+        let storage = await MainActor.run { TempStorageService() }
 
         let sessionID = UUID()
         let session = CountSession(id: sessionID, name: "Empty Session")
 
-        await MainActor.run { context.insert(session) }
-        try await MainActor.run { try context.save() }
+        try await storage.save(session)
 
-        let fetched = try await MainActor.run {
-            let descriptor = FetchDescriptor<CountSession>(
-                predicate: #Predicate { $0.id == sessionID }
-            )
-            return try context.fetch(descriptor)
-        }
+        let fetched = try await storage.fetchAllSessions()
+        let fetchedSession = try XCTUnwrap(fetched.first(where: { $0.id == sessionID }))
 
-        XCTAssertEqual(fetched.count, 1)
-        let fetchedSession = try XCTUnwrap(fetched.first)
         XCTAssertEqual(fetchedSession.name, "Empty Session")
         XCTAssertNil(fetchedSession.sessionDescription)
         XCTAssertTrue(fetchedSession.objectTypes.isEmpty)
@@ -294,8 +286,7 @@ final class SessionPersistenceTests: XCTestCase {
     // MARK: - Unit test: region geometry preserved
 
     func testRegionGeometryPreservedAfterPersistence() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
+        let storage = await MainActor.run { TempStorageService() }
 
         let sessionID = UUID()
         let session = CountSession(id: sessionID, name: "Region Test")
@@ -313,22 +304,13 @@ final class SessionPersistenceTests: XCTestCase {
             normalizedPoints: points,
             session: session
         )
+        session.regions.append(region)
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(region)
-            session.regions.append(region)
-        }
-        try await MainActor.run { try context.save() }
+        try await storage.save(session)
 
-        let fetched = try await MainActor.run {
-            let descriptor = FetchDescriptor<CountSession>(
-                predicate: #Predicate { $0.id == sessionID }
-            )
-            return try context.fetch(descriptor)
-        }
+        let fetched = try await storage.fetchAllSessions()
+        let fetchedSession = try XCTUnwrap(fetched.first(where: { $0.id == sessionID }))
 
-        let fetchedSession = try XCTUnwrap(fetched.first)
         XCTAssertEqual(fetchedSession.regions.count, 1)
         let fetchedRegion = try XCTUnwrap(fetchedSession.regions.first)
         XCTAssertEqual(fetchedRegion.shapeType, .polygon)

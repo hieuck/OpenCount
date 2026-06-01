@@ -1,5 +1,4 @@
 import XCTest
-import SwiftData
 import SwiftCheck
 @testable import OpenCount
 
@@ -7,20 +6,6 @@ import SwiftCheck
 // Validates: Requirements 24.2
 
 // MARK: - Helpers
-
-/// Builds an in-memory `ModelContainer` for isolated test use.
-private func makeInMemoryContainer() throws -> ModelContainer {
-    let schema = Schema([
-        CountSession.self,
-        ObjectType.self,
-        CountMarker.self,
-        CountRegion.self,
-        SessionImage.self,
-        VideoFrameCount.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [config])
-}
 
 /// Generates a random normalized coordinate in [0.0, 1.0].
 private let normalizedCoordGen: Gen<Double> = Gen<Double>.choose((0.0, 1.0))
@@ -229,12 +214,8 @@ final class HeatmapMarkerPreservationTests: XCTestCase {
         markerCount: Int,
         toggleCount: Int
     ) async throws -> Bool {
-        let container = try makeInMemoryContainer()
-        let context = ModelContext(container)
-
         // 1. Build the session
         let session = CountSession(name: "Heatmap Preservation Test")
-        context.insert(session)
 
         // 2. Add object types
         var objectTypes: [ObjectType] = []
@@ -246,7 +227,6 @@ final class HeatmapMarkerPreservationTests: XCTestCase {
                 sortOrder: i,
                 session: session
             )
-            context.insert(ot)
             objectTypes.append(ot)
             session.objectTypes.append(ot)
         }
@@ -261,7 +241,6 @@ final class HeatmapMarkerPreservationTests: XCTestCase {
                 isAIDerived: false,
                 session: session
             )
-            context.insert(marker)
             session.markers.append(marker)
         }
 
@@ -389,9 +368,6 @@ final class HeatmapMarkerPreservationTests: XCTestCase {
 
     /// CountSession markers are unchanged after toggling heatmap on AnnotationLayerViewModel.
     func testSessionMarkersUnchangedAfterHeatmapToggle() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Heatmap Session")
         let objectType = ObjectType(
             name: "Birds",
@@ -407,29 +383,24 @@ final class HeatmapMarkerPreservationTests: XCTestCase {
             CountMarker(normalizedX: 0.5, normalizedY: 0.6, objectType: objectType, session: session),
         ]
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(objectType)
-            session.objectTypes.append(objectType)
-            for marker in markers {
-                context.insert(marker)
-                session.markers.append(marker)
-            }
+        session.objectTypes.append(objectType)
+        for marker in markers {
+            session.markers.append(marker)
         }
 
-        let snapshotIDs = await MainActor.run { session.markers.map { $0.id } }
-        let snapshotXs = await MainActor.run { session.markers.map { $0.normalizedX } }
-        let snapshotYs = await MainActor.run { session.markers.map { $0.normalizedY } }
+        let snapshotIDs = session.markers.map { $0.id }
+        let snapshotXs = session.markers.map { $0.normalizedX }
+        let snapshotYs = session.markers.map { $0.normalizedY }
 
-        let annotationVM = await MainActor.run { AnnotationLayerViewModel() }
+        let annotationVM = AnnotationLayerViewModel()
 
         // Toggle heatmap 10 times
         for _ in 0..<10 {
-            await MainActor.run { annotationVM.toggleLayer(.heatmap) }
+            annotationVM.toggleLayer(.heatmap)
 
-            let currentIDs = await MainActor.run { session.markers.map { $0.id } }
-            let currentXs = await MainActor.run { session.markers.map { $0.normalizedX } }
-            let currentYs = await MainActor.run { session.markers.map { $0.normalizedY } }
+            let currentIDs = session.markers.map { $0.id }
+            let currentXs = session.markers.map { $0.normalizedX }
+            let currentYs = session.markers.map { $0.normalizedY }
 
             XCTAssertEqual(currentIDs, snapshotIDs, "Marker IDs must be unchanged after heatmap toggle")
             XCTAssertEqual(currentXs, snapshotXs, "Marker X coordinates must be unchanged after heatmap toggle")

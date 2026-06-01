@@ -1,52 +1,29 @@
 import Foundation
-import SwiftData
 
 // MARK: - TallyHistoryEntry
 
-/// A timestamped record of a single tally change within a CountSession.
-/// Stored as part of the session to allow review of counting progression.
-/// Requirement 13.6
 struct TallyHistoryEntry: Codable {
-    /// When the change occurred.
     let timestamp: Date
-    /// The name of the ObjectType whose tally changed.
     let objectTypeName: String
-    /// +1 for a placed marker, -1 for a removed marker.
     let delta: Int
 }
 
 // MARK: - CountSession
 
-/// A counting session containing one or more source images or a video,
-/// a set of ObjectTypes, and all counting results.
-@Model
-final class CountSession {
+/// A counting session — the central model of OpenCount.
+/// Stored as JSON in Documents/sessions/<id>.json
+final class CountSession: ObservableObject, Identifiable, Codable {
     var id: UUID
     var name: String
     var sessionDescription: String?
     var createdAt: Date
     var modifiedAt: Date
-
-    @Relationship(deleteRule: .cascade, inverse: \ObjectType.session)
     var objectTypes: [ObjectType]
-
-    @Relationship(deleteRule: .cascade, inverse: \SessionImage.session)
     var images: [SessionImage]
-
-    @Relationship(deleteRule: .cascade, inverse: \CountRegion.session)
     var regions: [CountRegion]
-
-    @Relationship(deleteRule: .cascade, inverse: \CountMarker.session)
     var markers: [CountMarker]
-
-    @Relationship(deleteRule: .cascade, inverse: \VideoFrameCount.session)
     var videoTimestamps: [VideoFrameCount]
-
-    @Relationship(deleteRule: .cascade, inverse: \CountFormula.session)
     var formulas: [CountFormula]
-
-    /// Timestamped log of tally changes (marker placed / removed) within this session.
-    /// Requirement 13.6
     var tallyHistory: [TallyHistoryEntry]
 
     init(
@@ -75,5 +52,57 @@ final class CountSession {
         self.videoTimestamps = videoTimestamps
         self.formulas = formulas
         self.tallyHistory = tallyHistory
+        // Wire back-references
+        objectTypes.forEach { $0.session = self }
+        images.forEach      { $0.session = self }
+        regions.forEach     { $0.session = self }
+        markers.forEach     { $0.session = self }
+        videoTimestamps.forEach { $0.session = self }
+        formulas.forEach    { $0.session = self }
+    }
+
+    // MARK: - Codable (manual — weak refs excluded)
+    enum CodingKeys: String, CodingKey {
+        case id, name, sessionDescription, createdAt, modifiedAt
+        case objectTypes, images, regions, markers, videoTimestamps, formulas, tallyHistory
+    }
+
+    required init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id                 = try c.decode(UUID.self,   forKey: .id)
+        name               = try c.decode(String.self, forKey: .name)
+        sessionDescription = try c.decodeIfPresent(String.self, forKey: .sessionDescription)
+        createdAt          = try c.decode(Date.self,   forKey: .createdAt)
+        modifiedAt         = try c.decode(Date.self,   forKey: .modifiedAt)
+        objectTypes        = try c.decode([ObjectType].self,      forKey: .objectTypes)
+        images             = try c.decode([SessionImage].self,    forKey: .images)
+        regions            = try c.decode([CountRegion].self,     forKey: .regions)
+        markers            = try c.decode([CountMarker].self,     forKey: .markers)
+        videoTimestamps    = try c.decode([VideoFrameCount].self, forKey: .videoTimestamps)
+        formulas           = try c.decode([CountFormula].self,    forKey: .formulas)
+        tallyHistory       = try c.decode([TallyHistoryEntry].self, forKey: .tallyHistory)
+        // Wire back-references after decode
+        objectTypes.forEach { $0.session = self }
+        images.forEach      { $0.session = self }
+        regions.forEach     { $0.session = self }
+        markers.forEach     { $0.session = self }
+        videoTimestamps.forEach { $0.session = self }
+        formulas.forEach    { $0.session = self }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,                 forKey: .id)
+        try c.encode(name,               forKey: .name)
+        try c.encodeIfPresent(sessionDescription, forKey: .sessionDescription)
+        try c.encode(createdAt,          forKey: .createdAt)
+        try c.encode(modifiedAt,         forKey: .modifiedAt)
+        try c.encode(objectTypes,        forKey: .objectTypes)
+        try c.encode(images,             forKey: .images)
+        try c.encode(regions,            forKey: .regions)
+        try c.encode(markers,            forKey: .markers)
+        try c.encode(videoTimestamps,    forKey: .videoTimestamps)
+        try c.encode(formulas,           forKey: .formulas)
+        try c.encode(tallyHistory,       forKey: .tallyHistory)
     }
 }

@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 // MARK: - TemplateGalleryView
 
@@ -20,7 +19,6 @@ struct TemplateGalleryView: View {
 
     // MARK: - Environment
 
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var networkMonitor: NetworkMonitor
 
@@ -414,7 +412,6 @@ struct TemplatePreviewSheet: View {
     let service: TemplateMarketplaceService
     let onInstall: () -> Void
 
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var networkMonitor: NetworkMonitor
 
@@ -558,7 +555,7 @@ struct TemplatePreviewSheet: View {
     private func install(into session: CountSession) async {
         isInstalling = true
         do {
-            try await service.installTemplate(template, into: session, context: modelContext)
+            try await service.installTemplate(template, into: session)
             dismiss()
             onInstall()
         } catch {
@@ -862,9 +859,4 @@ struct ReportTemplateSheet: View {
 #Preview("Template Gallery") {
     TemplateGalleryView(targetSession: nil)
         .environmentObject(NetworkMonitor())
-        .modelContainer(
-            for: [CountSession.self, ObjectType.self, CountMarker.self,
-                  CountRegion.self, SessionImage.self, VideoFrameCount.self],
-            inMemory: true
-        )
 }

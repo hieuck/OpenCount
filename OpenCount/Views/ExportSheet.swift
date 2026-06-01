@@ -440,9 +440,4 @@ struct ExportSheet: View {
     }()
 
     ExportSheet(session: session)
-        .modelContainer(
-            for: [CountSession.self, ObjectType.self, CountMarker.self,
-                  CountRegion.self, SessionImage.self, VideoFrameCount.self],
-            inMemory: true
-        )
 }

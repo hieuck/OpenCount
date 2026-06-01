@@ -1,28 +1,24 @@
 import Foundation
-import SwiftData
 
 // MARK: - IntentModelContainer
 
-/// Shared helper for creating a ModelContainer in App Intents.
-/// All intents must use the same schema as the main app to avoid
-/// SwiftData migration errors.
+/// Shared helper for accessing session data in App Intents.
+/// Uses the JSON-based StorageService — no SwiftData.
 enum IntentModelContainer {
 
-    /// Creates a ModelContainer with the full app schema.
-    /// This must match the schema in OpenCountApp.init().
-    static func makeContainer() throws -> ModelContainer {
-        let schema = Schema([
-            CountSession.self,
-            ObjectType.self,
-            CountMarker.self,
-            CountRegion.self,
-            SessionImage.self,
-            VideoFrameCount.self,
-            SessionTemplate.self,
-            SessionTag.self,
-            CountFormula.self,
-        ])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        return try ModelContainer(for: schema, configurations: [config])
+    /// Fetches all sessions using the shared StorageService.
+    static func fetchAllSessions() async throws -> [CountSession] {
+        try await StorageService.shared.fetchAllSessions()
+    }
+
+    /// Fetches a single session by ID.
+    static func fetchSession(id: UUID) async throws -> CountSession? {
+        let all = try await StorageService.shared.fetchAllSessions()
+        return all.first { $0.id == id }
+    }
+
+    /// Saves a session.
+    static func save(_ session: CountSession) async throws {
+        try await StorageService.shared.save(session)
     }
 }

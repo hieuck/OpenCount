@@ -1,29 +1,21 @@
 import SwiftUI
-import SwiftData
 
 // MARK: - SessionTagManagerView
 
 /// Manages tags for a counting session.
 /// Users can create, assign, and remove tags to organize sessions.
-///
-/// This feature surpasses ZapCount and CountThings which offer no session organization.
 struct SessionTagManagerView: View {
 
     let session: CountSession
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    @Query(sort: \SessionTag.createdAt, order: .reverse)
-    private var allTags: [SessionTag]
-
-    @State private var isAddingTag: Bool = false
+    @State private var allTags: [SessionTag] = []
+    @State private var assignedTagIDs: Set<UUID> = []
     @State private var newTagName: String = ""
     @State private var newTagColorHex: String = "#3498DB"
     @State private var newTagEmoji: String = "🏷️"
 
-    // Session tags stored as a JSON-encoded array of UUIDs in session description
-    // (lightweight approach without adding a new relationship)
-    @State private var assignedTagIDs: Set<UUID> = []
+    private let tagStorage = TagStorageService.shared
 
     var body: some View {
         NavigationStack {
@@ -42,9 +34,9 @@ struct SessionTagManagerView: View {
                             for index in indexSet {
                                 let tag = allTags[index]
                                 assignedTagIDs.remove(tag.id)
-                                modelContext.delete(tag)
+                                allTags.remove(at: index)
                             }
-                            try? modelContext.save()
+                            tagStorage.saveAll(allTags)
                             saveAssignedTags()
                         }
                     }
@@ -92,8 +84,8 @@ struct SessionTagManagerView: View {
                                             colorHex: preset.colorHex,
                                             emoji: preset.emoji
                                         )
-                                        modelContext.insert(tag)
-                                        try? modelContext.save()
+                                        allTags.append(tag)
+                                        tagStorage.saveAll(allTags)
                                         assignedTagIDs.insert(tag.id)
                                         saveAssignedTags()
                                     } label: {
@@ -133,7 +125,8 @@ struct SessionTagManagerView: View {
             }
         }
         .onAppear {
-            loadAssignedTags()
+            allTags = tagStorage.loadAll()
+            assignedTagIDs = Set(tagStorage.assignedTagIDs(for: session.id))
         }
     }
 
@@ -151,37 +144,21 @@ struct SessionTagManagerView: View {
     private func createTag() {
         let name = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
-
         let tag = SessionTag(
             name: name,
             colorHex: newTagColorHex,
             emoji: newTagEmoji.isEmpty ? "🏷️" : String(newTagEmoji.prefix(2))
         )
-        modelContext.insert(tag)
-        try? modelContext.save()
-
+        allTags.append(tag)
+        tagStorage.saveAll(allTags)
         assignedTagIDs.insert(tag.id)
         saveAssignedTags()
-
         newTagName = ""
         newTagEmoji = "🏷️"
     }
 
-    // MARK: - Persistence (stored in UserDefaults keyed by session ID)
-
-    private func loadAssignedTags() {
-        let key = "session_tags_\(session.id.uuidString)"
-        if let data = UserDefaults.standard.data(forKey: key),
-           let ids = try? JSONDecoder().decode([UUID].self, from: data) {
-            assignedTagIDs = Set(ids)
-        }
-    }
-
     private func saveAssignedTags() {
-        let key = "session_tags_\(session.id.uuidString)"
-        if let data = try? JSONEncoder().encode(Array(assignedTagIDs)) {
-            UserDefaults.standard.set(data, forKey: key)
-        }
+        tagStorage.setAssignedTagIDs(Array(assignedTagIDs), for: session.id)
     }
 }
 
@@ -198,13 +175,10 @@ private struct TagRow: View {
                 Text(tag.emoji)
                     .font(.title3)
                     .accessibilityHidden(true)
-
                 Text(tag.name)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
-
                 Spacer()
-
                 if isAssigned {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.accentColor)
@@ -230,45 +204,39 @@ private struct TagRow: View {
 struct TagChipsView: View {
     let sessionID: UUID
 
-    @Query(sort: \SessionTag.createdAt)
-    private var allTags: [SessionTag]
-
-    private var assignedTags: [SessionTag] {
-        let key = "session_tags_\(sessionID.uuidString)"
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let ids = try? JSONDecoder().decode([UUID].self, from: data) else {
-            return []
-        }
-        let idSet = Set(ids)
-        return allTags.filter { idSet.contains($0.id) }
-    }
+    @State private var assignedTags: [SessionTag] = []
 
     var body: some View {
-        if !assignedTags.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(assignedTags) { tag in
-                        HStack(spacing: 3) {
-                            Text(tag.emoji)
-                                .font(.caption2)
-                            Text(tag.name)
-                                .font(.caption2.weight(.medium))
+        Group {
+            if !assignedTags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(assignedTags) { tag in
+                            HStack(spacing: 3) {
+                                Text(tag.emoji)
+                                    .font(.caption2)
+                                Text(tag.name)
+                                    .font(.caption2.weight(.medium))
+                            }
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(Color(hex: tag.colorHex)?.opacity(0.15) ?? Color.blue.opacity(0.15))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color(hex: tag.colorHex) ?? .blue, lineWidth: 0.5)
+                            )
+                            .foregroundStyle(Color(hex: tag.colorHex) ?? .blue)
+                            .accessibilityLabel(tag.name)
                         }
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(
-                            Capsule()
-                                .fill(Color(hex: tag.colorHex)?.opacity(0.15) ?? Color.blue.opacity(0.15))
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(Color(hex: tag.colorHex) ?? .blue, lineWidth: 0.5)
-                        )
-                        .foregroundStyle(Color(hex: tag.colorHex) ?? .blue)
-                        .accessibilityLabel(tag.name)
                     }
                 }
             }
+        }
+        .onAppear {
+            assignedTags = TagStorageService.shared.assignedTags(for: sessionID)
         }
     }
 }

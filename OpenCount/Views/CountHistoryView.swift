@@ -268,7 +268,4 @@ struct SparklineView: View {
         TallyHistoryEntry(timestamp: Date().addingTimeInterval(-120), objectTypeName: "Robin", delta: -1),
     ]
     return CountHistoryView(session: session)
-        .modelContainer(for: [CountSession.self, ObjectType.self, CountMarker.self,
-                               CountRegion.self, SessionImage.self, VideoFrameCount.self],
-                        inMemory: true)
 }

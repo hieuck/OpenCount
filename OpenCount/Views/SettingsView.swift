@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// Settings screen for customizing app-wide defaults.
 ///
@@ -10,7 +9,6 @@ struct SettingsView: View {
 
     @EnvironmentObject private var syncViewModel: iCloudSyncViewModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
 
     // MARK: - AppStorage (persisted via UserDefaults — Req 17.3)
 
@@ -102,7 +100,7 @@ struct SettingsView: View {
             // Restore sample session confirmation — Req 29.4
             .alert("Restore Sample Session", isPresented: $isShowingRestoreSampleConfirmation) {
                 Button("Restore") {
-                    SampleSessionSeeder.seedIfNeeded(into: modelContext, force: true)
+                    Task { await SampleSessionSeeder.seedIfNeeded(force: true) }
                 }
                 .accessibilityLabel("Confirm restore sample session")
                 Button("Cancel", role: .cancel) {}
@@ -456,7 +454,4 @@ struct SettingsView: View {
 #Preview {
     SettingsView()
         .environmentObject(iCloudSyncViewModel())
-        .modelContainer(for: [CountSession.self, ObjectType.self, CountMarker.self,
-                               CountRegion.self, SessionImage.self, VideoFrameCount.self],
-                        inMemory: true)
 }

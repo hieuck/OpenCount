@@ -1,26 +1,24 @@
 import Foundation
 import CoreGraphics
-import SwiftData
 
-/// The shape type for a counting region.
+// MARK: - RegionShapeType
+
 enum RegionShapeType: String, Codable {
     case rectangle
     case ellipse
     case polygon
 }
 
+// MARK: - CountRegion
+
 /// A user-drawn geometric area on an image that restricts counting to objects within its boundary.
-/// All coordinates are normalized (0.0–1.0) relative to the image dimensions.
-@Model
-final class CountRegion {
+final class CountRegion: ObservableObject, Identifiable, Codable {
     var id: UUID
     var name: String
-    /// Hex color string, e.g. "#3399FF"
     var colorHex: String
     var shapeType: RegionShapeType
-    /// Polygon vertices or rect corners in normalized coordinates
     var normalizedPoints: [CGPoint]
-    var session: CountSession?
+    weak var session: CountSession?
 
     init(
         id: UUID = UUID(),
@@ -38,56 +36,67 @@ final class CountRegion {
         self.session = session
     }
 
-    // MARK: - Geometry helpers
+    enum CodingKeys: String, CodingKey {
+        case id, name, colorHex, shapeType, normalizedPoints
+    }
 
-    /// Returns true if the given normalized point falls within this region's boundary.
+    required init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id              = try c.decode(UUID.self,            forKey: .id)
+        name            = try c.decode(String.self,          forKey: .name)
+        colorHex        = try c.decode(String.self,          forKey: .colorHex)
+        shapeType       = try c.decode(RegionShapeType.self, forKey: .shapeType)
+        normalizedPoints = try c.decode([CGPoint].self,      forKey: .normalizedPoints)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,              forKey: .id)
+        try c.encode(name,            forKey: .name)
+        try c.encode(colorHex,        forKey: .colorHex)
+        try c.encode(shapeType,       forKey: .shapeType)
+        try c.encode(normalizedPoints, forKey: .normalizedPoints)
+    }
+
+    // MARK: - Geometry
+
     func contains(normalizedPoint point: CGPoint) -> Bool {
         switch shapeType {
-        case .rectangle:
-            return containsRectangle(point)
-        case .ellipse:
-            return containsEllipse(point)
-        case .polygon:
-            return containsPolygon(point)
+        case .rectangle: return containsRectangle(point)
+        case .ellipse:   return containsEllipse(point)
+        case .polygon:   return containsPolygon(point)
         }
     }
 
     private func containsRectangle(_ point: CGPoint) -> Bool {
         guard normalizedPoints.count >= 2 else { return false }
-        let minX = normalizedPoints.map(\.x).min() ?? 0
-        let maxX = normalizedPoints.map(\.x).max() ?? 0
-        let minY = normalizedPoints.map(\.y).min() ?? 0
-        let maxY = normalizedPoints.map(\.y).max() ?? 0
-        return point.x > minX && point.x < maxX && point.y > minY && point.y < maxY
+        let xs = normalizedPoints.map(\.x), ys = normalizedPoints.map(\.y)
+        return point.x > (xs.min() ?? 0) && point.x < (xs.max() ?? 0)
+            && point.y > (ys.min() ?? 0) && point.y < (ys.max() ?? 0)
     }
 
     private func containsEllipse(_ point: CGPoint) -> Bool {
         guard normalizedPoints.count >= 2 else { return false }
-        let minX = normalizedPoints.map(\.x).min() ?? 0
-        let maxX = normalizedPoints.map(\.x).max() ?? 0
-        let minY = normalizedPoints.map(\.y).min() ?? 0
-        let maxY = normalizedPoints.map(\.y).max() ?? 0
-        let cx = (minX + maxX) / 2
-        let cy = (minY + maxY) / 2
-        let rx = (maxX - minX) / 2
-        let ry = (maxY - minY) / 2
+        let xs = normalizedPoints.map(\.x), ys = normalizedPoints.map(\.y)
+        let cx = ((xs.min() ?? 0) + (xs.max() ?? 0)) / 2
+        let cy = ((ys.min() ?? 0) + (ys.max() ?? 0)) / 2
+        let rx = ((xs.max() ?? 0) - (xs.min() ?? 0)) / 2
+        let ry = ((ys.max() ?? 0) - (ys.min() ?? 0)) / 2
         guard rx > 0, ry > 0 else { return false }
-        let dx = (point.x - cx) / rx
-        let dy = (point.y - cy) / ry
+        let dx = (point.x - cx) / rx, dy = (point.y - cy) / ry
         return (dx * dx + dy * dy) < 1.0
     }
 
     private func containsPolygon(_ point: CGPoint) -> Bool {
         guard normalizedPoints.count >= 3 else { return false }
-        // Ray-casting algorithm
         var inside = false
         var j = normalizedPoints.count - 1
         for i in 0..<normalizedPoints.count {
-            let pi = normalizedPoints[i]
-            let pj = normalizedPoints[j]
-            let intersects = ((pi.y > point.y) != (pj.y > point.y)) &&
-                (point.x < (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x)
-            if intersects { inside.toggle() }
+            let pi = normalizedPoints[i], pj = normalizedPoints[j]
+            if ((pi.y > point.y) != (pj.y > point.y)) &&
+               (point.x < (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x) {
+                inside.toggle()
+            }
             j = i
         }
         return inside

@@ -1,5 +1,4 @@
 import XCTest
-import SwiftData
 import SwiftCheck
 @testable import OpenCount
 
@@ -8,54 +7,32 @@ import SwiftCheck
 
 // MARK: - Helpers
 
-/// Builds an in-memory `ModelContainer` for isolated test use.
-private func makeInMemoryContainer() throws -> ModelContainer {
-    let schema = Schema([
-        CountSession.self,
-        ObjectType.self,
-        CountMarker.self,
-        CountRegion.self,
-        SessionImage.self,
-        VideoFrameCount.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [config])
-}
-
-/// A `StorageServiceProtocol` implementation backed by an in-memory SwiftData context.
+/// A `StorageServiceProtocol` implementation backed by an in-memory array.
 /// Used to drive `SessionListViewModel` in tests without touching the real store.
 @MainActor
 private final class InMemoryStorageService: StorageServiceProtocol {
-    let context: ModelContext
-
-    init(context: ModelContext) {
-        self.context = context
-    }
+    var sessions: [CountSession] = []
 
     func save(_ session: CountSession) async throws {
-        context.insert(session)
-        try context.save()
+        if let index = sessions.firstIndex(where: { $0.id == session.id }) {
+            sessions[index] = session
+        } else {
+            sessions.append(session)
+        }
     }
 
     func delete(_ session: CountSession) async throws {
-        context.delete(session)
-        try context.save()
+        sessions.removeAll { $0.id == session.id }
     }
 
     func fetchAllSessions() async throws -> [CountSession] {
-        let descriptor = FetchDescriptor<CountSession>(
-            sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
-        )
-        return try context.fetch(descriptor)
+        sessions.sorted { $0.modifiedAt > $1.modifiedAt }
     }
 
     func fetchSessions(matching query: String) async throws -> [CountSession] {
         guard !query.isEmpty else { return try await fetchAllSessions() }
-        let descriptor = FetchDescriptor<CountSession>(
-            predicate: #Predicate { $0.name.localizedStandardContains(query) },
-            sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
-        )
-        return try context.fetch(descriptor)
+        return sessions.filter { $0.name.localizedStandardContains(query) }
+            .sorted { $0.modifiedAt > $1.modifiedAt }
     }
 }
 
@@ -116,20 +93,16 @@ final class SessionSearchTests: XCTestCase {
     @MainActor
     private static func searchPropertyHolds(names: [String], query: String) async -> Bool {
         do {
-            let container = try makeInMemoryContainer()
-            let context = ModelContext(container)
-            let storage = InMemoryStorageService(context: context)
+            let storage = InMemoryStorageService()
             let viewModel = SessionListViewModel(storage: storage)
 
             // Insert sessions with staggered modifiedAt so ordering is deterministic.
-            var insertedSessions: [CountSession] = []
             for (index, name) in names.enumerated() {
                 let session = CountSession(
                     name: name,
                     modifiedAt: Date(timeIntervalSinceReferenceDate: Double(index))
                 )
                 try await storage.save(session)
-                insertedSessions.append(session)
             }
 
             // Load sessions into the view model.
@@ -156,9 +129,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// Empty query returns all sessions.
     func testEmptyQueryReturnsAllSessions() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let names = ["Alpha", "Beta", "Gamma"]
@@ -176,9 +147,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// Query that matches no sessions returns an empty list.
     func testQueryWithNoMatchesReturnsEmpty() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let names = ["Apple", "Banana", "Cherry"]
@@ -196,9 +165,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// Search is case-insensitive: "apple" matches "Apple".
     func testSearchIsCaseInsensitive() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let session = CountSession(name: "Apple Orchard")
@@ -213,9 +180,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// Query that matches a subset returns only that subset.
     func testQueryMatchesSubset() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let names = ["Bird Count", "Car Survey", "Bird Watching", "Tree Count"]
@@ -236,9 +201,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// No sessions in store → filtered result is empty regardless of query.
     func testEmptyStoreAlwaysReturnsEmpty() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         await viewModel.loadSessions()
@@ -252,9 +215,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// Vietnamese diacritics: searching "Hà Nội" matches the session with that name.
     func testVietnameseDiacriticsSearch() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let names = ["Hà Nội Survey", "Ho Chi Minh Count", "Bird Count"]
@@ -272,9 +233,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// CJK characters: searching "鸟" (bird in Chinese) matches the session.
     func testCJKCharacterSearch() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let names = ["鸟类调查", "车辆统计", "Bird Count"]
@@ -292,9 +251,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// Japanese katakana: searching "カウント" matches the session.
     func testJapaneseKatakanaSearch() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let names = ["カウントセッション", "鳥の調査", "Bird Count"]
@@ -312,9 +269,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// Korean: searching "조류" matches the session with that substring.
     func testKoreanSearch() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let names = ["조류 조사", "차량 계수", "Bird Count"]
@@ -332,9 +287,7 @@ final class SessionSearchTests: XCTestCase {
 
     /// Arabic RTL text: searching "طيور" matches the session.
     func testArabicRTLSearch() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-        let storage = await MainActor.run { InMemoryStorageService(context: context) }
+        let storage = await MainActor.run { InMemoryStorageService() }
         let viewModel = await MainActor.run { SessionListViewModel(storage: storage) }
 
         let names = ["مسح الطيور", "إحصاء السيارات", "Bird Count"]

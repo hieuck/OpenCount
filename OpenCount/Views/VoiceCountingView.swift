@@ -365,7 +365,6 @@ struct VoiceCountingView: View {
     let type1 = ObjectType(name: "Eagle", colorHex: "#E74C3C", iconName: "bird.fill", sortOrder: 0, session: session)
     let type2 = ObjectType(name: "Hawk", colorHex: "#3498DB", iconName: "bird", sortOrder: 1, session: session)
     session.objectTypes = [type1, type2]
-
     return VoiceCountingView(
         session: session,
         viewModel: CountingViewModel(session: session)

@@ -1,26 +1,9 @@
 import XCTest
-import SwiftData
 import SwiftCheck
 @testable import OpenCount
 
 // Feature: open-count-ios, Property 14: Collaborative sync preserves total marker count
 // Validates: Requirements 28.2, 28.5
-
-// MARK: - Helpers
-
-/// Builds an in-memory `ModelContainer` for isolated test use.
-private func makeInMemoryContainer() throws -> ModelContainer {
-    let schema = Schema([
-        CountSession.self,
-        ObjectType.self,
-        CountMarker.self,
-        CountRegion.self,
-        SessionImage.self,
-        VideoFrameCount.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [config])
-}
 
 // MARK: - Tests
 
@@ -75,12 +58,8 @@ final class CollaborativeSyncTests: XCTestCase {
     ///   2. Set(merged.map(\.id)).count == merged.count  (no duplicate UUIDs)
     @MainActor
     private static func collaborativeSyncPropertyHolds(n: Int, m: Int) async throws -> Bool {
-        let container = try makeInMemoryContainer()
-        let context = ModelContext(container)
-
         // Build a shared session and a shared ObjectType
         let session = CountSession(name: "Collaborative Sync Test")
-        context.insert(session)
 
         let sharedType = ObjectType(
             name: "SharedType",
@@ -89,7 +68,6 @@ final class CollaborativeSyncTests: XCTestCase {
             sortOrder: 0,
             session: session
         )
-        context.insert(sharedType)
         session.objectTypes.append(sharedType)
 
         // Participant A adds N markers — each with a unique UUID
@@ -145,9 +123,6 @@ final class CollaborativeSyncTests: XCTestCase {
 
     /// When N = 0 and M = 0, the merged set is empty.
     func testMergeWithBothZeroMarkersIsEmpty() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Zero Markers Session")
         let sharedType = ObjectType(
             name: "SharedType",
@@ -156,12 +131,7 @@ final class CollaborativeSyncTests: XCTestCase {
             sortOrder: 0,
             session: session
         )
-
-        await MainActor.run {
-            context.insert(session)
-            context.insert(sharedType)
-            session.objectTypes.append(sharedType)
-        }
+        session.objectTypes.append(sharedType)
 
         // Both participants add 0 markers
         let participantAMarkers: [CountMarker] = []
@@ -178,9 +148,6 @@ final class CollaborativeSyncTests: XCTestCase {
 
     /// When N = 0, the merged set equals participant B's markers.
     func testMergeWithParticipantAHavingZeroMarkers() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "A Zero Session")
         let sharedType = ObjectType(
             name: "SharedType",
@@ -189,29 +156,22 @@ final class CollaborativeSyncTests: XCTestCase {
             sortOrder: 0,
             session: session
         )
-
-        await MainActor.run {
-            context.insert(session)
-            context.insert(sharedType)
-            session.objectTypes.append(sharedType)
-        }
+        session.objectTypes.append(sharedType)
 
         let m = 5
         let participantAMarkers: [CountMarker] = []
         var participantBMarkers: [CountMarker] = []
 
-        await MainActor.run {
-            for j in 0..<m {
-                let marker = CountMarker(
-                    id: UUID(),
-                    normalizedX: Double(j) * 0.1,
-                    normalizedY: 0.5,
-                    objectType: sharedType,
-                    isAIDerived: false,
-                    session: session
-                )
-                participantBMarkers.append(marker)
-            }
+        for j in 0..<m {
+            let marker = CountMarker(
+                id: UUID(),
+                normalizedX: Double(j) * 0.1,
+                normalizedY: 0.5,
+                objectType: sharedType,
+                isAIDerived: false,
+                session: session
+            )
+            participantBMarkers.append(marker)
         }
 
         var mergedByID: [UUID: CountMarker] = [:]
@@ -225,9 +185,6 @@ final class CollaborativeSyncTests: XCTestCase {
 
     /// When M = 0, the merged set equals participant A's markers.
     func testMergeWithParticipantBHavingZeroMarkers() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "B Zero Session")
         let sharedType = ObjectType(
             name: "SharedType",
@@ -236,29 +193,22 @@ final class CollaborativeSyncTests: XCTestCase {
             sortOrder: 0,
             session: session
         )
-
-        await MainActor.run {
-            context.insert(session)
-            context.insert(sharedType)
-            session.objectTypes.append(sharedType)
-        }
+        session.objectTypes.append(sharedType)
 
         let n = 7
         var participantAMarkers: [CountMarker] = []
         let participantBMarkers: [CountMarker] = []
 
-        await MainActor.run {
-            for i in 0..<n {
-                let marker = CountMarker(
-                    id: UUID(),
-                    normalizedX: Double(i) * 0.1,
-                    normalizedY: 0.2,
-                    objectType: sharedType,
-                    isAIDerived: false,
-                    session: session
-                )
-                participantAMarkers.append(marker)
-            }
+        for i in 0..<n {
+            let marker = CountMarker(
+                id: UUID(),
+                normalizedX: Double(i) * 0.1,
+                normalizedY: 0.2,
+                objectType: sharedType,
+                isAIDerived: false,
+                session: session
+            )
+            participantAMarkers.append(marker)
         }
 
         var mergedByID: [UUID: CountMarker] = [:]
@@ -272,9 +222,6 @@ final class CollaborativeSyncTests: XCTestCase {
 
     /// Merging two non-empty sets of markers with unique UUIDs yields N + M total with no duplicates.
     func testMergeWithBothParticipantsAddingMarkers() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Both Participants Session")
         let sharedType = ObjectType(
             name: "SharedType",
@@ -283,41 +230,34 @@ final class CollaborativeSyncTests: XCTestCase {
             sortOrder: 0,
             session: session
         )
-
-        await MainActor.run {
-            context.insert(session)
-            context.insert(sharedType)
-            session.objectTypes.append(sharedType)
-        }
+        session.objectTypes.append(sharedType)
 
         let n = 8
         let m = 6
         var participantAMarkers: [CountMarker] = []
         var participantBMarkers: [CountMarker] = []
 
-        await MainActor.run {
-            for i in 0..<n {
-                let marker = CountMarker(
-                    id: UUID(),
-                    normalizedX: Double(i) * 0.1,
-                    normalizedY: 0.1,
-                    objectType: sharedType,
-                    isAIDerived: false,
-                    session: session
-                )
-                participantAMarkers.append(marker)
-            }
-            for j in 0..<m {
-                let marker = CountMarker(
-                    id: UUID(),
-                    normalizedX: Double(j) * 0.1,
-                    normalizedY: 0.9,
-                    objectType: sharedType,
-                    isAIDerived: false,
-                    session: session
-                )
-                participantBMarkers.append(marker)
-            }
+        for i in 0..<n {
+            let marker = CountMarker(
+                id: UUID(),
+                normalizedX: Double(i) * 0.1,
+                normalizedY: 0.1,
+                objectType: sharedType,
+                isAIDerived: false,
+                session: session
+            )
+            participantAMarkers.append(marker)
+        }
+        for j in 0..<m {
+            let marker = CountMarker(
+                id: UUID(),
+                normalizedX: Double(j) * 0.1,
+                normalizedY: 0.9,
+                objectType: sharedType,
+                isAIDerived: false,
+                session: session
+            )
+            participantBMarkers.append(marker)
         }
 
         var mergedByID: [UUID: CountMarker] = [:]
@@ -333,9 +273,6 @@ final class CollaborativeSyncTests: XCTestCase {
 
     /// Union semantics: if the same marker UUID appears in both sets, it is counted only once.
     func testMergeDeduplicatesMarkersWithSameUUID() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Dedup Session")
         let sharedType = ObjectType(
             name: "SharedType",
@@ -344,12 +281,7 @@ final class CollaborativeSyncTests: XCTestCase {
             sortOrder: 0,
             session: session
         )
-
-        await MainActor.run {
-            context.insert(session)
-            context.insert(sharedType)
-            session.objectTypes.append(sharedType)
-        }
+        session.objectTypes.append(sharedType)
 
         // Create 3 markers with known UUIDs
         let sharedID = UUID()
@@ -359,31 +291,29 @@ final class CollaborativeSyncTests: XCTestCase {
         var participantAMarkers: [CountMarker] = []
         var participantBMarkers: [CountMarker] = []
 
-        await MainActor.run {
-            // Participant A has: sharedID, idA
-            participantAMarkers.append(CountMarker(
-                id: sharedID,
-                normalizedX: 0.1, normalizedY: 0.1,
-                objectType: sharedType, session: session
-            ))
-            participantAMarkers.append(CountMarker(
-                id: idA,
-                normalizedX: 0.2, normalizedY: 0.2,
-                objectType: sharedType, session: session
-            ))
+        // Participant A has: sharedID, idA
+        participantAMarkers.append(CountMarker(
+            id: sharedID,
+            normalizedX: 0.1, normalizedY: 0.1,
+            objectType: sharedType, session: session
+        ))
+        participantAMarkers.append(CountMarker(
+            id: idA,
+            normalizedX: 0.2, normalizedY: 0.2,
+            objectType: sharedType, session: session
+        ))
 
-            // Participant B has: sharedID (same!), idB
-            participantBMarkers.append(CountMarker(
-                id: sharedID,
-                normalizedX: 0.1, normalizedY: 0.1,
-                objectType: sharedType, session: session
-            ))
-            participantBMarkers.append(CountMarker(
-                id: idB,
-                normalizedX: 0.3, normalizedY: 0.3,
-                objectType: sharedType, session: session
-            ))
-        }
+        // Participant B has: sharedID (same!), idB
+        participantBMarkers.append(CountMarker(
+            id: sharedID,
+            normalizedX: 0.1, normalizedY: 0.1,
+            objectType: sharedType, session: session
+        ))
+        participantBMarkers.append(CountMarker(
+            id: idB,
+            normalizedX: 0.3, normalizedY: 0.3,
+            objectType: sharedType, session: session
+        ))
 
         // Merge using union semantics (deduplicate by id)
         var mergedByID: [UUID: CountMarker] = [:]
@@ -403,9 +333,6 @@ final class CollaborativeSyncTests: XCTestCase {
 
     /// Large N + M: merging 20 + 20 markers yields 40 total with no duplicates.
     func testMergeWithLargeNAndM() async throws {
-        let container = try makeInMemoryContainer()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Large Merge Session")
         let sharedType = ObjectType(
             name: "SharedType",
@@ -414,41 +341,34 @@ final class CollaborativeSyncTests: XCTestCase {
             sortOrder: 0,
             session: session
         )
-
-        await MainActor.run {
-            context.insert(session)
-            context.insert(sharedType)
-            session.objectTypes.append(sharedType)
-        }
+        session.objectTypes.append(sharedType)
 
         let n = 20
         let m = 20
         var participantAMarkers: [CountMarker] = []
         var participantBMarkers: [CountMarker] = []
 
-        await MainActor.run {
-            for i in 0..<n {
-                let marker = CountMarker(
-                    id: UUID(),
-                    normalizedX: Double(i % 10) / 10.0,
-                    normalizedY: Double(i / 10 % 10) / 10.0,
-                    objectType: sharedType,
-                    isAIDerived: false,
-                    session: session
-                )
-                participantAMarkers.append(marker)
-            }
-            for j in 0..<m {
-                let marker = CountMarker(
-                    id: UUID(),
-                    normalizedX: Double((j + 5) % 10) / 10.0,
-                    normalizedY: Double((j + 5) / 10 % 10) / 10.0,
-                    objectType: sharedType,
-                    isAIDerived: false,
-                    session: session
-                )
-                participantBMarkers.append(marker)
-            }
+        for i in 0..<n {
+            let marker = CountMarker(
+                id: UUID(),
+                normalizedX: Double(i % 10) / 10.0,
+                normalizedY: Double(i / 10 % 10) / 10.0,
+                objectType: sharedType,
+                isAIDerived: false,
+                session: session
+            )
+            participantAMarkers.append(marker)
+        }
+        for j in 0..<m {
+            let marker = CountMarker(
+                id: UUID(),
+                normalizedX: Double((j + 5) % 10) / 10.0,
+                normalizedY: Double((j + 5) / 10 % 10) / 10.0,
+                objectType: sharedType,
+                isAIDerived: false,
+                session: session
+            )
+            participantBMarkers.append(marker)
         }
 
         var mergedByID: [UUID: CountMarker] = [:]

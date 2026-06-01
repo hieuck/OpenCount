@@ -1,5 +1,4 @@
 import XCTest
-import SwiftData
 import SwiftCheck
 @testable import OpenCount
 
@@ -7,20 +6,6 @@ import SwiftCheck
 // Validates: Requirements 12.2
 
 // MARK: - Helpers
-
-/// Builds an in-memory `ModelContainer` for isolated test use.
-private func makeInMemoryContainerForJSON() throws -> ModelContainer {
-    let schema = Schema([
-        CountSession.self,
-        ObjectType.self,
-        CountMarker.self,
-        CountRegion.self,
-        SessionImage.self,
-        VideoFrameCount.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [config])
-}
 
 /// Generates a random normalized coordinate in [0.0, 1.0].
 private let jsonNormalizedCoordGen: Gen<Double> = Gen<Double>.choose((0.0, 1.0))
@@ -92,14 +77,10 @@ final class JSONExportTests: XCTestCase {
         objectTypeCount: Int,
         markerCount: Int
     ) async throws -> Bool {
-        let container = try makeInMemoryContainerForJSON()
-        let context = ModelContext(container)
-
         // 1. Build the session
         let sessionID = UUID()
         let sessionName = "JSON Round-Trip Test \(sessionID.uuidString.prefix(8))"
         let session = CountSession(id: sessionID, name: sessionName)
-        context.insert(session)
 
         // 2. Add object types with deterministic safe names and colors
         var objectTypes: [ObjectType] = []
@@ -112,7 +93,6 @@ final class JSONExportTests: XCTestCase {
                 sortOrder: i,
                 session: session
             )
-            context.insert(ot)
             objectTypes.append(ot)
             session.objectTypes.append(ot)
         }
@@ -133,7 +113,6 @@ final class JSONExportTests: XCTestCase {
                 isAIDerived: aiDerived,
                 session: session
             )
-            context.insert(marker)
             session.markers.append(marker)
             originalMarkers.append((id: markerID, objectTypeID: ot.id, x: x, y: y, isAIDerived: aiDerived))
         }
@@ -204,12 +183,8 @@ final class JSONExportTests: XCTestCase {
 
     /// Empty session: JSON encodes and decodes with zero objectTypes and zero markers.
     func testJSONExportEmptySession() async throws {
-        let container = try makeInMemoryContainerForJSON()
-        let context = await MainActor.run { ModelContext(container) }
-
         let sessionID = UUID()
         let session = CountSession(id: sessionID, name: "Empty Session")
-        await MainActor.run { context.insert(session) }
 
         let jsonData = try ExportService().exportJSON(session: session)
 
@@ -226,9 +201,6 @@ final class JSONExportTests: XCTestCase {
 
     /// Single marker: coordinates, objectTypeID, and isAIDerived are preserved.
     func testJSONExportSingleMarkerRoundTrip() async throws {
-        let container = try makeInMemoryContainerForJSON()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Single Marker")
         let objectType = ObjectType(
             name: "People",
@@ -247,13 +219,8 @@ final class JSONExportTests: XCTestCase {
             session: session
         )
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(objectType)
-            context.insert(marker)
-            session.objectTypes.append(objectType)
-            session.markers.append(marker)
-        }
+        session.objectTypes.append(objectType)
+        session.markers.append(marker)
 
         let jsonData = try ExportService().exportJSON(session: session)
 
@@ -272,21 +239,12 @@ final class JSONExportTests: XCTestCase {
 
     /// Multiple object types: all names and colorHex values are preserved in the DTO.
     func testJSONExportMultipleObjectTypes() async throws {
-        let container = try makeInMemoryContainerForJSON()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Multi-Type Test")
         let typeA = ObjectType(name: "TypeA", colorHex: "#FF0000", iconName: "circle.fill", sortOrder: 0, session: session)
         let typeB = ObjectType(name: "TypeB", colorHex: "#00FF00", iconName: "star.fill", sortOrder: 1, session: session)
         let typeC = ObjectType(name: "TypeC", colorHex: "#0000FF", iconName: "leaf.fill", sortOrder: 2, session: session)
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(typeA)
-            context.insert(typeB)
-            context.insert(typeC)
-            session.objectTypes.append(contentsOf: [typeA, typeB, typeC])
-        }
+        session.objectTypes.append(contentsOf: [typeA, typeB, typeC])
 
         let jsonData = try ExportService().exportJSON(session: session)
 
@@ -313,9 +271,6 @@ final class JSONExportTests: XCTestCase {
 
     /// AI-derived flag is preserved for both human-placed and AI-derived markers.
     func testJSONExportPreservesAIDerivedFlag() async throws {
-        let container = try makeInMemoryContainerForJSON()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "AI Flag Test")
         let objectType = ObjectType(
             name: "Birds",
@@ -344,14 +299,8 @@ final class JSONExportTests: XCTestCase {
             session: session
         )
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(objectType)
-            context.insert(humanMarker)
-            context.insert(aiMarker)
-            session.objectTypes.append(objectType)
-            session.markers.append(contentsOf: [humanMarker, aiMarker])
-        }
+        session.objectTypes.append(objectType)
+        session.markers.append(contentsOf: [humanMarker, aiMarker])
 
         let jsonData = try ExportService().exportJSON(session: session)
 
@@ -372,9 +321,6 @@ final class JSONExportTests: XCTestCase {
 
     /// Session description is preserved (both nil and non-nil cases).
     func testJSONExportPreservesSessionDescription() async throws {
-        let container = try makeInMemoryContainerForJSON()
-        let context = await MainActor.run { ModelContext(container) }
-
         // Session with description
         let sessionWithDesc = CountSession(
             name: "Described Session",
@@ -382,11 +328,6 @@ final class JSONExportTests: XCTestCase {
         )
         // Session without description
         let sessionNoDesc = CountSession(name: "No Description Session")
-
-        await MainActor.run {
-            context.insert(sessionWithDesc)
-            context.insert(sessionNoDesc)
-        }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

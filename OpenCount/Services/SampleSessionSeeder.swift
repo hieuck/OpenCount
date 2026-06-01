@@ -1,66 +1,60 @@
 import SwiftUI
-import SwiftData
 
 // MARK: - SampleSessionSeeder
 
-/// Seeds the bundled `SampleSession.json` fixture into SwiftData on first launch.
-///
-/// The seeder is idempotent: it checks `UserDefaults` for the key
-/// `"hasSeedSampleSession"` before inserting, so the sample session is only
-/// created once.  The "Restore Sample Session" action in Settings calls
-/// `seedIfNeeded(force:)` with `force: true` to re-create it even if it was
-/// previously deleted.
+/// Seeds the bundled `SampleSession.json` fixture into StorageService on first launch.
 ///
 /// Requirements: 29.4, 29.5
 enum SampleSessionSeeder {
 
-    // MARK: - UserDefaults key
-
     private static let seededKey = "hasSeedSampleSession"
 
-    // MARK: - Public API
-
     /// Seeds the sample session if it has not been seeded before.
-    ///
-    /// - Parameters:
-    ///   - context: The SwiftData `ModelContext` to insert into.
-    ///   - force: When `true`, seeds even if the session was previously created.
-    ///            Used by the "Restore Sample Session" Settings action.
+    /// - Parameter force: When true, seeds even if previously created.
     @MainActor
-    static func seedIfNeeded(into context: ModelContext, force: Bool = false) {
+    static func seedIfNeeded(force: Bool = false) async {
         guard force || !UserDefaults.standard.bool(forKey: seededKey) else { return }
         guard let session = loadFixture() else { return }
-        context.insert(session)
-        try? context.save()
+        try? await StorageService.shared.save(session)
         UserDefaults.standard.set(true, forKey: seededKey)
+    }
+
+    /// Seeds into an AppState (called from AppState.seedSampleIfNeeded).
+    @MainActor
+    static func seed(into appState: AppState) {
+        guard let session = loadFixture() else { return }
+        appState.sessions.append(session)
+        Task { try? await StorageService.shared.save(session) }
     }
 
     // MARK: - Fixture loading
 
-    /// Parses `SampleSession.json` from the app bundle and constructs a
-    /// `CountSession` with its associated `ObjectType` and `CountMarker` records.
     private static func loadFixture() -> CountSession? {
         guard let url = Bundle.main.url(forResource: "SampleSession", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let dto = try? JSONDecoder().decode(SampleSessionDTO.self, from: data)
         else {
-            assertionFailure("SampleSession.json missing or malformed")
             return nil
         }
 
-        // Build ObjectType map
+        let session = CountSession(
+            name: dto.name,
+            sessionDescription: dto.sessionDescription
+        )
+
         var objectTypeMap: [String: ObjectType] = [:]
         for otDTO in dto.objectTypes {
             let ot = ObjectType(
                 name: otDTO.name,
                 colorHex: otDTO.colorHex,
                 iconName: otDTO.iconName,
-                sortOrder: otDTO.sortOrder
+                sortOrder: otDTO.sortOrder,
+                session: session
             )
             objectTypeMap[otDTO.id] = ot
         }
+        session.objectTypes = Array(objectTypeMap.values).sorted { $0.sortOrder < $1.sortOrder }
 
-        // Build CountMarker list
         var markers: [CountMarker] = []
         for mDTO in dto.markers {
             guard let objectType = objectTypeMap[mDTO.objectTypeID] else { continue }
@@ -68,12 +62,13 @@ enum SampleSessionSeeder {
                 normalizedX: mDTO.normalizedX,
                 normalizedY: mDTO.normalizedY,
                 objectType: objectType,
-                isAIDerived: mDTO.isAIDerived
+                isAIDerived: mDTO.isAIDerived,
+                session: session
             )
             markers.append(marker)
         }
+        session.markers = markers
 
-        // Build CountRegion list
         var regions: [CountRegion] = []
         for rDTO in dto.regions {
             let points = rDTO.normalizedPoints.map { CGPoint(x: $0.x, y: $0.y) }
@@ -82,25 +77,18 @@ enum SampleSessionSeeder {
                 name: rDTO.name,
                 colorHex: rDTO.colorHex,
                 shapeType: shapeType,
-                normalizedPoints: points
+                normalizedPoints: points,
+                session: session
             )
             regions.append(region)
         }
-
-        // Assemble session
-        let session = CountSession(
-            name: dto.name,
-            sessionDescription: dto.sessionDescription
-        )
-        session.objectTypes = Array(objectTypeMap.values)
-        session.markers = markers
         session.regions = regions
 
         return session
     }
 }
 
-// MARK: - DTO types (private, used only for JSON decoding)
+// MARK: - DTO types
 
 private struct SampleSessionDTO: Decodable {
     let id: String

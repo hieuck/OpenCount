@@ -1,6 +1,5 @@
 import Foundation
 import CloudKit
-import SwiftData
 import Combine
 
 // MARK: - CollaborationService

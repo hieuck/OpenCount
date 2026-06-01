@@ -1,5 +1,4 @@
 import XCTest
-import SwiftData
 import SwiftCheck
 @testable import OpenCount
 
@@ -7,20 +6,6 @@ import SwiftCheck
 // Validates: Requirements 12.1
 
 // MARK: - Helpers
-
-/// Builds an in-memory `ModelContainer` for isolated test use.
-private func makeInMemoryContainerForCSV() throws -> ModelContainer {
-    let schema = Schema([
-        CountSession.self,
-        ObjectType.self,
-        CountMarker.self,
-        CountRegion.self,
-        SessionImage.self,
-        VideoFrameCount.self,
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [config])
-}
 
 /// Generates a random normalized coordinate in [0.0, 1.0].
 private let csvNormalizedCoordGen: Gen<Double> = Gen<Double>.choose((0.0, 1.0))
@@ -179,12 +164,8 @@ final class CSVExportTests: XCTestCase {
         objectTypeCount: Int,
         markerCount: Int
     ) async throws -> Bool {
-        let container = try makeInMemoryContainerForCSV()
-        let context = ModelContext(container)
-
         // 1. Build the session
         let session = CountSession(name: "CSV Round-Trip Test")
-        context.insert(session)
 
         // 2. Add object types with deterministic safe names
         var objectTypes: [ObjectType] = []
@@ -196,7 +177,6 @@ final class CSVExportTests: XCTestCase {
                 sortOrder: i,
                 session: session
             )
-            context.insert(ot)
             objectTypes.append(ot)
             session.objectTypes.append(ot)
         }
@@ -215,7 +195,6 @@ final class CSVExportTests: XCTestCase {
                 isAIDerived: j % 3 == 0,
                 session: session
             )
-            context.insert(marker)
             session.markers.append(marker)
             originalMarkers.append((objectTypeID: ot.id, objectTypeName: ot.name, x: x, y: y))
         }
@@ -274,11 +253,7 @@ final class CSVExportTests: XCTestCase {
 
     /// CSV header row is present and contains the expected (English) localized column names.
     func testCSVExportHasCorrectHeader() async throws {
-        let container = try makeInMemoryContainerForCSV()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Header Test")
-        await MainActor.run { context.insert(session) }
 
         let csvData = try ExportService().exportCSV(session: session)
         let text = try XCTUnwrap(String(data: csvData, encoding: .utf8))
@@ -298,11 +273,7 @@ final class CSVExportTests: XCTestCase {
 
     /// Empty session exports only the header row.
     func testCSVExportEmptySessionProducesOnlyHeader() async throws {
-        let container = try makeInMemoryContainerForCSV()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Empty Session")
-        await MainActor.run { context.insert(session) }
 
         let csvData = try ExportService().exportCSV(session: session)
         let rows = try XCTUnwrap(parseCSV(csvData))
@@ -311,9 +282,6 @@ final class CSVExportTests: XCTestCase {
 
     /// Single marker: tally is 1, coordinates are preserved.
     func testCSVExportSingleMarkerRoundTrip() async throws {
-        let container = try makeInMemoryContainerForCSV()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Single Marker")
         let objectType = ObjectType(
             name: "People",
@@ -329,14 +297,8 @@ final class CSVExportTests: XCTestCase {
             isAIDerived: false,
             session: session
         )
-
-        await MainActor.run {
-            context.insert(session)
-            context.insert(objectType)
-            context.insert(marker)
-            session.objectTypes.append(objectType)
-            session.markers.append(marker)
-        }
+        session.objectTypes.append(objectType)
+        session.markers.append(marker)
 
         let csvData = try ExportService().exportCSV(session: session)
         let rows = try XCTUnwrap(parseCSV(csvData))
@@ -352,9 +314,6 @@ final class CSVExportTests: XCTestCase {
 
     /// Multiple object types: each row's tally reflects the correct per-type count.
     func testCSVExportTalliesAreCorrectPerObjectType() async throws {
-        let container = try makeInMemoryContainerForCSV()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Multi-Type Tally Test")
         let typeA = ObjectType(name: "TypeA", colorHex: "#FF0000", iconName: "circle.fill", sortOrder: 0, session: session)
         let typeB = ObjectType(name: "TypeB", colorHex: "#00FF00", iconName: "star.fill", sortOrder: 1, session: session)
@@ -367,15 +326,8 @@ final class CSVExportTests: XCTestCase {
             CountMarker(normalizedX: Double(i) * 0.1, normalizedY: 0.9, objectType: typeB, session: session)
         }
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(typeA)
-            context.insert(typeB)
-            markersA.forEach { context.insert($0) }
-            markersB.forEach { context.insert($0) }
-            session.objectTypes.append(contentsOf: [typeA, typeB])
-            session.markers.append(contentsOf: markersA + markersB)
-        }
+        session.objectTypes.append(contentsOf: [typeA, typeB])
+        session.markers.append(contentsOf: markersA + markersB)
 
         let csvData = try ExportService().exportCSV(session: session)
         let rows = try XCTUnwrap(parseCSV(csvData))
@@ -400,23 +352,14 @@ final class CSVExportTests: XCTestCase {
 
     /// AI-derived flag is preserved in the CSV round-trip.
     func testCSVExportPreservesAIDerivedFlag() async throws {
-        let container = try makeInMemoryContainerForCSV()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "AI Flag Test")
         let objectType = ObjectType(name: "Birds", colorHex: "#0000FF", iconName: "leaf.fill", sortOrder: 0, session: session)
 
         let humanMarker = CountMarker(normalizedX: 0.2, normalizedY: 0.3, objectType: objectType, isAIDerived: false, session: session)
         let aiMarker = CountMarker(normalizedX: 0.7, normalizedY: 0.8, objectType: objectType, isAIDerived: true, session: session)
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(objectType)
-            context.insert(humanMarker)
-            context.insert(aiMarker)
-            session.objectTypes.append(objectType)
-            session.markers.append(contentsOf: [humanMarker, aiMarker])
-        }
+        session.objectTypes.append(objectType)
+        session.markers.append(contentsOf: [humanMarker, aiMarker])
 
         let csvData = try ExportService().exportCSV(session: session)
         let rows = try XCTUnwrap(parseCSV(csvData))
@@ -430,9 +373,6 @@ final class CSVExportTests: XCTestCase {
 
     /// Marker coordinates are preserved within 1e-5 precision across the full [0,1] range.
     func testCSVExportCoordinatePrecision() async throws {
-        let container = try makeInMemoryContainerForCSV()
-        let context = await MainActor.run { ModelContext(container) }
-
         let session = CountSession(name: "Coordinate Precision Test")
         let objectType = ObjectType(name: "Dots", colorHex: "#FF5733", iconName: "circle.fill", sortOrder: 0, session: session)
 
@@ -448,13 +388,8 @@ final class CSVExportTests: XCTestCase {
             CountMarker(normalizedX: x, normalizedY: y, objectType: objectType, session: session)
         }
 
-        await MainActor.run {
-            context.insert(session)
-            context.insert(objectType)
-            markers.forEach { context.insert($0) }
-            session.objectTypes.append(objectType)
-            session.markers.append(contentsOf: markers)
-        }
+        session.objectTypes.append(objectType)
+        session.markers.append(contentsOf: markers)
 
         let csvData = try ExportService().exportCSV(session: session)
         let rows = try XCTUnwrap(parseCSV(csvData))
@@ -465,6 +400,18 @@ final class CSVExportTests: XCTestCase {
                            "X coordinate should round-trip within 1e-5 for input \(expectedX)")
             XCTAssertEqual(row.markerY, expectedY, accuracy: 1e-5,
                            "Y coordinate should round-trip within 1e-5 for input \(expectedY)")
+        }
+    }
+}
+
+// MARK: - SwiftCheck helper
+
+/// Sequences a list of generators into a generator of lists.
+private func sequence<T>(_ gens: [Gen<T>]) -> Gen<[T]> {
+    guard !gens.isEmpty else { return Gen.pure([]) }
+    return gens.reduce(Gen.pure([])) { acc, gen in
+        acc.flatMap { list in
+            gen.map { element in list + [element] }
         }
     }
 }

@@ -1,6 +1,5 @@
 import Foundation
 import CloudKit
-import SwiftData
 
 // MARK: - MarketplaceObjectTypeData
 
@@ -305,11 +304,9 @@ final class TemplateMarketplaceService: ObservableObject {
     /// - Parameters:
     ///   - template: The template to install.
     ///   - session: The CountSession to add the Object_Types to.
-    ///   - context: The SwiftData ModelContext for persisting new ObjectType records.
     func installTemplate(
         _ template: MarketplaceTemplate,
-        into session: CountSession,
-        context: ModelContext
+        into session: CountSession
     ) async throws {
         let existingSortOrders = session.objectTypes.map(\.sortOrder)
         let maxSortOrder = existingSortOrders.max() ?? -1
@@ -323,11 +320,10 @@ final class TemplateMarketplaceService: ObservableObject {
                 sortOrder: maxSortOrder + 1 + index,
                 session: session
             )
-            context.insert(objectType)
             session.objectTypes.append(objectType)
         }
 
-        try context.save()
+        try await StorageService.shared.save(session)
 
         // Increment download count in CloudKit (best-effort, non-blocking)
         Task.detached(priority: .background) { [weak self] in

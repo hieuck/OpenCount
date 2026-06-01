@@ -1,27 +1,19 @@
 import SwiftUI
-import SwiftData
 
 // MARK: - PrivateTemplateLibraryView
 
 /// Shows the user's private saved templates and allows applying them to new sessions.
-/// Templates are stored locally in SwiftData and can be applied with one tap.
+/// Templates are stored locally in Documents/templates.json and can be applied with one tap.
 ///
 /// Requirement 54 (Req 43): private template library for one-tap session creation.
 struct PrivateTemplateLibraryView: View {
 
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-
-    @Query(
-        filter: #Predicate<SessionTemplate> { $0.isPrivate == true },
-        sort: \SessionTemplate.createdAt,
-        order: .reverse
-    )
-    private var templates: [SessionTemplate]
 
     /// Called when the user selects a template to apply.
     let onSelectTemplate: (SessionTemplate) -> Void
 
+    @State private var templates: [SessionTemplate] = []
     @State private var templateToDelete: SessionTemplate?
     @State private var isShowingDeleteConfirmation: Bool = false
 
@@ -50,7 +42,8 @@ struct PrivateTemplateLibraryView: View {
                 presenting: templateToDelete
             ) { template in
                 Button("Delete", role: .destructive) {
-                    try? service.deleteTemplate(template, from: modelContext)
+                    service.deleteTemplate(template)
+                    templates = service.loadAll().filter { $0.isPrivate }
                 }
                 .accessibilityLabel("Confirm delete template \(template.name)")
                 Button("Cancel", role: .cancel) {}
@@ -58,6 +51,9 @@ struct PrivateTemplateLibraryView: View {
             } message: { template in
                 Text("Delete '\(template.name)'? This cannot be undone.")
             }
+        }
+        .onAppear {
+            templates = service.loadAll().filter { $0.isPrivate }
         }
     }
 
@@ -172,7 +168,6 @@ struct SaveAsTemplateSheet: View {
 
     let session: CountSession
 
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var templateName: String = ""
@@ -256,8 +251,7 @@ struct SaveAsTemplateSheet: View {
             try service.saveAsTemplate(
                 name: name,
                 description: desc.isEmpty ? nil : desc,
-                from: session,
-                into: modelContext
+                from: session
             )
             dismiss()
         } catch {
@@ -276,10 +270,4 @@ struct SaveAsTemplateSheet: View {
     PrivateTemplateLibraryView { template in
         print("Selected: \(template.name)")
     }
-    .modelContainer(
-        for: [CountSession.self, ObjectType.self, CountMarker.self,
-              CountRegion.self, SessionImage.self, VideoFrameCount.self,
-              SessionTemplate.self],
-        inMemory: true
-    )
 }

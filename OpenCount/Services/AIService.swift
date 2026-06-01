@@ -54,8 +54,7 @@ actor ModelActor {
         let request = VNCoreMLRequest(model: model) { req, error in
             if let error = error {
                 let nsError = error as NSError
-                if nsError.domain == VNErrorDomain,
-                   nsError.code == VNError.outOfBoundsError.rawValue {
+                if nsError.domain == VNErrorDomain {
                     result = .failure(AppError.aiInferenceOutOfMemory)
                 } else {
                     result = .failure(AppError.coreMLModelLoadFailure)
@@ -85,7 +84,7 @@ actor ModelActor {
         }
 
         // Progress handler — forwards updates to the caller.
-        request.progressHandler = { _, progress, _ in
+        request.progressHandler = { [progressHandler] _, progress, _ in
             progressHandler(progress)
         }
 

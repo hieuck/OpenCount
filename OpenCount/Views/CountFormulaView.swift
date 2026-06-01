@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 // MARK: - CountFormulaView
 
@@ -14,7 +13,6 @@ struct CountFormulaView: View {
 
     let session: CountSession
     @ObservedObject var viewModel: CountingViewModel
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var formulas: [CountFormula] = []
@@ -59,8 +57,8 @@ struct CountFormulaView: View {
             .sheet(isPresented: $isAddingFormula) {
                 FormulaEditorSheet(session: session) { formula in
                     formulas.append(formula)
-                    modelContext.insert(formula)
-                    try? modelContext.save()
+                    session.formulas.append(formula)
+                    Task { try? await StorageService.shared.save(session) }
                 }
             }
             .sheet(item: $formulaToEdit) { formula in
@@ -68,7 +66,7 @@ struct CountFormulaView: View {
                     if let index = formulas.firstIndex(where: { $0.id == updated.id }) {
                         formulas[index] = updated
                     }
-                    try? modelContext.save()
+                    Task { try? await StorageService.shared.save(session) }
                 }
             }
         }
@@ -95,10 +93,10 @@ struct CountFormulaView: View {
                 .onDelete { indexSet in
                     for index in indexSet {
                         let formula = formulas[index]
-                        modelContext.delete(formula)
+                        session.formulas.removeAll { $0.id == formula.id }
                         formulas.remove(at: index)
                     }
-                    try? modelContext.save()
+                    Task { try? await StorageService.shared.save(session) }
                 }
             } header: {
                 Text("Formulas update in real time as you count.")
@@ -159,12 +157,7 @@ struct CountFormulaView: View {
     // MARK: - Load
 
     private func loadFormulas() {
-        // Load formulas associated with this session
-        let descriptor = FetchDescriptor<CountFormula>(
-            predicate: #Predicate { $0.session?.id == session.id },
-            sortBy: [SortDescriptor(\.sortOrder)]
-        )
-        formulas = (try? modelContext.fetch(descriptor)) ?? []
+        formulas = session.formulas.sorted { $0.sortOrder < $1.sortOrder }
     }
 }
 

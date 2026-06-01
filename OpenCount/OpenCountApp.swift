@@ -1,165 +1,123 @@
 import SwiftUI
-import SwiftData
 import AppIntents
 
 @main
 struct OpenCountApp: App {
 
-    let modelContainer: ModelContainer
-
-    @StateObject private var syncViewModel = iCloudSyncViewModel()
-    @StateObject private var networkMonitor = NetworkMonitor()
-    @StateObject private var localAPIServer = LocalAPIServer()
+    @StateObject private var syncViewModel   = iCloudSyncViewModel()
+    @StateObject private var networkMonitor  = NetworkMonitor()
+    @StateObject private var localAPIServer  = LocalAPIServer()
+    @StateObject private var appState        = AppState()
 
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Whether to show the crash report consent sheet.
     @State private var isShowingCrashConsent: Bool = false
     @State private var pendingCrashDescription: String = ""
-
     @AppStorage("localAPIServerEnabled") private var localAPIServerEnabled: Bool = false
-
-    // MARK: - Deep-link state (Requirement 27.1–27.4)
-
-    /// The session UUID parsed from an `opencount://session/<id>` deep-link URL.
     @State private var deepLinkedSessionID: UUID? = nil
-
-    init() {
-        let schema = Schema([
-            CountSession.self,
-            ObjectType.self,
-            CountMarker.self,
-            CountRegion.self,
-            SessionImage.self,
-            VideoFrameCount.self,
-            SessionTemplate.self,
-            SessionTag.self,
-            CountFormula.self,
-        ])
-
-        let iCloudSyncEnabled = UserDefaults.standard.bool(forKey: "iCloudSyncEnabled")
-        let iCloudAvailable = FileManager.default.ubiquityIdentityToken != nil
-
-        if iCloudSyncEnabled && iCloudAvailable {
-            do {
-                let cloudConfig = ModelConfiguration(
-                    schema: schema,
-                    isStoredInMemoryOnly: false,
-                    cloudKitDatabase: .private("iCloud.com.opencount.app")
-                )
-                modelContainer = try ModelContainer(
-                    for: schema,
-                    configurations: [cloudConfig]
-                )
-            } catch {
-                modelContainer = Self.makeLocalContainer(schema: schema)
-            }
-        } else {
-            modelContainer = Self.makeLocalContainer(schema: schema)
-        }
-
-        if let recovery = CrashRecoveryService.loadRecovery() {
-            print("[CrashRecovery] Recovery file found for session '\(recovery.name)' " +
-                  "with \(recovery.markers.count) marker(s).")
-        }
-    }
 
     var body: some Scene {
         WindowGroup {
             ContentView(deepLinkedSessionID: $deepLinkedSessionID)
                 .environmentObject(syncViewModel)
                 .environmentObject(networkMonitor)
-                // Handoff — Requirement 49 (Req 38)
+                .environmentObject(appState)
                 .onContinueUserActivity("com.opencount.counting") { activity in
-                    if let sessionIDString = activity.userInfo?["sessionID"] as? String,
-                       let uuid = UUID(uuidString: sessionIDString) {
+                    if let s = activity.userInfo?["sessionID"] as? String,
+                       let uuid = UUID(uuidString: s) {
                         deepLinkedSessionID = uuid
                     }
                 }
-                // Offline banner injected at root level — Requirement 33.2
                 .safeAreaInset(edge: .top, spacing: 0) {
                     OfflineBanner()
                         .environmentObject(networkMonitor)
                         .animation(.spring(response: 0.4, dampingFraction: 0.8),
                                    value: networkMonitor.isConnected)
                 }
-                // Crash report consent — Requirement 32.5
                 .sheet(isPresented: $isShowingCrashConsent) {
                     CrashReportConsentView(
                         crashDescription: pendingCrashDescription,
                         onConsent: {
-                            Task {
-                                try? await FeedbackService.shared.submitCrashReport(
-                                    pendingCrashDescription, userConsented: true)
-                            }
+                            Task { try? await FeedbackService.shared.submitCrashReport(
+                                pendingCrashDescription, userConsented: true) }
                             isShowingCrashConsent = false
                         },
-                        onDecline: {
-                            isShowingCrashConsent = false
-                        }
+                        onDecline: { isShowingCrashConsent = false }
                     )
                 }
                 .onAppear {
-                    // Skip onboarding in UI test mode — Requirement 50 (Req 39)
                     if CommandLine.arguments.contains("--skip-onboarding") {
                         UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
                     }
-                    // Check for pending crash report on launch — Requirement 32.4
                     if FeedbackService.shared.hasPendingCrashReport,
                        let desc = FeedbackService.shared.getPendingCrashDescription() {
                         pendingCrashDescription = desc
                         isShowingCrashConsent = true
                     }
+                    // Seed sample session on first launch
+                    Task { await appState.seedSampleIfNeeded() }
                 }
-                // Handle deep-link URL scheme opencount://session/<id> — Requirement 27.1–27.4
-                .onOpenURL { url in
-                    handleDeepLink(url)
-                }
+                .onOpenURL { url in handleDeepLink(url) }
         }
-        .modelContainer(modelContainer)
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background {
-                try? modelContainer.mainContext.save()
-            }
-            if newPhase == .active {
-                // Start local API server if enabled
-                if localAPIServerEnabled && !localAPIServer.isRunning {
-                    localAPIServer.start(modelContext: modelContainer.mainContext)
-                }
+            if newPhase == .background { appState.saveAll() }
+            if newPhase == .active && localAPIServerEnabled && !localAPIServer.isRunning {
+                localAPIServer.start(storage: StorageService.shared)
             }
         }
         .onChange(of: localAPIServerEnabled) { _, enabled in
-            if enabled {
-                localAPIServer.start(modelContext: modelContainer.mainContext)
-            } else {
-                localAPIServer.stop()
-            }
+            if enabled { localAPIServer.start(storage: StorageService.shared) }
+            else { localAPIServer.stop() }
         }
     }
 
-    // MARK: - Deep-link handling (Requirement 27.1–27.4)
-
-    /// Parses `opencount://session/<uuid>` URLs and sets `deepLinkedSessionID`.
-    /// The `ContentView` / `SessionListView` observes this binding to navigate directly
-    /// to the corresponding `CountingView`.
     private func handleDeepLink(_ url: URL) {
-        guard url.scheme?.lowercased() == "opencount" else { return }
+        guard url.scheme?.lowercased() == "opencount",
+              url.host?.lowercased() == "session",
+              let idStr = url.pathComponents.filter({ $0 != "/" }).first,
+              let uuid = UUID(uuidString: idStr) else { return }
+        deepLinkedSessionID = uuid
+    }
+}
 
-        // Expected format: opencount://session/<uuid>
-        if url.host?.lowercased() == "session" {
-            let pathComponents = url.pathComponents.filter { $0 != "/" }
-            if let idString = pathComponents.first, let uuid = UUID(uuidString: idString) {
-                deepLinkedSessionID = uuid
-            }
+// MARK: - AppState
+
+/// Central observable state holder — replaces SwiftData ModelContainer.
+@MainActor
+final class AppState: ObservableObject {
+    @Published var sessions: [CountSession] = []
+    private let storage = StorageService.shared
+
+    init() {
+        Task { await load() }
+    }
+
+    func load() async {
+        sessions = (try? await storage.fetchAllSessions()) ?? []
+    }
+
+    func saveAll() {
+        for session in sessions {
+            try? storage.save(session) as Void
         }
     }
 
-    private static func makeLocalContainer(schema: Schema) -> ModelContainer {
-        do {
-            let localConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-            return try ModelContainer(for: schema, configurations: [localConfig])
-        } catch {
-            fatalError("Failed to create local ModelContainer: \(error)")
+    func save(_ session: CountSession) {
+        Task { try? await storage.save(session) }
+    }
+
+    func delete(_ session: CountSession) {
+        sessions.removeAll { $0.id == session.id }
+        Task { try? await storage.delete(session) }
+    }
+
+    func seedSampleIfNeeded() async {
+        guard !UserDefaults.standard.bool(forKey: "sampleSeeded") else { return }
+        let all = (try? await storage.fetchAllSessions()) ?? []
+        if all.isEmpty {
+            SampleSessionSeeder.seed(into: self)
+            UserDefaults.standard.set(true, forKey: "sampleSeeded")
         }
+        await load()
     }
 }

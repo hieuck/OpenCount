@@ -1,6 +1,5 @@
 import Foundation
 import Network
-import SwiftData
 
 // MARK: - LocalAPIServer
 
@@ -30,14 +29,14 @@ final class LocalAPIServer: ObservableObject {
     // MARK: - Private
 
     private var listener: NWListener?
-    private var modelContext: ModelContext?
+    private var storage: StorageServiceProtocol?
 
     // MARK: - Lifecycle
 
-    /// Starts the server. Requires a `ModelContext` to query sessions.
-    func start(modelContext: ModelContext) {
+    /// Starts the server.
+    func start(storage: StorageServiceProtocol) {
         guard !isRunning else { return }
-        self.modelContext = modelContext
+        self.storage = storage
 
         do {
             let params = NWParameters.tcp
@@ -107,17 +106,12 @@ final class LocalAPIServer: ObservableObject {
     }
 
     private func routeRequest(method: String, path: String, body: String?) async -> HTTPResponse {
-        // GET /sessions
         if method == "GET" && path == "/sessions" {
             return await handleGetSessions()
         }
-
-        // GET /sessions/{id}/tally
         if method == "GET", let id = extractSessionID(from: path, suffix: "/tally") {
             return await handleGetTally(sessionID: id)
         }
-
-        // GET /sessions/{id}/export?format=csv|json
         if method == "GET", path.contains("/export") {
             let pathWithoutQuery = path.components(separatedBy: "?").first ?? path
             if let id = extractSessionID(from: pathWithoutQuery, suffix: "/export") {
@@ -125,26 +119,20 @@ final class LocalAPIServer: ObservableObject {
                 return await handleExport(sessionID: id, format: format)
             }
         }
-
-        // POST /sessions/{id}/markers
         if method == "POST", let id = extractSessionID(from: path, suffix: "/markers") {
             return await handleAddMarker(sessionID: id, body: body)
         }
-
         return HTTPResponse(status: 404, body: "{\"error\":\"Not found\"}")
     }
 
     // MARK: - Route handlers
 
     private func handleGetSessions() async -> HTTPResponse {
-        guard let ctx = modelContext else {
-            return HTTPResponse(status: 500, body: "{\"error\":\"No model context\"}")
+        guard let storage else {
+            return HTTPResponse(status: 500, body: "{\"error\":\"Storage not available\"}")
         }
         do {
-            let descriptor = FetchDescriptor<CountSession>(
-                sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
-            )
-            let sessions = try ctx.fetch(descriptor)
+            let sessions = try await storage.fetchAllSessions()
             let items = sessions.map { s -> [String: Any] in
                 [
                     "id": s.id.uuidString,
@@ -161,14 +149,12 @@ final class LocalAPIServer: ObservableObject {
     }
 
     private func handleGetTally(sessionID: UUID) async -> HTTPResponse {
-        guard let ctx = modelContext else {
-            return HTTPResponse(status: 500, body: "{\"error\":\"No model context\"}")
+        guard let storage else {
+            return HTTPResponse(status: 500, body: "{\"error\":\"Storage not available\"}")
         }
         do {
-            let descriptor = FetchDescriptor<CountSession>(
-                predicate: #Predicate { $0.id == sessionID }
-            )
-            guard let session = try ctx.fetch(descriptor).first else {
+            let sessions = try await storage.fetchAllSessions()
+            guard let session = sessions.first(where: { $0.id == sessionID }) else {
                 return HTTPResponse(status: 404, body: "{\"error\":\"Session not found\"}")
             }
             var tallies: [String: Int] = [:]
@@ -189,14 +175,12 @@ final class LocalAPIServer: ObservableObject {
     }
 
     private func handleExport(sessionID: UUID, format: String) async -> HTTPResponse {
-        guard let ctx = modelContext else {
-            return HTTPResponse(status: 500, body: "{\"error\":\"No model context\"}")
+        guard let storage else {
+            return HTTPResponse(status: 500, body: "{\"error\":\"Storage not available\"}")
         }
         do {
-            let descriptor = FetchDescriptor<CountSession>(
-                predicate: #Predicate { $0.id == sessionID }
-            )
-            guard let session = try ctx.fetch(descriptor).first else {
+            let sessions = try await storage.fetchAllSessions()
+            guard let session = sessions.first(where: { $0.id == sessionID }) else {
                 return HTTPResponse(status: 404, body: "{\"error\":\"Session not found\"}")
             }
             let service = ExportService()
@@ -217,7 +201,7 @@ final class LocalAPIServer: ObservableObject {
     }
 
     private func handleAddMarker(sessionID: UUID, body: String?) async -> HTTPResponse {
-        guard let ctx = modelContext, let body else {
+        guard let storage, let body else {
             return HTTPResponse(status: 400, body: "{\"error\":\"Missing body\"}")
         }
         do {
@@ -228,10 +212,8 @@ final class LocalAPIServer: ObservableObject {
                   let typeName = json["objectType"] as? String else {
                 return HTTPResponse(status: 400, body: "{\"error\":\"Invalid body\"}")
             }
-            let descriptor = FetchDescriptor<CountSession>(
-                predicate: #Predicate { $0.id == sessionID }
-            )
-            guard let session = try ctx.fetch(descriptor).first else {
+            let sessions = try await storage.fetchAllSessions()
+            guard let session = sessions.first(where: { $0.id == sessionID }) else {
                 return HTTPResponse(status: 404, body: "{\"error\":\"Session not found\"}")
             }
             guard let objectType = session.objectTypes.first(where: { $0.name == typeName }) else {
@@ -243,10 +225,9 @@ final class LocalAPIServer: ObservableObject {
                 objectType: objectType,
                 session: session
             )
-            ctx.insert(marker)
             session.markers.append(marker)
             session.modifiedAt = Date()
-            try ctx.save()
+            try await storage.save(session)
             return HTTPResponse(status: 201, body: "{\"id\":\"\(marker.id.uuidString)\"}")
         } catch {
             return HTTPResponse(status: 500, body: "{\"error\":\"\(error.localizedDescription)\"}")
@@ -277,7 +258,6 @@ final class LocalAPIServer: ObservableObject {
     // MARK: - Helpers
 
     private func extractSessionID(from path: String, suffix: String) -> UUID? {
-        // Path format: /sessions/{uuid}{suffix}
         let prefix = "/sessions/"
         guard path.hasPrefix(prefix) else { return nil }
         let rest = String(path.dropFirst(prefix.count))

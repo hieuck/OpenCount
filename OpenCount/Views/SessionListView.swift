@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// The root screen of the app. Displays all counting sessions sorted by most-recently-modified
 /// date descending, with a search bar and controls to create, duplicate, and delete sessions.
@@ -9,7 +8,6 @@ struct SessionListView: View {
 
     // MARK: - Environment
 
-    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var syncViewModel: iCloudSyncViewModel
     @EnvironmentObject private var networkMonitor: NetworkMonitor
 
@@ -302,9 +300,6 @@ struct SessionListView: View {
     SessionListView(storage: PreviewStorageService())
         .environmentObject(iCloudSyncViewModel())
         .environmentObject(NetworkMonitor())
-        .modelContainer(for: [CountSession.self, ObjectType.self, CountMarker.self,
-                               CountRegion.self, SessionImage.self, VideoFrameCount.self],
-                        inMemory: true)
 }
 
 // MARK: - Preview helper
