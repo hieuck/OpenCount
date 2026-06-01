@@ -52,6 +52,12 @@ struct OnboardingView: View {
             description: "Share results as CSV, JSON, annotated images, or PDF reports — ready for spreadsheets, research, or archiving. Copy a plain-text summary to the clipboard in one tap.",
             accentColor: .teal
         ),
+        OnboardingPage(
+            systemImage: "sparkles",
+            title: "Smart Assistant",
+            description: "Get AI-powered insights about your counting session — coverage analysis, cluster detection, target tracking, and actionable suggestions to improve accuracy.",
+            accentColor: .yellow
+        ),
     ]
 
     // MARK: - Body

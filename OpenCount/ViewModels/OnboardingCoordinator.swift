@@ -15,6 +15,8 @@ enum CoachMarkKey: String, CaseIterable, Codable {
     case exportSheet
     case heatmap
     case collaboration
+    case smartAssistant
+    case quickActions
 }
 
 // MARK: - OnboardingCoordinator

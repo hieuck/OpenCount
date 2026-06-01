@@ -80,6 +80,30 @@ struct SessionDashboardView: View {
         activityData.max { $0.count < $1.count }
     }
 
+    // MARK: - Computed analytics — streak & best session
+
+    /// Most productive session (highest marker count).
+    private var mostProductiveSession: CountSession? {
+        sessions.max { $0.markers.count < $1.markers.count }
+    }
+
+    /// Number of consecutive days with counting activity ending today.
+    private var countingStreak: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let activeDays = Set(
+            sessions.flatMap(\.markers).map { calendar.startOfDay(for: $0.createdAt) }
+        )
+        var streak = 0
+        var checkDate = today
+        while activeDays.contains(checkDate) {
+            streak += 1
+            guard let prev = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
+            checkDate = prev
+        }
+        return streak
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -88,6 +112,7 @@ struct SessionDashboardView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     summaryCards
                     activityChartSection
+                    streakSection
                     topObjectTypesSection
                     recentSessionsSection
                 }
@@ -183,6 +208,61 @@ struct SessionDashboardView: View {
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityLabel("Most productive day: \(best.date.formatted(date: .abbreviated, time: .omitted)) with \(best.count) markers")
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.secondarySystemBackground))
+        )
+    }
+
+    // MARK: - Streak & Best Session
+
+    private var streakSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Counting Streak", systemImage: "flame.fill")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+
+            HStack(spacing: 16) {
+                // Streak counter
+                VStack(spacing: 4) {
+                    Text("\(countingStreak)")
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                        .foregroundStyle(countingStreak > 0 ? .orange : .secondary)
+                        .monospacedDigit()
+                    Text(countingStreak == 1 ? "day streak" : "day streak")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel("\(countingStreak) day counting streak")
+
+                Divider().frame(height: 60)
+
+                // Best session
+                if let best = mostProductiveSession {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Best Session")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(best.name)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(2)
+                        Label("\(best.markers.count) markers", systemImage: "mappin.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Best session: \(best.name) with \(best.markers.count) markers")
+                } else {
+                    Text("Start counting to see your best session here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }

@@ -94,6 +94,9 @@ struct CountingView: View {
     /// Whether the session tag manager is presented.
     @State private var isTagManagerPresented: Bool = false
 
+    /// Whether the Smart Counting Assistant is presented.
+    @State private var isSmartAssistantPresented: Bool = false
+
     /// Whether the image picker (Photos) is presented.
     @State private var isPhotoPickerPresented: Bool = false
     /// Whether the camera picker is presented.
@@ -229,6 +232,15 @@ struct CountingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
+                // Smart Assistant button — unique to OpenCount
+                Button {
+                    isSmartAssistantPresented = true
+                } label: {
+                    Image(systemName: "sparkles")
+                }
+                .accessibilityLabel("Smart Assistant")
+                .accessibilityHint("Tap to get AI-powered insights and suggestions for this session.")
+
                 // Export button
                 // Requirement 12.5: open export sheet to share session data
                 Button {
@@ -581,6 +593,10 @@ struct CountingView: View {
         // Session tags
         .sheet(isPresented: $isTagManagerPresented) {
             SessionTagManagerView(session: viewModel.session)
+        }
+        // Smart Counting Assistant — unique to OpenCount
+        .sheet(isPresented: $isSmartAssistantPresented) {
+            SmartCountingAssistantView(session: viewModel.session, viewModel: viewModel)
         }
         // Photos picker — import image from Photos library
         .photosPicker(

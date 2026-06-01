@@ -23,11 +23,21 @@ struct QuickActionsView: View {
     @State private var isTallyPresented: Bool = false
     @State private var isReviewPresented: Bool = false
     @State private var isFormulaPresented: Bool = false
+    @State private var isAssistantPresented: Bool = false
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 12) {
             // Expanded action buttons
             if isExpanded {
+                actionButton(
+                    icon: "sparkles",
+                    label: "Smart",
+                    color: .yellow
+                ) {
+                    isExpanded = false
+                    isAssistantPresented = true
+                }
+
                 actionButton(
                     icon: "mic.circle.fill",
                     label: "Voice",
@@ -98,6 +108,9 @@ struct QuickActionsView: View {
         }
         .sheet(isPresented: $isFormulaPresented) {
             CountFormulaView(session: session, viewModel: viewModel)
+        }
+        .sheet(isPresented: $isAssistantPresented) {
+            SmartCountingAssistantView(session: session, viewModel: viewModel)
         }
     }
 
