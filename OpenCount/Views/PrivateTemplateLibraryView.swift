@@ -268,6 +268,8 @@ struct SaveAsTemplateSheet: View {
 
 #Preview("Private Template Library") {
     PrivateTemplateLibraryView { template in
+        #if DEBUG
         print("Selected: \(template.name)")
+        #endif
     }
 }

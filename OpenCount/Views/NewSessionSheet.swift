@@ -342,6 +342,8 @@ struct NewSessionSheet: View {
 
 #Preview {
     NewSessionSheet { name, description, source, images, types in
+        #if DEBUG
         print("Create: \(name), \(description ?? ""), \(source.rawValue), \(images.count) images, types: \(types)")
+        #endif
     }
 }

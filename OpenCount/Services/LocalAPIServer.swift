@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import os.log
 
 // MARK: - LocalAPIServer
 
@@ -40,9 +41,13 @@ final class LocalAPIServer: ObservableObject {
 
         do {
             let params = NWParameters.tcp
+            guard let port = NWEndpoint.Port(rawValue: Self.port) else {
+                throw NSError(domain: "LocalAPIServer", code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "Invalid port number: \(Self.port)"])
+            }
             params.requiredLocalEndpoint = NWEndpoint.hostPort(
                 host: NWEndpoint.Host(Self.host),
-                port: NWEndpoint.Port(rawValue: Self.port)!
+                port: port
             )
             listener = try NWListener(using: params)
             listener?.newConnectionHandler = { [weak self] connection in
@@ -56,7 +61,7 @@ final class LocalAPIServer: ObservableObject {
             listener?.start(queue: .global(qos: .utility))
             writeREADME()
         } catch {
-            print("[LocalAPIServer] Failed to start: \(error)")
+            os_log(.error, log: .default, "[LocalAPIServer] Failed to start: %{public}@", error.localizedDescription)
         }
     }
 

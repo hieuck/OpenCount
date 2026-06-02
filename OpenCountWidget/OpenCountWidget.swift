@@ -113,9 +113,9 @@ struct OpenCountWidgetEntryView: View {
 
     var body: some View {
         // Tapping the widget opens the corresponding session — Requirement 23.5
-        let deepLink = entry.sessionID.map {
-            URL(string: "opencount://session/\($0.uuidString)")!
-        } ?? URL(string: "opencount://")!
+        let deepLink = entry.sessionID.flatMap { sessionID in
+            URL(string: "opencount://session/\(sessionID.uuidString)")
+        } ?? URL(string: "opencount://") ?? URL(string: "about:blank")!
 
         widgetContent
             .widgetURL(deepLink)

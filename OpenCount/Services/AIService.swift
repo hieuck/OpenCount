@@ -3,6 +3,7 @@ import UIKit
 import Vision
 import CoreML
 import Combine
+import os.log
 
 // MARK: - AIServiceProtocol
 
@@ -275,9 +276,11 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
 
     init() {
         visionModel = Self.loadModel()
+        #if DEBUG
         if visionModel == nil {
             print("[CoreMLAIService] Running in mock mode — YOLOv8n.mlpackage not found in bundle.")
         }
+        #endif
     }
 
     // MARK: - Model loading
@@ -294,7 +297,7 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
             let mlModel = try MLModel(contentsOf: modelURL)
             return try VNCoreMLModel(for: mlModel)
         } catch {
-            print("[CoreMLAIService] Model load failed: \(error.localizedDescription)")
+            os_log(.error, log: .default, "[CoreMLAIService] Model load failed: %{public}@", error.localizedDescription)
             return nil
         }
     }
