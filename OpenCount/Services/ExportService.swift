@@ -710,16 +710,4 @@ struct PointDTO: Codable {
     }
 }
 
-// MARK: - UIColor hex extension
-
-extension UIColor {
-    convenience init?(hex: String) {
-        var hexStr = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if hexStr.hasPrefix("#") { hexStr.removeFirst() }
-        guard hexStr.count == 6, let value = UInt64(hexStr, radix: 16) else { return nil }
-        let r = CGFloat((value >> 16) & 0xFF) / 255
-        let g = CGFloat((value >> 8) & 0xFF) / 255
-        let b = CGFloat(value & 0xFF) / 255
-        self.init(red: r, green: g, blue: b, alpha: 1)
-    }
-}
+// UIColor(hex:) is defined in Models/ColorExtensions.swift — no duplicate needed here.
