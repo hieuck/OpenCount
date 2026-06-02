@@ -97,6 +97,29 @@ jobs:
             SUPPORTS_MACCATALYST=NO \
             build
 
+      - name: Run Tests (Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project OpenCount.xcodeproj \
+            -scheme "$SCHEME" \
+            -destination "${{ steps.sim.outputs.destination }}" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -resultBundlePath "$DERIVED_DATA/TestResults.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            SUPPORTS_MACCATALYST=NO \
+            test \
+          | xcbeautify --renderer github-actions || \
+          xcodebuild \
+            -project OpenCount.xcodeproj \
+            -scheme "$SCHEME" \
+            -destination "${{ steps.sim.outputs.destination }}" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -resultBundlePath "$DERIVED_DATA/TestResults.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            SUPPORTS_MACCATALYST=NO \
+            test
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

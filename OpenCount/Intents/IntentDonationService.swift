@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import Intents
 
 // MARK: - IntentDonationService
 // Requirement 23.1: donate Siri Shortcuts after relevant user actions
@@ -62,19 +63,28 @@ enum IntentDonationService {
     // MARK: - Private donation helper
 
     /// Donates an AppIntent via INInteraction for explicit Siri suggestion.
-    /// AppIntents framework handles the actual donation when perform() is called;
-    /// this provides an additional explicit signal for proactive suggestions.
+    /// Uses INInteraction to provide an explicit donation signal to the Siri
+    /// suggestion engine, supplementing the automatic donations made by
+    /// AppShortcutsProvider when the user runs a shortcut.
     @MainActor
     private static func donateViaInteraction<T: AppIntent>(intent: T, identifier: String) async {
-        // AppIntents are automatically donated when perform() is called.
-        // For additional explicit donation, we rely on the AppShortcutsProvider
-        // registered in OpenCountShortcuts.swift which surfaces these intents
-        // in the Shortcuts app and Siri suggestions.
-        //
-        // The donation is considered complete once the intent is registered
-        // via AppShortcutsProvider — no additional INInteraction call is needed
-        // for AppIntents on iOS 16+.
-        _ = intent
-        _ = identifier
+        // Build an INInteraction with a generic INIntent to provide an explicit
+        // donation signal. This is the supported bridging mechanism between
+        // AppIntents and the INInteraction-based Siri donation pipeline.
+        let siriIntent = INIntent()
+        siriIntent.suggestedInvocationPhrase = identifier
+
+        let interaction = INInteraction(intent: siriIntent, response: nil)
+        interaction.identifier = identifier
+        interaction.direction = .unspecified
+
+        do {
+            try await interaction.donate()
+        } catch {
+            // Donation failure is non-fatal — log in debug builds and continue.
+            #if DEBUG
+            print("[IntentDonationService] INInteraction donation failed for \(identifier): \(error)")
+            #endif
+        }
     }
 }

@@ -204,6 +204,14 @@ final class CountingViewModel: ObservableObject {
         session.markers.append(marker)
         session.modifiedAt = Date()
 
+        // Record tally history entry for this marker placement (delta = +1).
+        let historyEntry = TallyHistoryEntry(
+            timestamp: Date(),
+            objectTypeName: objectType.name,
+            delta: 1
+        )
+        session.tallyHistory.append(historyEntry)
+
         // Requirement 18.5: persist session state to recovery file after every mutation.
         CrashRecoveryService.saveRecovery(session: session)
 
@@ -291,6 +299,14 @@ final class CountingViewModel: ObservableObject {
         markers.removeAll { $0.id == marker.id }
         session.markers.removeAll { $0.id == marker.id }
         session.modifiedAt = Date()
+
+        // Record tally history entry for this marker removal (delta = -1).
+        let historyEntry = TallyHistoryEntry(
+            timestamp: Date(),
+            objectTypeName: marker.objectType.name,
+            delta: -1
+        )
+        session.tallyHistory.append(historyEntry)
 
         // Requirement 18.5: persist session state to recovery file after every mutation.
         CrashRecoveryService.saveRecovery(session: session)

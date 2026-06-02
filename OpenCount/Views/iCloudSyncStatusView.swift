@@ -19,10 +19,10 @@ struct iCloudSyncStatusView: View {
                 ProgressView()
                     .accessibilityLabel("iCloud sync in progress")
 
-            case .synced:
+            case .synced(let date):
                 Image(systemName: "checkmark.icloud")
                     .foregroundStyle(.green)
-                    .accessibilityLabel("iCloud sync complete")
+                    .accessibilityLabel("iCloud sync complete at \(date.formatted(date: .omitted, time: .shortened))")
 
             case .failed(let message):
                 Image(systemName: "exclamationmark.icloud")
