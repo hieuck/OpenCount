@@ -69,24 +69,13 @@ struct NewSessionSheet: View {
         suggestions.filter { !currentTypeNames.contains($0.name) }.prefix(6).map { $0 }
     }
 
-    // MARK: - Body
+    // MARK: - Body (split to avoid type-checker timeout)
 
     var body: some View {
         NavigationStack {
             Form {
-                // MARK: Session details
-                Section("Session Details") {
-                    TextField("Name (required)", text: $name)
-                        .font(.body)
-                        .accessibilityLabel("Session name")
-                        .accessibilityHint("Required. Enter a name for this counting session.")
-
-                    TextField("Description (optional)", text: $description, axis: .vertical)
-                        .font(.body)
-                        .lineLimit(3...6)
-                        .accessibilityLabel("Session description")
-                        .accessibilityHint("Optional. Describe what you are counting.")
-                }
+                sessionDetailsSection
+                objectTypesSection
 
                 // MARK: Object types quick-add
                 Section {

@@ -113,6 +113,7 @@ struct OfflineBanner: View {
 /// A view modifier that shows an alert when a network-dependent feature is accessed offline.
 ///
 /// Requirement 33.4
+@available(iOS 16.0, *)
 struct OfflineFeatureAlert: ViewModifier {
 
     @EnvironmentObject private var networkMonitor: NetworkMonitor
