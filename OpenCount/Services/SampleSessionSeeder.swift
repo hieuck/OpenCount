@@ -99,7 +99,7 @@ private struct SampleSessionDTO: Decodable {
     let regions: [RegionDTO]
 }
 
-private struct ObjectTypeDTO: Decodable {
+private struct ObjectTypeDTO: Codable {
     let id: String
     let name: String
     let colorHex: String
@@ -107,7 +107,7 @@ private struct ObjectTypeDTO: Decodable {
     let sortOrder: Int
 }
 
-private struct MarkerDTO: Decodable {
+private struct MarkerDTO: Codable {
     let id: String
     let normalizedX: Double
     let normalizedY: Double
@@ -115,7 +115,7 @@ private struct MarkerDTO: Decodable {
     let isAIDerived: Bool
 }
 
-private struct RegionDTO: Decodable {
+private struct RegionDTO: Codable {
     let id: String
     let name: String
     let colorHex: String
@@ -123,7 +123,7 @@ private struct RegionDTO: Decodable {
     let normalizedPoints: [PointDTO]
 }
 
-private struct PointDTO: Decodable {
+private struct PointDTO: Codable {
     let x: Double
     let y: Double
 }
