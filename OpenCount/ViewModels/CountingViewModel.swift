@@ -5,6 +5,59 @@ import Combine
 import PhotosUI
 import UniformTypeIdentifiers
 
+// MARK: - Image Cache Manager
+
+/// Lightweight in-memory cache for session images with automatic eviction.
+final class ImageCacheManager {
+    private var cache: [String: UIImage] = [:]
+    private let maxBytes: Int = 50 * 1024 * 1024 // 50 MB
+    private var currentBytes: Int = 0
+    private let lock = NSLock()
+
+    func set(_ image: UIImage, for key: String) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let estimatedBytes = Int(image.size.width * image.size.height * 4)
+
+        // Evict oldest entries if needed
+        while currentBytes + estimatedBytes > maxBytes && !cache.isEmpty {
+            if let firstKey = cache.keys.first {
+                let removed = cache.removeValue(forKey: firstKey)
+                currentBytes -= Int(removed?.size.width ?? 0) * Int(removed?.size.height ?? 0) * 4
+            }
+        }
+
+        if let existing = cache[key] {
+            currentBytes -= Int(existing.size.width * existing.size.height * 4)
+        }
+
+        cache[key] = image
+        currentBytes += estimatedBytes
+    }
+
+    func get(_ key: String) -> UIImage? {
+        lock.lock()
+        defer { lock.unlock() }
+        return cache[key]
+    }
+
+    func remove(_ key: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let image = cache.removeValue(forKey: key) {
+            currentBytes -= Int(image.size.width * image.size.height * 4)
+        }
+    }
+
+    func clearAll() {
+        lock.lock()
+        defer { lock.unlock() }
+        cache.removeAll()
+        currentBytes = 0
+    }
+}
+
 // MARK: - CountingViewModel
 
 /// Central ViewModel for an active counting session.
@@ -29,13 +82,9 @@ final class CountingViewModel: ObservableObject {
     @Published var isHeatmapEnabled: Bool = false
     @Published var gridDensity: Int = 5 {
         didSet {
-            // Reset completed cells whenever the grid density changes,
-            // because the cell indices no longer correspond to the same areas.
             completedCells = []
         }
     }
-    /// The set of 0-based, row-major cell indices that the user has marked as counted.
-    /// Requirement 4.4: toggle cell "counted" state.
     @Published var completedCells: Set<Int> = []
     @Published var isAIRunning: Bool = false
     @Published var aiProgress: Double = 0.0
@@ -43,8 +92,6 @@ final class CountingViewModel: ObservableObject {
 
     // MARK: - Computed: tallies
 
-    /// Global tally: count of markers per ObjectType across the entire session.
-    /// Requirement 3.7, 6.5: display tally in real time.
     var globalTally: [ObjectType: Int] {
         var tally: [ObjectType: Int] = [:]
         for marker in markers {
@@ -53,26 +100,21 @@ final class CountingViewModel: ObservableObject {
         return tally
     }
 
-    /// AI detections filtered by the current confidence threshold.
-    /// Requirement 5.5, 5.6: update displayed detections when threshold changes.
     var filteredDetections: [AIDetection] {
         detections.filter { $0.confidenceScore >= confidenceThreshold }
     }
 
-    // MARK: - Private
+    // MARK: - Private: memory management
 
     private var undoStack = UndoStack<[CountMarker]>(capacity: 50)
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
-    private let smartCountService = SmartCountService()
+    private let imageCache = ImageCacheManager()
+    private var aiService: CoreMLAIService?
     private var velocityTracker = CountingVelocityTracker()
-
-    /// Watch connectivity service — sends session updates to the paired Watch.
-    /// Requirement 22.1, 22.2
-    private let watchService = WatchConnectivityService.shared
-
-    /// Collaboration service for real-time multi-device sync.
-    /// Requirement 28.1–28.6
-    private let collaborationService = CollaborationService.shared
+    private weak var watchService: WatchConnectivityService? = WatchConnectivityService.shared
+    private weak var collaborationService: CollaborationService? = CollaborationService.shared
+    private var memoryWarningObserver: NSObjectProtocol?
+    private var detectionCleanupTimer: Timer?
 
     // MARK: - Collaboration state
 
@@ -80,22 +122,15 @@ final class CountingViewModel: ObservableObject {
 
     // MARK: - Smart count state
 
-    /// Whether a duplicate warning should be shown for the pending marker placement.
     @Published var isDuplicateWarningActive: Bool = false
-    /// The pending normalized point waiting for duplicate confirmation.
     @Published var pendingDuplicatePoint: CGPoint?
-    /// Whether the fatigue warning banner should be shown.
     @Published var isFatigueWarningActive: Bool = false
-    /// Candidate "missed objects" detections from the secondary AI pass.
     @Published var missedObjectCandidates: [AIDetection] = []
-    /// Whether the "Find Missed Objects" AI pass is running.
     @Published var isFindingMissedObjects: Bool = false
 
     // MARK: - Count target state (Requirement 53 / Req 42)
 
-    /// Set of ObjectType IDs whose count target has been reached (used to fire confetti once).
     @Published var completedObjectTypes: Set<UUID> = []
-    /// Whether the confetti animation should fire (set to true when a target is first reached).
     @Published var shouldFireConfetti: Bool = false
 
     // MARK: - Init
@@ -107,58 +142,92 @@ final class CountingViewModel: ObservableObject {
         self.selectedObjectType = session.objectTypes.sorted { $0.sortOrder < $1.sortOrder }.first
         haptic.prepare()
 
-        // Wire Watch connectivity: receive increments from Watch and apply them.
-        // Requirement 22.2
-        watchService.onCountIncrement = { [weak self] objectTypeID, sessionID in
-            guard let self = self, self.session.id == sessionID else { return }
-            if let objectType = self.session.objectTypes.first(where: { $0.id == objectTypeID }) {
-                let marker = CountMarker(
-                    normalizedX: 0.5,
-                    normalizedY: 0.5,
-                    objectType: objectType,
-                    session: self.session
-                )
-                self.markers.append(marker)
-                self.session.markers.append(marker)
-                self.session.modifiedAt = Date()
-                CrashRecoveryService.saveRecovery(session: self.session)
+        setupMemoryWarningObserver()
+        setupDetectionCleanupTimer()
+
+        if let watchService = watchService {
+            watchService.onCountIncrement = { [weak self] objectTypeID, sessionID in
+                Task { @MainActor in
+                    guard let self = self, self.session.id == sessionID else { return }
+                    if let objectType = self.session.objectTypes.first(where: { $0.id == objectTypeID }) {
+                        let marker = CountMarker(
+                            normalizedX: 0.5,
+                            normalizedY: 0.5,
+                            objectType: objectType,
+                            session: self.session
+                        )
+                        self.markers.append(marker)
+                        self.session.markers.append(marker)
+                        self.session.modifiedAt = Date()
+                        CrashRecoveryService.saveRecovery(session: self.session)
+                    }
+                }
             }
+            watchService.sendSessionUpdate(session)
         }
 
-        // Send initial session state to Watch when session opens.
-        // Requirement 22.1
-        watchService.sendSessionUpdate(session)
-
-        // Load the most recent image for this session from disk
         loadCurrentImage()
+    }
+
+    deinit {
+        cleanup()
+    }
+
+    // MARK: - Memory management
+
+    private func setupMemoryWarningObserver() {
+        memoryWarningObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleMemoryWarning()
+        }
+    }
+
+    private func setupDetectionCleanupTimer() {
+        detectionCleanupTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.cleanupOldDetections()
+        }
+    }
+
+    private func handleMemoryWarning() {
+        imageCache.clearAll()
+        currentImage = nil
+        detections.removeAll()
+        missedObjectCandidates.removeAll()
+        aiService = nil
+    }
+
+    private func cleanupOldDetections() {
+        let maxDetections = 500
+        if detections.count > maxDetections {
+            let toRemove = detections.count - maxDetections
+            detections.removeFirst(toRemove)
+        }
+    }
+
+    private func cleanup() {
+        if let observer = memoryWarningObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        detectionCleanupTimer?.invalidate()
+        imageCache.clearAll()
+        aiService = nil
     }
 
     // MARK: - Watch sync helper
 
-    /// Sends the current session state to the paired Watch.
-    /// Called after every mutation that changes tallies.
-    /// Requirement 22.1
     private func syncToWatch() {
-        watchService.sendSessionUpdate(session)
+        watchService?.sendSessionUpdate(session)
     }
 
     // MARK: - Manual counting
 
-    /// Places a marker at the given point (in image-coordinate space, normalized 0–1).
-    ///
-    /// If the point is within `duplicateRadius` of an existing marker of the same type,
-    /// sets `isDuplicateWarningActive = true` and stores the point in `pendingDuplicatePoint`
-    /// instead of placing immediately. The view layer must call `confirmPendingMarker()` or
-    /// `cancelPendingMarker()` in response to the user's choice.
-    ///
-    /// Requirement 3.1: place a Count_Marker and increment tally.
-    /// Requirement 3.10: haptic feedback on placement.
-    /// Requirement 35.1: warn when a new marker is placed within 20 normalized pixels of an
-    ///                    existing marker of the same type.
     func placeMarker(at normalizedPoint: CGPoint) {
         guard let objectType = selectedObjectType else { return }
 
-        // Requirement 35.1: duplicate detection — warn before committing.
+        let smartCountService = SmartCountService()
         if smartCountService.isDuplicate(
             newPoint: normalizedPoint,
             existingMarkers: markers,
@@ -172,8 +241,6 @@ final class CountingViewModel: ObservableObject {
         commitMarker(at: normalizedPoint, objectType: objectType)
     }
 
-    /// Commits the pending duplicate marker after the user confirms.
-    /// Requirement 35.1
     func confirmPendingMarker() {
         guard let point = pendingDuplicatePoint,
               let objectType = selectedObjectType else { return }
@@ -182,16 +249,12 @@ final class CountingViewModel: ObservableObject {
         commitMarker(at: point, objectType: objectType)
     }
 
-    /// Cancels the pending duplicate marker placement.
-    /// Requirement 35.1
     func cancelPendingMarker() {
         pendingDuplicatePoint = nil
         isDuplicateWarningActive = false
     }
 
-    /// Internal: unconditionally places a marker and updates all derived state.
     private func commitMarker(at normalizedPoint: CGPoint, objectType: ObjectType) {
-        // Snapshot current state for undo before mutation.
         undoStack.push(markers)
 
         let marker = CountMarker(
@@ -204,7 +267,6 @@ final class CountingViewModel: ObservableObject {
         session.markers.append(marker)
         session.modifiedAt = Date()
 
-        // Record tally history entry for this marker placement (delta = +1).
         let historyEntry = TallyHistoryEntry(
             timestamp: Date(),
             objectTypeName: objectType.name,
@@ -212,23 +274,18 @@ final class CountingViewModel: ObservableObject {
         )
         session.tallyHistory.append(historyEntry)
 
-        // Requirement 18.5: persist session state to recovery file after every mutation.
         CrashRecoveryService.saveRecovery(session: session)
-
         haptic.impactOccurred()
 
-        // Requirement 35.4: track counting velocity for fatigue warning.
         velocityTracker.recordPlacement()
         isFatigueWarningActive = velocityTracker.updateFatigueState()
 
-        // Requirement 53 (Req 42): check if a count target has been reached for the first time.
         if let target = objectType.targetCount, target > 0 {
             let newCount = markers.filter { $0.objectType.id == objectType.id }.count
             if newCount >= target && !completedObjectTypes.contains(objectType.id) {
                 completedObjectTypes.insert(objectType.id)
                 shouldFireConfetti = true
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
-                // Reset confetti flag after a short delay so it can fire again if needed
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 500_000_000)
                     shouldFireConfetti = false
@@ -236,35 +293,28 @@ final class CountingViewModel: ObservableObject {
             }
         }
 
-        // Requirement 22.1: sync updated tallies to paired Watch.
         syncToWatch()
 
-        // Requirement 28.2: push marker to CloudKit for collaborative sync.
         if isCollaborating {
             let capturedMarker = marker
             let capturedSessionID = session.id
             Task {
-                await collaborationService.pushMarker(capturedMarker, sessionID: capturedSessionID)
+                await self.collaborationService?.pushMarker(capturedMarker, sessionID: capturedSessionID)
             }
         }
     }
 
-    /// Dismisses the fatigue warning banner.
-    /// Requirement 35.4
     func dismissFatigueWarning() {
         isFatigueWarningActive = false
     }
 
     // MARK: - Find Missed Objects
 
-    /// Runs a secondary AI pass at low confidence and surfaces detections not already
-    /// covered by existing markers.
-    ///
-    /// Requirement 35.2, 35.3
     func findMissedObjects(in image: UIImage, aiService: AIServiceProtocol) async {
         isFindingMissedObjects = true
         defer { isFindingMissedObjects = false }
         do {
+            let smartCountService = SmartCountService()
             let candidates = try await smartCountService.findMissedObjects(
                 in: image,
                 existingMarkers: markers,
@@ -276,8 +326,6 @@ final class CountingViewModel: ObservableObject {
         }
     }
 
-    /// Accepts a missed-object candidate by converting it to a marker.
-    /// Requirement 35.3
     func acceptMissedCandidate(_ detection: AIDetection) {
         guard let objectType = selectedObjectType else { return }
         let centroid = detection.normalizedCentroid
@@ -285,22 +333,16 @@ final class CountingViewModel: ObservableObject {
         missedObjectCandidates.removeAll { $0.id == detection.id }
     }
 
-    /// Dismisses a missed-object candidate without placing a marker.
-    /// Requirement 35.3
     func dismissMissedCandidate(_ detection: AIDetection) {
         missedObjectCandidates.removeAll { $0.id == detection.id }
     }
 
-    /// Removes the given marker and decrements the corresponding tally.
-    ///
-    /// Requirement 3.3: delete a Count_Marker and decrement tally.
     func removeMarker(_ marker: CountMarker) {
         undoStack.push(markers)
         markers.removeAll { $0.id == marker.id }
         session.markers.removeAll { $0.id == marker.id }
         session.modifiedAt = Date()
 
-        // Record tally history entry for this marker removal (delta = -1).
         let historyEntry = TallyHistoryEntry(
             timestamp: Date(),
             objectTypeName: marker.objectType.name,
@@ -308,16 +350,10 @@ final class CountingViewModel: ObservableObject {
         )
         session.tallyHistory.append(historyEntry)
 
-        // Requirement 18.5: persist session state to recovery file after every mutation.
         CrashRecoveryService.saveRecovery(session: session)
-
-        // Requirement 22.1: sync updated tallies to paired Watch.
         syncToWatch()
     }
 
-    /// Reassigns a marker to a different ObjectType.
-    ///
-    /// Requirement 7.3: reassign a Count_Marker from one Object_Type to another.
     func reassignMarker(_ marker: CountMarker, to objectType: ObjectType) {
         undoStack.push(markers)
         if let index = markers.firstIndex(where: { $0.id == marker.id }) {
@@ -332,9 +368,6 @@ final class CountingViewModel: ObservableObject {
 
     // MARK: - Undo / Redo
 
-    /// Undoes the last marker placement or removal.
-    ///
-    /// Requirement 3.5, 3.6: undo within 100 ms.
     func undo() {
         guard let previous = undoStack.undo(currentState: markers) else { return }
         markers = previous
@@ -344,7 +377,6 @@ final class CountingViewModel: ObservableObject {
         syncToWatch()
     }
 
-    /// Redoes the last undone operation.
     func redo() {
         guard let next = undoStack.redo(currentState: markers) else { return }
         markers = next
@@ -359,9 +391,6 @@ final class CountingViewModel: ObservableObject {
 
     // MARK: - Grid overlay
 
-    /// Toggles the "completed" state of the given 0-based cell index.
-    ///
-    /// Requirement 4.4: tapping a grid cell toggles its counted state.
     func toggleCell(_ index: Int) {
         if completedCells.contains(index) {
             completedCells.remove(index)
@@ -370,26 +399,17 @@ final class CountingViewModel: ObservableObject {
         }
     }
 
-    /// The total number of cells in the current grid (density × density).
-    ///
-    /// Requirement 4.6: display completed-cell count and total cells.
     var totalCells: Int {
         let d = gridDensity.clamped(to: 2...20)
         return d * d
     }
 
-    /// The number of cells the user has marked as completed.
-    ///
-    /// Requirement 4.6: display completed-cell count in the toolbar.
     var completedCellCount: Int {
         completedCells.count
     }
 
     // MARK: - Image import
 
-    /// Saves an imported image to disk, creates a SessionImage record, and sets it as current.
-    ///
-    /// Images are stored in Documents/images/<sessionID>/<uuid>.jpg
     func importImage(_ image: UIImage, session: CountSession) async {
         let imagesDir = FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -402,12 +422,10 @@ final class CountingViewModel: ObservableObject {
         let filename = "\(UUID().uuidString).jpg"
         let fileURL = imagesDir.appendingPathComponent(filename)
 
-        // Compress to JPEG at 0.85 quality to balance size and fidelity
         if let data = image.jpegData(compressionQuality: 0.85) {
             try? data.write(to: fileURL)
         }
 
-        // Generate thumbnail (256×256 max)
         let thumbFilename = "thumb_\(filename)"
         let thumbURL = imagesDir.appendingPathComponent(thumbFilename)
         if let thumb = image.preparingThumbnail(of: CGSize(width: 256, height: 256)),
@@ -424,15 +442,20 @@ final class CountingViewModel: ObservableObject {
         session.modifiedAt = Date()
         CrashRecoveryService.saveRecovery(session: session)
 
-        // Set as the active canvas image
         currentImage = image
+        imageCache.set(image, for: filename)
     }
 
-    /// Loads the most recent SessionImage from disk for the current session.
     func loadCurrentImage() {
         guard let sessionImage = session.images.sorted(by: { $0.importedAt > $1.importedAt }).first else {
             return
         }
+
+        if let cached = imageCache.get(sessionImage.filename) {
+            currentImage = cached
+            return
+        }
+
         let imagesDir = FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("images")
@@ -440,27 +463,26 @@ final class CountingViewModel: ObservableObject {
         let fileURL = imagesDir.appendingPathComponent(sessionImage.filename)
         if let image = UIImage(contentsOfFile: fileURL.path) {
             currentImage = image
+            imageCache.set(image, for: sessionImage.filename)
         }
     }
 
     // MARK: - Current image
 
-    /// The currently displayed image in the canvas. Set by CountingView after import.
     @Published var currentImage: UIImage?
-
-    /// Zero-based index of the currently displayed image within the session's
-    /// sorted image list.  Used by MultiImageNavigatorView to highlight the
-    /// active thumbnail.
     @Published var currentImageIndex: Int = 0
 
-    /// Loads the image at `index` from `session.images` (sorted by importedAt)
-    /// and sets it as the active canvas image.
-    ///
-    /// Called by MultiImageNavigatorView when the user taps a thumbnail.
     func selectImage(at index: Int, session: CountSession) {
         let sorted = session.images.sorted { $0.importedAt < $1.importedAt }
         guard sorted.indices.contains(index) else { return }
         let sessionImage = sorted[index]
+
+        if let cached = imageCache.get(sessionImage.filename) {
+            currentImage = cached
+            currentImageIndex = index
+            return
+        }
+
         let imagesDir = FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("images")
@@ -469,14 +491,12 @@ final class CountingViewModel: ObservableObject {
         if let image = UIImage(contentsOfFile: fileURL.path) {
             currentImage = image
             currentImageIndex = index
+            imageCache.set(image, for: sessionImage.filename)
         }
     }
 
     // MARK: - AI counting
 
-    /// Runs AI object detection on the given image and populates `detections`.
-    ///
-    /// Requirements: 5.1, 5.3, 5.7, 5.8, 5.9, 5.10, 5.11
     func runAIDetection(on image: UIImage) async throws {
         guard !isAIRunning else { return }
         isAIRunning = true
@@ -486,13 +506,16 @@ final class CountingViewModel: ObservableObject {
             aiProgress = 1.0
         }
 
-        let aiService = CoreMLAIService()
+        if aiService == nil {
+            aiService = CoreMLAIService()
+        }
+        guard let aiService = aiService else { throw NSError(domain: "AIService", code: -1) }
+
         let results = try await aiService.detect(
             in: image,
             confidenceThreshold: confidenceThreshold
         )
 
-        // Merge with existing detections (avoid duplicates by bounding-box overlap)
         let newDetections = results.filter { newDet in
             !detections.contains { existing in
                 existing.normalizedBoundingBox.intersection(newDet.normalizedBoundingBox).area
@@ -500,11 +523,9 @@ final class CountingViewModel: ObservableObject {
             }
         }
         detections.append(contentsOf: newDetections)
+        cleanupOldDetections()
     }
 
-    /// Runs zero-shot similarity detection using a sample crop.
-    ///
-    /// Requirement 5.2
     func runSimilarityDetection(sampleRect: CGRect, in image: UIImage) async throws {
         guard !isAIRunning else { return }
         isAIRunning = true
@@ -514,9 +535,14 @@ final class CountingViewModel: ObservableObject {
             aiProgress = 1.0
         }
 
-        let aiService = CoreMLAIService()
+        if aiService == nil {
+            aiService = CoreMLAIService()
+        }
+        guard let aiService = aiService else { throw NSError(domain: "AIService", code: -1) }
+
         let results = try await aiService.detectSimilar(to: sampleRect, in: image)
         detections.append(contentsOf: results)
+        cleanupOldDetections()
     }
 
     func acceptDetection(_ detection: AIDetection) {
@@ -543,8 +569,6 @@ final class CountingViewModel: ObservableObject {
         for detection in filteredDetections where !detection.isAccepted {
             acceptDetection(detection)
         }
-        // syncToWatch is called per-detection inside acceptDetection;
-        // send one final consolidated update after all are accepted.
         syncToWatch()
     }
 
@@ -552,7 +576,7 @@ final class CountingViewModel: ObservableObject {
         detections.removeAll { $0.id == detection.id }
     }
 
-    // MARK: - Region management (implemented in Task 14)
+    // MARK: - Region management
 
     func addRegion(_ region: CountRegion) {
         regions.append(region)
@@ -570,10 +594,6 @@ final class CountingViewModel: ObservableObject {
         session.regions.removeAll { $0.id == region.id }
     }
 
-    /// Per-region tally: count of markers per ObjectType whose normalized coordinates
-    /// fall within the region boundary.
-    ///
-    /// Requirement 8.5, 8.6: region-specific tally.
     func tally(for region: CountRegion) -> [ObjectType: Int] {
         var tally: [ObjectType: Int] = [:]
         for marker in markers {

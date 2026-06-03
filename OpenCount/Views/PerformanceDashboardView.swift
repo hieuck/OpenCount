@@ -1,85 +1,15 @@
 import SwiftUI
 import Charts
-import Darwin
-import QuartzCore
-
-// MARK: - PerformanceMonitor
-
-/// Samples FPS and RAM usage periodically for the performance dashboard.
-/// Requirement 51 (Req 40)
-@MainActor
-final class PerformanceMonitor: ObservableObject {
-
-    @Published var currentFPS: Double = 0
-    @Published var ramUsageMB: Double = 0
-    @Published var aiLatencies: [Double] = []   // last 20 inference times in ms
-
-    private var displayLink: CADisplayLink?
-    private var lastTimestamp: CFTimeInterval = 0
-    private var frameCount: Int = 0
-    private var timer: Timer?
-
-    func start() {
-        // FPS via CADisplayLink
-        displayLink = CADisplayLink(target: self, selector: #selector(displayLinkTick))
-        displayLink?.add(to: .main, forMode: .common)
-
-        // RAM sampling every 500ms
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.sampleRAM()
-            }
-        }
-    }
-
-    func stop() {
-        displayLink?.invalidate()
-        displayLink = nil
-        timer?.invalidate()
-        timer = nil
-    }
-
-    func recordAILatency(_ ms: Double) {
-        aiLatencies.append(ms)
-        if aiLatencies.count > 20 { aiLatencies.removeFirst() }
-    }
-
-    @objc private func displayLinkTick(_ link: CADisplayLink) {
-        if lastTimestamp == 0 {
-            lastTimestamp = link.timestamp
-            return
-        }
-        frameCount += 1
-        let elapsed = link.timestamp - lastTimestamp
-        if elapsed >= 1.0 {
-            currentFPS = Double(frameCount) / elapsed
-            frameCount = 0
-            lastTimestamp = link.timestamp
-        }
-    }
-
-    private func sampleRAM() {
-        var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
-        let result = withUnsafeMutablePointer(to: &info) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
-                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
-            }
-        }
-        if result == KERN_SUCCESS {
-            ramUsageMB = Double(info.resident_size) / 1_048_576
-        }
-    }
-}
 
 // MARK: - PerformanceDashboardView
 
 /// Developer-only performance dashboard.
 /// Activated by tapping the version label 7 times in Settings.
+/// Displays real-time FPS, memory usage, AI inference latency, and operation tracking.
 /// Requirement 51 (Req 40)
 struct PerformanceDashboardView: View {
 
-    @StateObject private var monitor = PerformanceMonitor()
+    @ObservedObject private var monitor = PerformanceMonitor.shared
     @Environment(\.dismiss) private var dismiss
 
     private struct LatencyEntry: Identifiable {
@@ -110,13 +40,22 @@ struct PerformanceDashboardView: View {
                 // RAM
                 Section("Memory") {
                     HStack {
-                        Label("RAM Usage", systemImage: "memorychip")
+                        Label("Current RAM", systemImage: "memorychip")
                         Spacer()
                         Text(String(format: "%.1f MB", monitor.ramUsageMB))
                             .font(.body.monospacedDigit())
                             .foregroundStyle(monitor.ramUsageMB < 150 ? .green : monitor.ramUsageMB < 200 ? .orange : .red)
                     }
-                    .accessibilityLabel("RAM usage: \(String(format: "%.1f", monitor.ramUsageMB)) megabytes")
+                    .accessibilityLabel("Current RAM usage: \(String(format: "%.1f", monitor.ramUsageMB)) megabytes")
+
+                    HStack {
+                        Label("Peak RAM", systemImage: "chart.line.uptrend.xyaxis")
+                        Spacer()
+                        Text(String(format: "%.1f MB", monitor.peakRAMMB))
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(monitor.peakRAMMB < 150 ? .green : monitor.peakRAMMB < 200 ? .orange : .red)
+                    }
+                    .accessibilityLabel("Peak RAM usage: \(String(format: "%.1f", monitor.peakRAMMB)) megabytes")
 
                     // RAM budget indicator
                     VStack(alignment: .leading, spacing: 4) {
@@ -161,6 +100,49 @@ struct PerformanceDashboardView: View {
                     }
                 }
 
+                // Operations tracking
+                Section("Operations") {
+                    let operationsSummary = monitor.getOperationsSummary()
+                    if operationsSummary.isEmpty {
+                        Text("No operations tracked yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(operationsSummary, id: \.name) { op in
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(op.name)
+                                        .font(.subheadline.weight(.semibold))
+                                    Spacer()
+                                    if op.slowCount > 0 {
+                                        Label("\(op.slowCount) slow", systemImage: "exclamationmark.triangle.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Avg")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(String(format: "%.0f ms", op.avgDurationMS))
+                                            .font(.caption.monospacedDigit())
+                                    }
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Count")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text("\(op.count)")
+                                            .font(.caption.monospacedDigit())
+                                    }
+                                    Spacer()
+                                }
+                            }
+                            .accessibilityLabel("\(op.name): average \(String(format: "%.0f", op.avgDurationMS))ms, \(op.count) runs, \(op.slowCount) slow")
+                        }
+                    }
+                }
+
                 // Export diagnostics
                 Section {
                     Button {
@@ -187,14 +169,7 @@ struct PerformanceDashboardView: View {
     // MARK: - Export diagnostics
 
     private func exportDiagnostics() {
-        let diagnostics: [String: Any] = [
-            "fps": monitor.currentFPS,
-            "ram_mb": monitor.ramUsageMB,
-            "ai_latencies_ms": monitor.aiLatencies,
-            "timestamp": ISO8601DateFormatter().string(from: Date()),
-            "device": UIDevice.current.model,
-            "ios_version": UIDevice.current.systemVersion
-        ]
+        let diagnostics = monitor.exportDiagnostics()
         guard let data = try? JSONSerialization.data(withJSONObject: diagnostics, options: .prettyPrinted),
               let json = String(data: data, encoding: .utf8) else { return }
         UIPasteboard.general.string = json

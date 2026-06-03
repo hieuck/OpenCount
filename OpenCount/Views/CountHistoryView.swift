@@ -71,8 +71,8 @@ struct CountHistoryView: View {
                         exportAuditLog()
                     } label: {
                         if isExportingAuditLog {
-                            ProgressView()
-                                .scaleEffect(0.8)
+                            BufferingIndicator()
+                                .frame(width: 12, height: 12)
                         } else {
                             Image(systemName: "square.and.arrow.up")
                         }

@@ -90,17 +90,12 @@ struct BatchJobView: View {
 
         case .running(let current, let total):
             VStack(spacing: 8) {
-                HStack {
-                    Text("Processing \(current) of \(total) images…")
-                        .font(.subheadline)
-                    Spacer()
-                    Text("\(Int(Double(current) / Double(total) * 100))%")
-                        .font(.subheadline.bold())
-                        .monospacedDigit()
-                }
-                ProgressView(value: Double(current), total: Double(total))
-                    .tint(.blue)
-                    .accessibilityLabel("Batch progress: \(current) of \(total) images")
+                LinearProgressIndicator(
+                    progress: Double(current) / Double(total),
+                    label: "Processing \(current) of \(total) images…",
+                    showPercentage: true
+                )
+                .accessibilityLabel("Batch progress: \(current) of \(total) images")
             }
 
         case .completed:
@@ -113,6 +108,20 @@ struct BatchJobView: View {
             Label("Cancelled — \(viewModel.processedCount) of \(viewModel.totalCount) processed", systemImage: "xmark.circle")
                 .font(.subheadline)
                 .foregroundStyle(.orange)
+
+        case .paused(let current, let total):
+            VStack(spacing: 8) {
+                LinearProgressIndicator(
+                    progress: Double(current) / Double(total),
+                    label: "Paused — \(current) of \(total) processed",
+                    showPercentage: true
+                )
+                .accessibilityLabel("Batch paused: \(current) of \(total) images")
+                Button("Resume") {
+                    viewModel.resume(confidenceThreshold: confidenceThreshold)
+                }
+                .buttonStyle(.borderedProminent)
+            }
         }
     }
 

@@ -35,20 +35,78 @@ protocol AIServiceProtocol: AnyObject {
 /// off the main thread.
 ///
 /// Requirements: 5.1, 5.9 — inference must not block the UI thread.
+///
+/// Optimizations:
+/// - Lazy loads and caches VNCoreMLModel on first use
+/// - Supports async warm-up for model initialization on app launch
+/// - Thread-safe model access via actor isolation
 actor ModelActor {
     static let shared = ModelActor()
+
+    // MARK: - Model cache
+
+    /// Cached Vision CoreML model, loaded lazily on first inference.
+    private var cachedModel: VNCoreMLModel?
+
+    /// Whether warm-up has been initiated.
+    private var isWarmingUp: Bool = false
+
+    /// Lock for ensuring single warm-up initialization.
+    private var warmupTask: Task<Void, Never>?
+
+    // MARK: - Model loading and warm-up
+
+    /// Loads the model if not already cached. Thread-safe via actor isolation.
+    private func ensureModelLoaded() throws -> VNCoreMLModel {
+        if let model = cachedModel {
+            return model
+        }
+
+        guard let modelURL = Bundle.main.url(forResource: "YOLOv8n", withExtension: "mlmodelc")
+                ?? Bundle.main.url(forResource: "YOLOv8n", withExtension: "mlpackage") else {
+            throw AppError.coreMLModelLoadFailure
+        }
+
+        let mlModel = try MLModel(contentsOf: modelURL)
+        let visionModel = try VNCoreMLModel(for: mlModel)
+        cachedModel = visionModel
+        os_log(.info, log: .default, "[ModelActor] Model loaded and cached")
+        return visionModel
+    }
+
+    /// Warm-up: pre-loads and caches the model on app launch to reduce first inference latency.
+    /// Safe to call multiple times; only loads once.
+    func warmUp() async {
+        // Prevent duplicate warm-up tasks
+        if let task = warmupTask {
+            await task.value
+            return
+        }
+
+        let task = Task {
+            do {
+                _ = try ensureModelLoaded()
+                os_log(.info, log: .default, "[ModelActor] Model warm-up complete")
+            } catch {
+                os_log(.error, log: .default, "[ModelActor] Warm-up failed: %{public}@", error.localizedDescription)
+            }
+        }
+        warmupTask = task
+        await task.value
+    }
 
     // MARK: - CoreML detection
 
     /// Runs `VNCoreMLRequest` inference on the background actor.
+    /// Uses cached model for optimized performance.
     ///
     /// Requirements: 5.1, 5.3, 5.8, 5.9, 5.10, 5.11
     func runCoreMLDetection(
         cgImage: CGImage,
-        model: VNCoreMLModel,
         confidenceThreshold: Float,
         progressHandler: @escaping (Double) -> Void
     ) throws -> [AIDetection] {
+        let model = try ensureModelLoaded()
 
         var result: Result<[AIDetection], Error> = .success([])
 
@@ -252,6 +310,11 @@ actor ModelActor {
 /// returns plausible synthetic detections so the rest of the app can compile
 /// and run without the model file.
 ///
+/// Optimizations:
+/// - Model is cached in memory after first load via ModelActor
+/// - Supports async warm-up on app launch to pre-load and cache model
+/// - Subsequent inferences reuse cached model, eliminating load time
+///
 /// Requirements: 5.1, 5.2, 5.3, 5.8, 5.9, 5.10, 5.11
 @MainActor
 final class CoreMLAIService: ObservableObject, AIServiceProtocol {
@@ -264,39 +327,29 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
 
     // MARK: - Private
 
-    /// The loaded Vision CoreML model, or nil when the bundle model is absent.
-    private var visionModel: VNCoreMLModel?
-
-    /// Whether the real model was successfully loaded.
-    private var isModelLoaded: Bool { visionModel != nil }
+    /// Whether the real model was successfully loaded (set after warm-up or first inference).
+    private var isModelLoaded: Bool = false
 
     // MARK: - Init
 
     init() {
-        visionModel = Self.loadModel()
-        #if DEBUG
-        if visionModel == nil {
-            print("[CoreMLAIService] Running in mock mode — YOLOv8n.mlpackage not found in bundle.")
-        }
-        #endif
+        // Model loading is deferred to first inference or explicit warm-up call.
+        // This keeps app launch fast.
     }
 
-    // MARK: - Model loading
+    // MARK: - Warm-up
 
-    /// Attempts to load `YOLOv8n.mlpackage` (or its compiled `.mlmodelc`) from the main bundle.
-    /// Returns `nil` gracefully when the file is not present, enabling mock mode.
-    private static func loadModel() -> VNCoreMLModel? {
-        guard let modelURL = Bundle.main.url(forResource: "YOLOv8n", withExtension: "mlmodelc")
-                ?? Bundle.main.url(forResource: "YOLOv8n", withExtension: "mlpackage") else {
-            return nil
-        }
-
+    /// Pre-loads and caches the CoreML model on app launch.
+    /// Call this early (e.g., in AppDelegate or App.onAppear) to ensure
+    /// the model is cached before first inference, reducing perceived latency.
+    /// Safe to call multiple times; warm-up is idempotent.
+    func warmUp() async {
         do {
-            let mlModel = try MLModel(contentsOf: modelURL)
-            return try VNCoreMLModel(for: mlModel)
+            await ModelActor.shared.warmUp()
+            isModelLoaded = true
+            os_log(.info, log: .default, "[CoreMLAIService] Warm-up triggered")
         } catch {
-            os_log(.error, log: .default, "[CoreMLAIService] Model load failed: %{public}@", error.localizedDescription)
-            return nil
+            os_log(.error, log: .default, "[CoreMLAIService] Warm-up error: %{public}@", error.localizedDescription)
         }
     }
 
@@ -304,8 +357,13 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
 
     /// Runs object detection on `image` and returns detections above `confidenceThreshold`.
     ///
-    /// When the real model is loaded, this uses `VNCoreMLRequest` on the `ModelActor`.
-    /// When the model is absent, it returns synthetic mock detections for development.
+    /// When the real model is loaded (via warm-up or lazy load), this uses `VNCoreMLRequest`
+    /// on the `ModelActor`. When the model is absent, it returns synthetic mock detections
+    /// for development.
+    ///
+    /// Optimization: Large images are automatically downsampled before inference to reduce
+    /// memory pressure and improve inference speed. Model accuracy is preserved through
+    /// intelligent downsampling that maintains aspect ratio and content fidelity.
     ///
     /// Requirements: 5.1, 5.3, 5.8, 5.9, 5.10, 5.11
     func detect(in image: UIImage, confidenceThreshold: Float) async throws -> [AIDetection] {
@@ -315,10 +373,15 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
 
         aiProgress = 0.0
 
-        if let model = visionModel {
+        // Optimize image for processing if needed
+        let optimizedImage = await optimizeImageForInference(image)
+        guard let optimizedCGImage = optimizedImage.cgImage else {
+            throw AppError.aiInferenceOutOfMemory
+        }
+
+        do {
             return try await ModelActor.shared.runCoreMLDetection(
-                cgImage: cgImage,
-                model: model,
+                cgImage: optimizedCGImage,
                 confidenceThreshold: confidenceThreshold,
                 progressHandler: { [weak self] progress in
                     Task { @MainActor in
@@ -326,9 +389,10 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
                     }
                 }
             )
-        } else {
-            return await runMockDetection(cgImage: cgImage,
-                                          confidenceThreshold: confidenceThreshold)
+        } catch AppError.coreMLModelLoadFailure {
+            // Model not available; fall back to mock mode
+            return await runMockDetection(cgImage: optimizedCGImage,
+                                         confidenceThreshold: confidenceThreshold)
         }
     }
 
@@ -398,4 +462,40 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
         aiProgress = 1.0
         return detections
     }
+
+    // MARK: - Image optimization for inference
+
+    /// Optimize an image for efficient inference by downsampling if necessary.
+    /// Preserves model accuracy while reducing memory pressure and inference latency.
+    private func optimizeImageForInference(_ image: UIImage) async -> UIImage {
+        let optimizer = ImageOptimizationService.shared
+
+        guard let cgImage = image.cgImage else { return image }
+
+        let dimensions = CGSize(width: cgImage.width, height: cgImage.height)
+
+        // Only downsample if image exceeds processing threshold
+        guard optimizer.shouldDownsample(dimensions: dimensions) else {
+            return image
+        }
+
+        // Perform inline downsampling for inference
+        // This reduces memory footprint while maintaining detection accuracy
+        let maxProcessingDimension: CGFloat = 1920
+        let maxDim = max(dimensions.width, dimensions.height)
+        let scale = maxProcessingDimension / maxDim
+        let newWidth = (dimensions.width * scale).rounded()
+        let newHeight = (dimensions.height * scale).rounded()
+        let newSize = CGSize(width: newWidth, height: newHeight)
+
+        let rect = CGRect(origin: .zero, size: newSize)
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        image.draw(in: rect)
+        let scaledImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
+        UIGraphicsEndImageContext()
+
+        return scaledImage
+    }
 }
+
+

@@ -1,6 +1,7 @@
 import Foundation
 
 /// Typed error cases for OpenCount, surfaced through ViewModel's @Published var error: AppError?
+/// Each case includes user-friendly messages and recovery suggestions for comprehensive error handling.
 enum AppError: LocalizedError {
     case aiInferenceOutOfMemory
     case aiInferenceFailed(reason: String)
@@ -12,6 +13,8 @@ enum AppError: LocalizedError {
     case swiftDataSaveFailure
     case exportWriteFailure(reason: String)
     case videoFrameExtractionFailure
+
+    // MARK: - User-Facing Messages
 
     var errorDescription: String? {
         switch self {
@@ -38,6 +41,8 @@ enum AppError: LocalizedError {
         }
     }
 
+    // MARK: - Recovery Suggestions
+
     var recoverySuggestion: String? {
         switch self {
         case .aiInferenceOutOfMemory:
@@ -58,6 +63,61 @@ enum AppError: LocalizedError {
             return "Ensure the device has sufficient storage and try again."
         case .videoFrameExtractionFailure:
             return "Try a different video format or re-import the video."
+        }
+    }
+
+    // MARK: - Categorization for Error Handling
+
+    /// Determines if this error is retryable (transient).
+    var isRetryable: Bool {
+        switch self {
+        case .aiInferenceOutOfMemory, .aiInferenceFailed, .iCloudSyncFailure,
+             .swiftDataSaveFailure, .exportWriteFailure, .videoFrameExtractionFailure:
+            return true
+        case .coreMLModelLoadFailure, .photoPermissionDenied, .cameraPermissionDenied,
+             .imageFileMissing:
+            return false
+        }
+    }
+
+    /// Determines if user action is required to recover (e.g., permission grants).
+    var requiresUserAction: Bool {
+        switch self {
+        case .photoPermissionDenied, .cameraPermissionDenied, .imageFileMissing:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Severity level for analytics and reporting.
+    enum Severity {
+        case low
+        case medium
+        case high
+        case critical
+    }
+
+    var severity: Severity {
+        switch self {
+        case .videoFrameExtractionFailure:
+            return .low
+        case .aiInferenceFailed, .exportWriteFailure, .swiftDataSaveFailure:
+            return .medium
+        case .aiInferenceOutOfMemory, .iCloudSyncFailure, .imageFileMissing:
+            return .high
+        case .coreMLModelLoadFailure, .photoPermissionDenied, .cameraPermissionDenied:
+            return .critical
+        }
+    }
+
+    /// Whether this error should trigger a user-visible alert.
+    var shouldShowAlert: Bool {
+        switch self {
+        case .videoFrameExtractionFailure:
+            return false  // Handled silently
+        default:
+            return true
         }
     }
 }

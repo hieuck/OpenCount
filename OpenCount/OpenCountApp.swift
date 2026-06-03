@@ -8,6 +8,7 @@ struct OpenCountApp: App {
     @StateObject private var networkMonitor  = NetworkMonitor()
     @StateObject private var localAPIServer  = LocalAPIServer()
     @StateObject private var appState        = AppState()
+    @StateObject private var aiService       = CoreMLAIService()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -22,6 +23,7 @@ struct OpenCountApp: App {
                 .environmentObject(syncViewModel)
                 .environmentObject(networkMonitor)
                 .environmentObject(appState)
+                .environmentObject(aiService)
                 .onContinueUserActivity("com.opencount.counting") { activity in
                     if let s = activity.userInfo?["sessionID"] as? String,
                        let uuid = UUID(uuidString: s) {
@@ -56,6 +58,8 @@ struct OpenCountApp: App {
                     }
                     // Seed sample session on first launch
                     Task { await appState.seedSampleIfNeeded() }
+                    // Warm-up AI model on app launch for faster first inference
+                    Task { await aiService.warmUp() }
                 }
                 .onOpenURL { url in handleDeepLink(url) }
         }

@@ -31,6 +31,18 @@ enum HapticFeedback {
         let generator = UISelectionFeedbackGenerator()
         generator.selectionChanged()
     }
+
+    /// Selection changed feedback (type switching, toolbar interactions)
+    static func selectionChanged() {
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+    }
+
+    /// Success notification feedback (target reached, tally complete)
+    static func successNotification() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    }
 }
 
 // MARK: - CountingView
@@ -1243,8 +1255,8 @@ struct AIControlPanel: View {
             } label: {
                 HStack(spacing: 6) {
                     if viewModel.isAIRunning {
-                        ProgressView()
-                            .scaleEffect(0.8)
+                        BufferingIndicator()
+                            .frame(width: 12, height: 12)
                             .accessibilityLabel("Running AI detection…")
                     } else {
                         Image(systemName: "brain.head.profile")
@@ -1261,6 +1273,7 @@ struct AIControlPanel: View {
                         .fill(viewModel.isAIRunning ? Color(.systemGray3) : Color.blue)
                 )
                 .foregroundStyle(.white)
+                .loadingTransition(isLoading: viewModel.isAIRunning)
             }
             .buttonStyle(.plain)
             .disabled(viewModel.isAIRunning || viewModel.currentImage == nil)

@@ -361,6 +361,10 @@ struct ExportSheet: View {
             let data = try exportService.exportCSV(session: session)
             try data.write(to: fileURL, options: .atomic)
 
+        case .xlsx:
+            let data = try exportService.exportXLSX(session: session)
+            try data.write(to: fileURL, options: .atomic)
+
         case .json:
             let data = try exportService.exportJSON(session: session)
             try data.write(to: fileURL, options: .atomic)

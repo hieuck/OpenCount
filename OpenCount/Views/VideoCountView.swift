@@ -139,13 +139,11 @@ struct VideoCountView: View {
                 .resizable()
                 .scaledToFit()
                 .accessibilityLabel("Video frame at \(String(format: "%.2f", viewModel.currentTimestamp)) seconds")
+                .transition(.opacity)
         } else {
-            ZStack {
-                Color.black
-                ProgressView()
-                    .tint(.white)
-            }
-            .accessibilityLabel("Loading video frame")
+            VideoCountSkeletonLoader()
+                .transition(.opacity)
+                .accessibilityLabel("Loading video frame")
         }
     }
 

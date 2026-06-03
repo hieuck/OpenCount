@@ -141,13 +141,14 @@ struct TemplateGalleryView: View {
     @ViewBuilder
     private var templateListContent: some View {
         if service.isLoading && service.templates.isEmpty {
-            ProgressView("Loading templates…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            TemplateGallerySkeletonLoader()
+                .transition(.opacity)
                 .accessibilityLabel("Loading templates")
         } else if service.templates.isEmpty {
             emptyStateView
         } else {
             templateList
+                .transition(.opacity)
         }
     }
 

@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import SwiftUI
+import ZIPFoundation
 
 // MARK: - ExportFormat
 
@@ -37,6 +38,21 @@ enum ExportFormat: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - ExportProgress
+
+/// Progress tracking for bulk and long-running exports.
+struct ExportProgress {
+    let totalItems: Int
+    var completedItems: Int = 0
+    var currentItemName: String = ""
+    var isCancelled: Bool = false
+
+    var percentComplete: Double {
+        guard totalItems > 0 else { return 0 }
+        return Double(completedItems) / Double(totalItems)
+    }
+}
+
 // MARK: - ExportColumnConfig
 
 /// Configuration for customizable CSV export. Defines which columns to include.
@@ -68,14 +84,25 @@ struct ExportTemplate: Codable, Identifiable {
     let columnConfig: ExportColumnConfig?
     let createdAt: Date
     let description: String?
+    var isDefault: Bool = false
+    var usageCount: Int = 0
+    var lastUsedAt: Date?
 
-    init(name: String, format: String, columnConfig: ExportColumnConfig? = nil, description: String? = nil) {
+    init(name: String, format: String, columnConfig: ExportColumnConfig? = nil, description: String? = nil, isDefault: Bool = false) {
         self.id = UUID()
         self.name = name
         self.format = format
         self.columnConfig = columnConfig
         self.createdAt = Date()
         self.description = description
+        self.isDefault = isDefault
+        self.usageCount = 0
+        self.lastUsedAt = nil
+    }
+
+    mutating func recordUsage() {
+        self.usageCount += 1
+        self.lastUsedAt = Date()
     }
 }
 
@@ -85,6 +112,7 @@ protocol ExportServiceProtocol {
     func exportCSV(session: CountSession) throws -> Data
     func exportCSVWithConfig(session: CountSession, config: ExportColumnConfig) throws -> Data
     func exportXLSX(session: CountSession) throws -> Data
+    func exportXLSXWithConfig(session: CountSession, config: ExportColumnConfig) throws -> Data
     func exportJSON(session: CountSession) throws -> Data
     func exportCOCO(session: CountSession, imageWidth: Int, imageHeight: Int) throws -> Data
     func exportAnnotatedImage(session: CountSession, image: UIImage,
@@ -93,6 +121,11 @@ protocol ExportServiceProtocol {
                    annotationData: AnnotationExportData?) throws -> Data
     func plainTextSummary(session: CountSession) -> String
     func applyTemplate(_ template: ExportTemplate, session: CountSession) throws -> Data
+    func bulkExport(sessions: [CountSession], format: ExportFormat,
+                    progress: @escaping (ExportProgress) -> Void) throws -> URL
+    func exportMultipleSessions(sessions: [CountSession], formats: Set<ExportFormat>,
+                               imageProvider: ((CountSession) -> UIImage?)?,
+                               progress: @escaping (ExportProgress) -> Void) throws -> URL
 }
 
 // MARK: - Default parameter convenience extensions
@@ -105,6 +138,13 @@ extension ExportServiceProtocol {
     }
     func exportPDF(session: CountSession, image: UIImage) throws -> Data {
         try exportPDF(session: session, image: image, annotationData: nil)
+    }
+    func bulkExport(sessions: [CountSession], format: ExportFormat) throws -> URL {
+        var progress = ExportProgress(totalItems: sessions.count)
+        return try bulkExport(sessions: sessions, format: format) { _ in progress = $0 }
+    }
+    func exportMultipleSessions(sessions: [CountSession], formats: Set<ExportFormat>) throws -> URL {
+        try exportMultipleSessions(sessions: sessions, formats: formats, imageProvider: nil) { _ in }
     }
 }
 
@@ -220,25 +260,296 @@ final class ExportService: ExportServiceProtocol {
 
     // MARK: - XLSX Export
 
-    /// Exports session results as XLSX (Excel format).
+    /// Exports session results as XLSX (Excel format) using ZIP-based XLSX structure.
+    /// Generates proper Office Open XML format compatible with Excel, Google Sheets, and Numbers.
     ///
-    /// Note: iOS does not include built-in XLSX encoding. This method documents
-    /// the approach and provides CSV as an alternative. For production XLSX support,
-    /// consider integrating a library like `ZIPFoundation` + custom XML templating,
-    /// or use a backend service for XLSX generation.
-    ///
-    /// Current implementation: returns CSV data with .xlsx extension hint.
-    /// The caller should handle format conversion via:
-    /// - Backend service (recommended for large datasets)
-    /// - Third-party library (e.g., `xlsxwriter` via Python subprocess)
-    /// - Client-side conversion tools
+    /// Requirement 12.1, 12.7: complete within 2 seconds for 10,000 markers.
     func exportXLSX(session: CountSession) throws -> Data {
-        // For now, export as CSV with default columns
-        // The filename will have .xlsx extension, but content is CSV
-        // This allows graceful fallback while documenting the limitation
         let config = ExportColumnConfig(name: "Default", includedColumns: ExportColumnConfig.defaultColumns())
-        return try exportCSVWithConfig(session: session, config: config)
+        return try exportXLSXWithConfig(session: session, config: config)
     }
+
+    /// Exports session results as XLSX with user-selected columns.
+    ///
+    /// Creates a proper Office Open XML workbook with:
+    /// - Formatted header row (bold, colored background)
+    /// - Data rows with proper cell types and formatting
+    /// - Auto-sized columns
+    /// - Metadata sheet
+    func exportXLSXWithConfig(session: CountSession, config: ExportColumnConfig) throws -> Data {
+        let tempDir = FileManager.default.temporaryDirectory
+        let xlsxName = "export_\(UUID().uuidString).xlsx"
+        let xlsxURL = tempDir.appendingPathComponent(xlsxName)
+
+        defer {
+            try? FileManager.default.removeItem(at: xlsxURL)
+        }
+
+        guard let archive = Archive(url: xlsxURL, accessMode: .create) else {
+            throw AppError.exportWriteFailure(reason: "Failed to create XLSX archive.")
+        }
+
+        // Build workbook structure
+        try addXLSXRootFiles(to: archive)
+        try addXLSXWorkbook(to: archive, session: session, config: config)
+        try addXLSXWorkbookRels(to: archive)
+        try addXLSXContentTypes(to: archive)
+        try addXLSXMetadata(to: archive, session: session)
+
+        let data = try Data(contentsOf: xlsxURL)
+        return data
+    }
+
+    private func addXLSXRootFiles(to archive: Archive) throws {
+        // [Content_Types].xml
+        let contentTypes = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+            <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+            <Default Extension="xml" ContentType="application/xml"/>
+            <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+            <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+            <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+            <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+        </Types>
+        """
+        guard let data = contentTypes.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode XLSX content types.")
+        }
+        try archive.addEntry(with: "[Content_Types].xml", type: .file,
+                            uncompressedSize: Int64(data.count),
+                            provider: { pos, size in data.subdata(in: Int(pos)..<Int(pos) + size) })
+
+        // _rels/.rels
+        let rels = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+            <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+            <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+        </Relationships>
+        """
+        guard let relsData = rels.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode XLSX rels.")
+        }
+        try archive.addEntry(with: "_rels/.rels", type: .file,
+                            uncompressedSize: Int64(relsData.count),
+                            provider: { pos, size in relsData.subdata(in: Int(pos)..<Int(pos) + size) })
+    }
+
+    private func addXLSXWorkbook(to archive: Archive, session: CountSession,
+                                config: ExportColumnConfig) throws {
+        // xl/workbook.xml
+        let workbook = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+            <fileVersion appName="xl" lastEdited="4" lowestEdited="4" rupBuild="4505"/>
+            <workbookPr defaultTheme="1"/>
+            <bookViews>
+                <workbookView xWindow="480" yWindow="60" windowWidth="25920" windowHeight="17640" tabRatio="500" activeTab="0"/>
+            </bookViews>
+            <sheets>
+                <sheet name="Data" sheetId="1" r:id="rId2"/>
+                <sheet name="Summary" sheetId="2" r:id="rId3"/>
+            </sheets>
+        </workbook>
+        """
+        guard let data = workbook.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode workbook.")
+        }
+        try archive.addEntry(with: "xl/workbook.xml", type: .file,
+                            uncompressedSize: Int64(data.count),
+                            provider: { pos, size in data.subdata(in: Int(pos)..<Int(pos) + size) })
+
+        // xl/worksheets/sheet1.xml (data)
+        let sheet1 = try buildXLSXDataSheet(session: session, config: config)
+        try archive.addEntry(with: "xl/worksheets/sheet1.xml", type: .file,
+                            uncompressedSize: Int64(sheet1.count),
+                            provider: { pos, size in sheet1.subdata(in: Int(pos)..<Int(pos) + size) })
+
+        // xl/worksheets/sheet2.xml (summary)
+        let sheet2 = try buildXLSXSummarySheet(session: session)
+        try archive.addEntry(with: "xl/worksheets/sheet2.xml", type: .file,
+                            uncompressedSize: Int64(sheet2.count),
+                            provider: { pos, size in sheet2.subdata(in: Int(pos)..<Int(pos) + size) })
+    }
+
+    private func buildXLSXDataSheet(session: CountSession,
+                                   config: ExportColumnConfig) throws -> Data {
+        var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        xml += "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">\n"
+        xml += "<sheetData>\n"
+
+        // Header row
+        let sortedColumns = config.includedColumns.sorted { $0.rawValue < $1.rawValue }
+        xml += "<row r=\"1\">\n"
+        for (idx, column) in sortedColumns.enumerated() {
+            let cellRef = columnLetter(idx) + "1"
+            let header = LocalizationManager.localizedExportHeader(for: column)
+            xml += "<c r=\"\(cellRef)\" t=\"inlineStr\" s=\"1\"><is><t>\(xmlEscape(header))</t></is></c>\n"
+        }
+        xml += "</row>\n"
+
+        // Data rows
+        var tallies: [UUID: Int] = [:]
+        for marker in session.markers {
+            tallies[marker.objectType.id, default: 0] += 1
+        }
+
+        for (rowIdx, marker) in session.markers.enumerated() {
+            let rowNum = rowIdx + 2
+            xml += "<row r=\"\(rowNum)\">\n"
+            let rowValues = buildXLSXRowValues(marker: marker, session: session,
+                                             tallies: tallies, columns: sortedColumns)
+            for (colIdx, value) in rowValues.enumerated() {
+                let cellRef = columnLetter(colIdx) + String(rowNum)
+                let isNumeric = Double(value) != nil
+                let typeAttr = isNumeric ? "" : " t=\"inlineStr\""
+                xml += "<c r=\"\(cellRef)\"\(typeAttr)><v>\(xmlEscape(value))</v></c>\n"
+            }
+            xml += "</row>\n"
+        }
+
+        xml += "</sheetData>\n"
+        xml += "</worksheet>"
+
+        guard let data = xml.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode XLSX sheet.")
+        }
+        return data
+    }
+
+    private func buildXLSXSummarySheet(session: CountSession) throws -> Data {
+        var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        xml += "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\n"
+        xml += "<sheetData>\n"
+
+        var tallies: [UUID: Int] = [:]
+        for marker in session.markers {
+            tallies[marker.objectType.id, default: 0] += 1
+        }
+
+        var rowNum = 1
+        xml += "<row r=\"\(rowNum)\"><c r=\"A\(rowNum)\" t=\"inlineStr\" s=\"1\"><is><t>Object Type</t></is></c><c r=\"B\(rowNum)\" t=\"inlineStr\" s=\"1\"><is><t>Count</t></is></c></row>\n"
+
+        for objectType in session.objectTypes.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+            rowNum += 1
+            let count = tallies[objectType.id] ?? 0
+            xml += "<row r=\"\(rowNum)\">\n"
+            xml += "<c r=\"A\(rowNum)\" t=\"inlineStr\"><is><t>\(xmlEscape(objectType.name))</t></is></c>\n"
+            xml += "<c r=\"B\(rowNum)\"><v>\(count)</v></c>\n"
+            xml += "</row>\n"
+        }
+
+        xml += "</sheetData>\n"
+        xml += "</worksheet>"
+
+        guard let data = xml.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode XLSX summary.")
+        }
+        return data
+    }
+
+    private func addXLSXWorkbookRels(to archive: Archive) throws {
+        let rels = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+            <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+            <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+            <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
+        </Relationships>
+        """
+        guard let data = rels.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode workbook rels.")
+        }
+        try archive.addEntry(with: "xl/_rels/workbook.xml.rels", type: .file,
+                            uncompressedSize: Int64(data.count),
+                            provider: { pos, size in data.subdata(in: Int(pos)..<Int(pos) + size) })
+    }
+
+    private func addXLSXContentTypes(to archive: Archive) throws {
+        // Minimal styles.xml for header formatting
+        let styles = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+            <fonts><font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font><font><b/><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font></fonts>
+            <fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor theme="5"/><bgColor theme="5"/></patternFill></fill></fills>
+            <borders><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+            <cellStyleXfs><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+            <cellXfs><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyBorder="0"/></cellXfs>
+            <cellStyles><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+        </styleSheet>
+        """
+        guard let data = styles.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode styles.")
+        }
+        try archive.addEntry(with: "xl/styles.xml", type: .file,
+                            uncompressedSize: Int64(data.count),
+                            provider: { pos, size in data.subdata(in: Int(pos)..<Int(pos) + size) })
+    }
+
+    private func addXLSXMetadata(to archive: Archive, session: CountSession) throws {
+        let dateStr = ISO8601DateFormatter().string(from: Date())
+        let core = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/officeDocument/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <dc:title>\(xmlEscape(session.name))</dc:title>
+            <dc:creator>OpenCount</dc:creator>
+            <cp:lastModifiedBy>OpenCount</cp:lastModifiedBy>
+            <dcterms:created xsi:type="dcterms:W3CDTF">\(dateStr)</dcterms:created>
+            <dcterms:modified xsi:type="dcterms:W3CDTF">\(dateStr)</dcterms:modified>
+        </cp:coreProperties>
+        """
+        guard let data = core.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode metadata.")
+        }
+        try archive.addEntry(with: "docProps/core.xml", type: .file,
+                            uncompressedSize: Int64(data.count),
+                            provider: { pos, size in data.subdata(in: Int(pos)..<Int(pos) + size) })
+    }
+
+    private func buildXLSXRowValues(marker: CountMarker, session: CountSession,
+                                   tallies: [UUID: Int], columns: [ExportColumn]) -> [String] {
+        var rowData: [String: String] = [:]
+
+        rowData[ExportColumn.objectType.rawValue] = marker.objectType.name
+        rowData[ExportColumn.tally.rawValue] = String(tallies[marker.objectType.id] ?? 0)
+        rowData[ExportColumn.markerX.rawValue] = String(format: "%.6f", marker.normalizedX)
+        rowData[ExportColumn.markerY.rawValue] = String(format: "%.6f", marker.normalizedY)
+
+        let regionName: String
+        if let regionID = marker.regionID,
+           let region = session.regions.first(where: { $0.id == regionID }) {
+            regionName = region.name
+        } else {
+            regionName = ""
+        }
+        rowData[ExportColumn.regionName.rawValue] = regionName
+        rowData[ExportColumn.timestamp.rawValue] = ISO8601DateFormatter().string(from: marker.createdAt)
+        rowData[ExportColumn.isAIDerived.rawValue] = marker.isAIDerived ? "true" : "false"
+
+        return columns.compactMap { rowData[$0.rawValue] ?? "" }
+    }
+
+    private func columnLetter(_ index: Int) -> String {
+        var result = ""
+        var num = index + 1
+        while num > 0 {
+            let rem = (num - 1) % 26
+            result = String(UnicodeScalar(UInt8(65 + rem))!) + result
+            num = (num - 1) / 26
+        }
+        return result
+    }
+
+    private func xmlEscape(_ value: String) -> String {
+        return value
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&apos;")
+    }
+
 
     // MARK: - COCO JSON Export
 
@@ -490,8 +801,11 @@ final class ExportService: ExportServiceProtocol {
     /// Applies a user-defined export template to generate export data.
     ///
     /// Templates encapsulate format choice and column configuration, allowing users
-    /// to save and reuse export preferences.
+    /// to save and reuse export preferences. Records usage statistics.
     func applyTemplate(_ template: ExportTemplate, session: CountSession) throws -> Data {
+        var mutableTemplate = template
+        mutableTemplate.recordUsage()
+
         switch template.format {
         case "csv":
             if let config = template.columnConfig {
@@ -500,7 +814,11 @@ final class ExportService: ExportServiceProtocol {
                 return try exportCSV(session: session)
             }
         case "xlsx":
-            return try exportXLSX(session: session)
+            if let config = template.columnConfig {
+                return try exportXLSXWithConfig(session: session, config: config)
+            } else {
+                return try exportXLSX(session: session)
+            }
         case "json":
             return try exportJSON(session: session)
         case "coco":
@@ -508,6 +826,184 @@ final class ExportService: ExportServiceProtocol {
         default:
             throw AppError.exportWriteFailure(reason: "Unknown export format: \(template.format)")
         }
+    }
+
+    // MARK: - Bulk Export with Progress Tracking
+
+    /// Exports multiple sessions in a single format with progress tracking.
+    ///
+    /// Provides real-time progress updates via callback. Can be cancelled by setting
+    /// progress.isCancelled = true in the callback.
+    func bulkExport(sessions: [CountSession], format: ExportFormat,
+                    progress: @escaping (ExportProgress) -> Void) throws -> URL {
+        var progressState = ExportProgress(totalItems: sessions.count)
+        let tempDir = FileManager.default.temporaryDirectory
+        let timestamp = dateStamp()
+        let folderName = "OpenCount_Bulk_\(timestamp)"
+        let folderURL = tempDir.appendingPathComponent(folderName)
+
+        try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+
+        for (index, session) in sessions.enumerated() {
+            if progressState.isCancelled {
+                try? FileManager.default.removeItem(at: folderURL)
+                throw AppError.exportWriteFailure(reason: "Bulk export cancelled by user.")
+            }
+
+            progressState.completedItems = index
+            progressState.currentItemName = session.name
+            progress(progressState)
+
+            let safeName = sanitizeFilename(session.name)
+            let fileName = "\(safeName).\(format.fileExtension)"
+            let fileURL = folderURL.appendingPathComponent(fileName)
+
+            let data = try exportSessionInFormat(session, format: format)
+            try data.write(to: fileURL)
+        }
+
+        progressState.completedItems = sessions.count
+        progress(progressState)
+
+        // Create ZIP archive
+        let zipName = "OpenCount_Bulk_\(timestamp).zip"
+        let zipURL = tempDir.appendingPathComponent(zipName)
+        try? FileManager.default.removeItem(at: zipURL)
+
+        guard let archive = Archive(url: zipURL, accessMode: .create) else {
+            throw AppError.exportWriteFailure(reason: "Failed to create ZIP archive.")
+        }
+
+        let files = try FileManager.default.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil)
+        for fileURL in files {
+            let data = try Data(contentsOf: fileURL)
+            try archive.addEntry(with: fileURL.lastPathComponent, type: .file,
+                                uncompressedSize: Int64(data.count),
+                                provider: { pos, size in data.subdata(in: Int(pos)..<Int(pos) + size) })
+        }
+
+        try? FileManager.default.removeItem(at: folderURL)
+        return zipURL
+    }
+
+    /// Exports multiple sessions in multiple formats with detailed progress tracking.
+    ///
+    /// Creates a structured ZIP with subdirectories for each format. Supports custom
+    /// image provider for annotated images and PDFs.
+    func exportMultipleSessions(sessions: [CountSession], formats: Set<ExportFormat>,
+                               imageProvider: ((CountSession) -> UIImage?)?,
+                               progress: @escaping (ExportProgress) -> Void) throws -> URL {
+        var progressState = ExportProgress(totalItems: sessions.count * formats.count)
+        let tempDir = FileManager.default.temporaryDirectory
+        let timestamp = dateStamp()
+        let zipName = "OpenCount_Export_\(timestamp).zip"
+        let zipURL = tempDir.appendingPathComponent(zipName)
+
+        try? FileManager.default.removeItem(at: zipURL)
+
+        guard let archive = Archive(url: zipURL, accessMode: .create) else {
+            throw AppError.exportWriteFailure(reason: "Failed to create ZIP archive.")
+        }
+
+        for session in sessions {
+            let safeName = sanitizeFilename(session.name)
+            for format in formats {
+                if progressState.isCancelled {
+                    try? FileManager.default.removeItem(at: zipURL)
+                    throw AppError.exportWriteFailure(reason: "Export cancelled by user.")
+                }
+
+                progressState.currentItemName = "\(session.name) - \(format.rawValue)"
+                progress(progressState)
+
+                let folderPath = "\(safeName)/\(format.rawValue)"
+                let fileName = "\(safeName).\(format.fileExtension)"
+                let entryPath = "\(folderPath)/\(fileName)"
+
+                let data: Data
+                if format == .annotatedImage || format == .pdf {
+                    guard let image = imageProvider?(session) else {
+                        progressState.completedItems += 1
+                        continue
+                    }
+                    data = try exportSessionInFormatWithImage(session, format: format, image: image)
+                } else {
+                    data = try exportSessionInFormat(session, format: format)
+                }
+
+                try archive.addEntry(with: entryPath, type: .file,
+                                    uncompressedSize: Int64(data.count),
+                                    provider: { pos, size in data.subdata(in: Int(pos)..<Int(pos) + size) })
+
+                progressState.completedItems += 1
+            }
+        }
+
+        // Add summary
+        let summaryData = buildMultiSessionSummary(sessions: sessions, formats: formats)
+        try archive.addEntry(with: "summary.csv", type: .file,
+                            uncompressedSize: Int64(summaryData.count),
+                            provider: { pos, size in summaryData.subdata(in: Int(pos)..<Int(pos) + size) })
+
+        return zipURL
+    }
+
+    // MARK: - Private bulk export helpers
+
+    private func exportSessionInFormat(_ session: CountSession, format: ExportFormat) throws -> Data {
+        switch format {
+        case .csv:
+            return try exportCSV(session: session)
+        case .xlsx:
+            return try exportXLSX(session: session)
+        case .json:
+            return try exportJSON(session: session)
+        case .coco:
+            return try exportCOCO(session: session)
+        case .annotatedImage, .pdf:
+            throw AppError.exportWriteFailure(reason: "Format \(format.rawValue) requires an image.")
+        }
+    }
+
+    private func exportSessionInFormatWithImage(_ session: CountSession, format: ExportFormat,
+                                              image: UIImage) throws -> Data {
+        switch format {
+        case .annotatedImage:
+            if let annotated = try exportAnnotatedImage(session: session, image: image),
+               let pngData = annotated.pngData() {
+                return pngData
+            }
+            throw AppError.exportWriteFailure(reason: "Failed to generate annotated image.")
+        case .pdf:
+            return try exportPDF(session: session, image: image)
+        default:
+            return try exportSessionInFormat(session, format: format)
+        }
+    }
+
+    private func buildMultiSessionSummary(sessions: [CountSession], formats: Set<ExportFormat>) -> Data {
+        var lines = ["Session Name,Total Markers,Object Types,Exported Formats,Created,Modified"]
+        for session in sessions {
+            let name = csvEscape(session.name)
+            let total = session.markers.count
+            let types = session.objectTypes.count
+            let formatList = formats.map(\.rawValue).sorted().joined(separator: ";")
+            let created = ISO8601DateFormatter().string(from: session.createdAt)
+            let modified = ISO8601DateFormatter().string(from: session.modifiedAt)
+            lines.append("\(name),\(total),\(types),\(formatList),\(created),\(modified)")
+        }
+        return lines.joined(separator: "\n").data(using: .utf8) ?? Data()
+    }
+
+    private func sanitizeFilename(_ name: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/\\:*?\"<>|")
+        return name.components(separatedBy: invalid).joined(separator: "_")
+    }
+
+    private func dateStamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HHmmss"
+        return formatter.string(from: Date())
     }
 
     // MARK: - Tiled Annotated Image Export

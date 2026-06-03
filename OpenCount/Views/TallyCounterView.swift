@@ -1,25 +1,6 @@
 import SwiftUI
 import UIKit
 
-// MARK: - HapticFeedback Helper
-
-enum HapticFeedback {
-    static func markerPlaced() {
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.impactOccurred()
-    }
-
-    static func selectionChanged() {
-        let generator = UISelectionFeedbackGenerator()
-        generator.selectionChanged()
-    }
-
-    static func successNotification() {
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-    }
-}
-
 // MARK: - TallyCounterView
 
 /// A large-button tally counter view for quick manual counting without an image.

@@ -83,14 +83,11 @@ struct FineTuningView: View {
                 if viewModel.isTraining || !viewModel.lossHistory.isEmpty {
                     Section("Training Progress") {
                         if viewModel.isTraining {
-                            HStack {
-                                ProgressView(value: viewModel.trainingProgress)
-                                    .progressViewStyle(.linear)
-                                Text(String(format: "%.0f%%", viewModel.trainingProgress * 100))
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 40, alignment: .trailing)
-                            }
+                            LinearProgressIndicator(
+                                progress: viewModel.trainingProgress,
+                                label: "Training",
+                                showPercentage: true
+                            )
                             .accessibilityLabel("Training progress: \(Int(viewModel.trainingProgress * 100)) percent")
                         }
 

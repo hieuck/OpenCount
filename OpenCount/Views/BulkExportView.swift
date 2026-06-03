@@ -43,6 +43,7 @@ struct BulkExportView: View {
                 ToolbarItem(placement: .primaryAction) {
                     if isExporting {
                         ProgressView()
+                            .accessibilityLabel("Exporting sessions")
                     } else {
                         Button("Export ZIP") {
                             Task { await performExport() }

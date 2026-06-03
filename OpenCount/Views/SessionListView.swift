@@ -35,6 +35,10 @@ struct SessionListView: View {
 
     @StateObject private var viewModel: SessionListViewModel
 
+    // MARK: - Image loading
+
+    @StateObject private var lazyImageLoader = LazyImageLoader()
+
     // MARK: - Local UI state
 
     @State private var isShowingNewSessionSheet = false
@@ -302,6 +306,7 @@ struct SessionListView: View {
                             isShowingDeleteConfirmation = true
                         }
                     )
+                    .environmentObject(lazyImageLoader)
                 }
                 .accessibilityLabel("Session: \(session.name)")
                 // Also update the split-view selectedSession binding when tapped

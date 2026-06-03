@@ -3,7 +3,7 @@ import CoreGraphics
 
 /// An in-memory (non-persistent) object detection result produced by the CoreML/Vision pipeline.
 /// Contains a bounding box, class label, confidence score, and acceptance state.
-struct AIDetection: Identifiable, Equatable {
+struct AIDetection: Identifiable, Equatable, Codable {
     let id: UUID
     /// Normalized bounding box (0.0–1.0 in both dimensions)
     let normalizedBoundingBox: CGRect

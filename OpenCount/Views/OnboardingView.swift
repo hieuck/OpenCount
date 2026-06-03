@@ -575,8 +575,11 @@ struct SampleSessionView: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
 
-                    ProgressView(value: Double(currentStep) / Double(steps.count))
-                        .tint(.accentColor)
+                    LinearProgressIndicator(
+                        progress: Double(currentStep) / Double(steps.count),
+                        label: "Step \(currentStep + 1) of \(steps.count)",
+                        showPercentage: false
+                    )
 
                     Text(steps[currentStep])
                         .font(.body)
@@ -643,7 +646,8 @@ struct SampleSessionView: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("Sample Session", displayMode: .inline)
+            .navigationTitle("Sample Session")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") {

@@ -4,6 +4,7 @@ import SwiftUI
 /// modified date, marker count, object type chips, and a 7-day activity sparkline.
 /// Supports a context menu with Duplicate and Delete actions.
 ///
+/// Optimized with lazy image loading for smooth list scrolling.
 /// Requirement 47 (Req 36): sparkline showing counting activity over the last 7 days.
 struct SessionRowView: View {
 
@@ -11,9 +12,9 @@ struct SessionRowView: View {
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
-    // MARK: - Thumbnail
+    // MARK: - Image loading
 
-    @State private var thumbnail: UIImage?
+    @EnvironmentObject private var lazyImageLoader: LazyImageLoader
 
     // MARK: - Formatted values
 
@@ -33,7 +34,7 @@ struct SessionRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Thumbnail
+            // Thumbnail (lazy-loaded)
             thumbnailView
 
             VStack(alignment: .leading, spacing: 4) {
@@ -99,24 +100,7 @@ struct SessionRowView: View {
             }
         }
         .padding(.vertical, 4)
-        .onAppear { loadThumbnail() }
-        .contextMenu {
-            Button {
-                onDuplicate()
-            } label: {
-                Label("Duplicate", systemImage: "doc.on.doc")
-            }
-            .accessibilityLabel("Duplicate session \(session.name)")
-
-            Divider()
-
-            Button(role: .destructive) {
-                onDelete()
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-            .accessibilityLabel("Delete session \(session.name)")
-        }
+        .onAppear { loadThumbnailLazy() }
     }
 
     // MARK: - Thumbnail view
@@ -128,12 +112,13 @@ struct SessionRowView: View {
                 .fill(Color(.secondarySystemBackground))
                 .frame(width: 52, height: 52)
 
-            if let thumb = thumbnail {
+            if let thumb = lazyImageLoader.thumbnails[session.id] {
                 Image(uiImage: thumb)
                     .resizable()
                     .scaledToFill()
                     .frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .transition(.opacity)
             } else if session.images.isEmpty {
                 Image(systemName: "hand.tap")
                     .font(.title3)
@@ -164,27 +149,9 @@ struct SessionRowView: View {
         .background(Color(.tertiarySystemBackground), in: Capsule())
     }
 
-    // MARK: - Thumbnail loading
+    // MARK: - Lazy thumbnail loading
 
-    private func loadThumbnail() {
-        guard let firstImage = session.images.sorted(by: { $0.importedAt < $1.importedAt }).first else {
-            return
-        }
-        let imagesDir = FileManager.default
-            .urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("images")
-            .appendingPathComponent(session.id.uuidString)
-
-        if let thumbName = firstImage.thumbnailFilename {
-            let thumbURL = imagesDir.appendingPathComponent(thumbName)
-            if let img = UIImage(contentsOfFile: thumbURL.path) {
-                thumbnail = img
-                return
-            }
-        }
-        let fullURL = imagesDir.appendingPathComponent(firstImage.filename)
-        if let img = UIImage(contentsOfFile: fullURL.path) {
-            thumbnail = img.preparingThumbnail(of: CGSize(width: 52, height: 52))
-        }
+    private func loadThumbnailLazy() {
+        lazyImageLoader.loadThumbnail(for: session.id, from: session)
     }
 }

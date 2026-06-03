@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - QuickActionsView
 
@@ -77,6 +78,7 @@ struct QuickActionsView: View {
 
             // Main FAB button
             Button {
+                HapticFeedback.selectionChanged()
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     isExpanded.toggle()
                 }
@@ -120,7 +122,10 @@ struct QuickActionsView: View {
         color: Color,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button(action: {
+            HapticFeedback.markerPlaced()
+            action()
+        }) {
             HStack(spacing: 8) {
                 Text(label)
                     .font(.caption.weight(.semibold))
