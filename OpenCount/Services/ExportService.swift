@@ -969,11 +969,11 @@ final class ExportService: ExportServiceProtocol {
                                               image: UIImage) throws -> Data {
         switch format {
         case .annotatedImage:
-            if let annotated = try exportAnnotatedImage(session: session, image: image),
-               let pngData = annotated.pngData() {
-                return pngData
+            let annotated = try exportAnnotatedImage(session: session, image: image)
+            guard let pngData = annotated.pngData() else {
+                throw AppError.exportWriteFailure(reason: "Failed to generate annotated image.")
             }
-            throw AppError.exportWriteFailure(reason: "Failed to generate annotated image.")
+            return pngData
         case .pdf:
             return try exportPDF(session: session, image: image)
         default:

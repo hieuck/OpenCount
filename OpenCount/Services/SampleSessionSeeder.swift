@@ -120,10 +120,10 @@ private struct SampleRegionDTO: Codable {
     let name: String
     let colorHex: String
     let shapeType: String
-    let normalizedPoints: [PointDTO]
+    let normalizedPoints: [SamplePointDTO]
 }
 
-private struct PointDTO: Codable {
+private struct SamplePointDTO: Codable {
     let x: Double
     let y: Double
 }

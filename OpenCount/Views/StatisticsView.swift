@@ -261,17 +261,10 @@ struct StatisticsView: View {
         let currentTally = tallyByTypeName(session)
         let otherTally = tallyByTypeName(other)
 
-        struct ComparisonEntry: Identifiable {
-            let id = UUID()
-            let typeName: String
-            let sessionLabel: String
-            let count: Int
-        }
-
-        let entries: [ComparisonEntry] = allTypeNames.flatMap { name in
+        let entries: [CrossSessionEntry] = allTypeNames.flatMap { name in
             [
-                ComparisonEntry(typeName: name, sessionLabel: session.name, count: currentTally[name] ?? 0),
-                ComparisonEntry(typeName: name, sessionLabel: other.name, count: otherTally[name] ?? 0)
+                CrossSessionEntry(typeName: name, sessionLabel: session.name, count: currentTally[name] ?? 0),
+                CrossSessionEntry(typeName: name, sessionLabel: other.name, count: otherTally[name] ?? 0)
             ]
         }
 
@@ -438,4 +431,14 @@ struct StatisticsView: View {
         }
         return result
     }
+}
+
+// MARK: - CrossSessionEntry (moved outside @ViewBuilder to satisfy Swift restrictions)
+
+/// Data entry for the cross-session comparison chart.
+private struct CrossSessionEntry: Identifiable {
+    let id = UUID()
+    let typeName: String
+    let sessionLabel: String
+    let count: Int
 }
