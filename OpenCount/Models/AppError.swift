@@ -2,7 +2,7 @@ import Foundation
 
 /// Typed error cases for OpenCount, surfaced through ViewModel's @Published var error: AppError?
 /// Each case includes user-friendly messages and recovery suggestions for comprehensive error handling.
-enum AppError: LocalizedError {
+enum AppError: LocalizedError, Equatable {
     case aiInferenceOutOfMemory
     case aiInferenceFailed(reason: String)
     case coreMLModelLoadFailure

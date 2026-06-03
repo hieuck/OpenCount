@@ -83,9 +83,6 @@ jobs:
         run: |
           set -o pipefail
 
-          # Install iOS platform if not present
-          xcodebuild -downloadPlatform iOS 2>/dev/null || true
-
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
@@ -98,9 +95,9 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
-            ONLY_ACTIVE_ARCH=NO ASSETCATALOG_COMPILER_OPTIMIZATION=space \
+            ONLY_ACTIVE_ARCH=NO \
             build \
-          | xcbeautify --renderer github-actions || \
+          | xcbeautify --renderer github-actions 2>/dev/null || \
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
@@ -113,7 +110,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
-            ONLY_ACTIVE_ARCH=NO ASSETCATALOG_COMPILER_OPTIMIZATION=space \
+            ONLY_ACTIVE_ARCH=NO \
             build
 
       # ── Find the built .app ──────────────────────────────────────────────────

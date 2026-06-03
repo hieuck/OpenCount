@@ -21,21 +21,8 @@ struct ModelMetadata: Codable, Identifiable, Equatable {
     var classCount: Int { classLabels.count }
 }
 
-// MARK: - CGSize Codable
-
-extension CGSize: @retroactive Codable {
-    public init(from decoder: Decoder) throws {
-        var c = try decoder.unkeyedContainer()
-        let w = try c.decode(Double.self)
-        let h = try c.decode(Double.self)
-        self.init(width: w, height: h)
-    }
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.unkeyedContainer()
-        try c.encode(Double(width))
-        try c.encode(Double(height))
-    }
-}
+// CGSize already conforms to Codable via CoreGraphics on iOS 16+.
+// No extension needed here.
 
 // MARK: - CustomModelServiceProtocol
 

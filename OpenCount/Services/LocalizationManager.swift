@@ -7,7 +7,7 @@ import Foundation
 /// to produce locale-aware header strings.
 ///
 /// Requirement 30.4, 30.6, 30.7
-enum ExportColumn: String, CaseIterable {
+enum ExportColumn: String, CaseIterable, Codable {
     // CSV / JSON shared fields
     case objectType     = "export.column.object_type"
     case tally          = "export.column.tally"

@@ -173,7 +173,7 @@ struct FineTuningView: View {
             let loss: Double
         }
         let entries = viewModel.lossHistory.enumerated().map {
-            LossEntry(id: UUID(), epoch: $0.offset + 1, loss: $0.element)
+            LossEntry(epoch: $0.offset + 1, loss: $0.element)
         }
         return Chart(entries) { entry in
             LineMark(

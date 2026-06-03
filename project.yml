@@ -99,7 +99,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2" # iPhone + iPad
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        SUPPORTS_MACCATALYST: YES     # Requirement 57 (Req 46): macOS Catalyst support
+        SUPPORTS_MACCATALYST: NO      # Disabled for CI unsigned builds; enable locally with signing
 
   # ── Unit + property tests ─────────────────────────────────────────────────────
   OpenCountTests:

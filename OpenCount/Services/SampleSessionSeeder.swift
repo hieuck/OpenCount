@@ -94,12 +94,12 @@ private struct SampleSessionDTO: Decodable {
     let id: String
     let name: String
     let sessionDescription: String?
-    let objectTypes: [ObjectTypeDTO]
-    let markers: [MarkerDTO]
-    let regions: [RegionDTO]
+    let objectTypes: [SampleObjectTypeDTO]
+    let markers: [SampleMarkerDTO]
+    let regions: [SampleRegionDTO]
 }
 
-private struct ObjectTypeDTO: Codable {
+private struct SampleObjectTypeDTO: Codable {
     let id: String
     let name: String
     let colorHex: String
@@ -107,7 +107,7 @@ private struct ObjectTypeDTO: Codable {
     let sortOrder: Int
 }
 
-private struct MarkerDTO: Codable {
+private struct SampleMarkerDTO: Codable {
     let id: String
     let normalizedX: Double
     let normalizedY: Double
@@ -115,7 +115,7 @@ private struct MarkerDTO: Codable {
     let isAIDerived: Bool
 }
 
-private struct RegionDTO: Codable {
+private struct SampleRegionDTO: Codable {
     let id: String
     let name: String
     let colorHex: String

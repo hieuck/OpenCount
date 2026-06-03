@@ -316,10 +316,4 @@ private struct HTTPResponse {
     }
 }
 
-// MARK: - Comparable clamped helper
-
-private extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self {
-        min(max(self, range.lowerBound), range.upperBound)
-    }
-}
+// Note: clamped(to:) is defined in Models/Extensions.swift — no need to redeclare here.
