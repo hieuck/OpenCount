@@ -15,9 +15,15 @@ struct FeedbackComposerView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var networkMonitor: NetworkMonitor
 
+    // MARK: - Init
+
+    init(preselectedType: FeedbackType = .bug) {
+        _selectedType = State(initialValue: preselectedType)
+    }
+
     // MARK: - Form state
 
-    @State private var selectedType: FeedbackType = .bug
+    @State private var selectedType: FeedbackType
     @State private var description: String = ""
     @State private var screenshotImage: UIImage?
     @State private var isSubmitting: Bool = false
