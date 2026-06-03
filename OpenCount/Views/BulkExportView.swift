@@ -99,7 +99,7 @@ struct BulkExportView: View {
                           ? "checkmark.circle.fill"
                           : "circle")
                         .foregroundStyle(selectedSessionIDs.contains(session.id)
-                                         ? .accentColor : .secondary)
+                                         ? Color.accentColor : Color.secondary)
                         .font(.title3)
                         .accessibilityHidden(true)
 
@@ -124,7 +124,7 @@ struct BulkExportView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(session.name), \(session.markers.count) markers")
                 .accessibilityAddTraits(selectedSessionIDs.contains(session.id) ? [.isSelected] : [])
-                .accessibilityHint("Tap to \(selectedSessionIDs.contains(session.id) ? "deselect" : "select") this session.")
+                .accessibilityHint(selectedSessionIDs.contains(session.id) ? "Tap to deselect this session." : "Tap to select this session.")
             }
         } header: {
             Text("Sessions (\(selectedSessionIDs.count) selected)")
@@ -140,7 +140,7 @@ struct BulkExportView: View {
                     Image(systemName: selectedFormats.contains(format)
                           ? "checkmark.square.fill"
                           : "square")
-                        .foregroundStyle(selectedFormats.contains(format) ? .accentColor : .secondary)
+                        .foregroundStyle(selectedFormats.contains(format) ? Color.accentColor : Color.secondary)
                         .font(.title3)
                         .accessibilityHidden(true)
 

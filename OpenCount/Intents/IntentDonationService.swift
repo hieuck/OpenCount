@@ -17,7 +17,7 @@ enum IntentDonationService {
     /// Siri learns to suggest "Start counting in OpenCount" at similar times/contexts.
     static func donateSessionCreated(sessionID: String, sessionName: String) {
         Task {
-            var intent = CreateSessionIntent()
+            let intent = CreateSessionIntent()
             intent.name = sessionName
             // AppIntents are donated by calling perform() or via INInteraction.
             // We use INInteraction for explicit donation on iOS 16+.
@@ -30,7 +30,7 @@ enum IntentDonationService {
     /// Donate a `GetTallyIntent` after the user views a session's tally.
     static func donateTallyViewed(sessionID: String, objectTypeName: String?) {
         Task {
-            var intent = GetTallyIntent()
+            let intent = GetTallyIntent()
             intent.sessionID = sessionID
             intent.objectTypeName = objectTypeName
             await donateViaInteraction(intent: intent, identifier: "get-tally-\(sessionID)")
@@ -42,7 +42,7 @@ enum IntentDonationService {
     /// Donate an `ExportSessionIntent` after the user exports a session.
     static func donateSessionExported(sessionID: String, format: ExportFormatAppEnum) {
         Task {
-            var intent = ExportSessionIntent()
+            let intent = ExportSessionIntent()
             intent.sessionID = sessionID
             intent.format = format
             await donateViaInteraction(intent: intent, identifier: "export-session-\(sessionID)")
@@ -54,7 +54,7 @@ enum IntentDonationService {
     /// Donate a `RunAICountingIntent` after the user runs AI counting on a session.
     static func donateAICountingRun(sessionID: String) {
         Task {
-            var intent = RunAICountingIntent()
+            let intent = RunAICountingIntent()
             intent.sessionID = sessionID
             await donateViaInteraction(intent: intent, identifier: "ai-count-\(sessionID)")
         }

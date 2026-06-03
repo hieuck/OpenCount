@@ -176,7 +176,7 @@ private struct FormulaRow: View {
                 if let result {
                     Text(formattedResult(result))
                         .font(.title3.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 } else {
                     Text("—")
                         .font(.title3)
@@ -197,7 +197,13 @@ private struct FormulaRow: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(formula.name): \(result.map { formattedResult($0) } ?? "invalid expression")\(formula.unit.isEmpty ? "" : " \(formula.unit)")")
+        .accessibilityLabel(accessibilityLabelText)
+    }
+
+    private var accessibilityLabelText: String {
+        let resultStr = result.map { formattedResult($0) } ?? "invalid expression"
+        let unitStr = formula.unit.isEmpty ? "" : " \(formula.unit)"
+        return "\(formula.name): \(resultStr)\(unitStr)"
     }
 
     private func formattedResult(_ value: Double) -> String {
@@ -283,7 +289,7 @@ struct FormulaEditorSheet: View {
                                     .foregroundStyle(.primary)
                                 Spacer()
                                 Image(systemName: "plus.circle")
-                                    .foregroundStyle(.accentColor)
+                                    .foregroundStyle(Color.accentColor)
                                     .font(.caption)
                             }
                         }

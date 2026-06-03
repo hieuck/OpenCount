@@ -194,8 +194,8 @@ struct BatchResultRow: View {
                     .lineLimit(1)
 
                 if result.isProcessed {
-                    if let error = result.error {
-                        Text(error.localizedDescription)
+                    if let errorDesc = result.errorDescription {
+                        Text(errorDesc)
                             .font(.caption)
                             .foregroundStyle(.red)
                             .lineLimit(2)

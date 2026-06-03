@@ -363,7 +363,7 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
     ///
     /// Requirements: 5.1, 5.3, 5.8, 5.9, 5.10, 5.11
     func detect(in image: UIImage, confidenceThreshold: Float) async throws -> [AIDetection] {
-        guard let cgImage = image.cgImage else {
+        guard image.cgImage != nil else {
             throw AppError.aiInferenceOutOfMemory
         }
 
