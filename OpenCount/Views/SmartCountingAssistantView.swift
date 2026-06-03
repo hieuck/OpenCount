@@ -90,7 +90,7 @@ struct SmartCountingAssistantView: View {
         List {
             Section {
                 ForEach(insights) { insight in
-                    InsightRow(insight: insight, onDismiss: dismiss)
+                    InsightRow(insight: insight, onDismiss: { dismiss() })
                 }
             } header: {
                 Text("\(insights.count) insight\(insights.count == 1 ? "" : "s") found")

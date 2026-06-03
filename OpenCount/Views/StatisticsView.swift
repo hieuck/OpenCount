@@ -162,30 +162,70 @@ struct StatisticsView: View {
             if tallyByType.isEmpty || totalCount == 0 {
                 emptyChartPlaceholder("No data to display.")
             } else {
-                Chart(tallyByType, id: \.objectType.id) { item in
-                    SectorMark(
-                        angle: .value("Count", item.count),
-                        innerRadius: .ratio(0.4),
-                        angularInset: 1.5
-                    )
-                    .foregroundStyle(Color(hex: item.objectType.colorHex) ?? .accentColor)
-                    .accessibilityLabel("\(item.objectType.name): \(item.count) markers, \(percentage(item.count)) percent")
+                if #available(iOS 17.0, *) {
+                    pieChartContent
+                } else {
+                    barChartFallback
                 }
-                .frame(height: 220)
-                .chartLegend(position: .bottom, alignment: .center, spacing: 8) {
-                    ForEach(tallyByType, id: \.objectType.id) { item in
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(Color(hex: item.objectType.colorHex) ?? .accentColor)
-                                .frame(width: 8, height: 8)
-                            Text(item.objectType.name)
-                                .font(.caption2)
-                        }
-                    }
-                }
-                .accessibilityLabel("Pie chart showing distribution of \(totalCount) markers across \(tallyByType.count) object types.")
             }
         }
+    }
+
+    @available(iOS 17.0, *)
+    private var pieChartContent: some View {
+        Chart(tallyByType, id: \.objectType.id) { item in
+            SectorMark(
+                angle: .value("Count", item.count),
+                innerRadius: .ratio(0.4),
+                angularInset: 1.5
+            )
+            .foregroundStyle(Color(hex: item.objectType.colorHex) ?? .accentColor)
+            .accessibilityLabel("\(item.objectType.name): \(item.count) markers, \(percentage(item.count)) percent")
+        }
+        .frame(height: 220)
+        .chartLegend(position: .bottom, alignment: .center, spacing: 8) {
+            ForEach(tallyByType, id: \.objectType.id) { item in
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color(hex: item.objectType.colorHex) ?? .accentColor)
+                        .frame(width: 8, height: 8)
+                    Text(item.objectType.name)
+                        .font(.caption2)
+                }
+            }
+        }
+        .accessibilityLabel("Pie chart showing distribution of \(totalCount) markers across \(tallyByType.count) object types.")
+    }
+
+    // iOS 16 fallback — horizontal bar chart
+    private var barChartFallback: some View {
+        VStack(spacing: 6) {
+            ForEach(tallyByType, id: \.objectType.id) { item in
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(Color(hex: item.objectType.colorHex) ?? .accentColor)
+                        .frame(width: 10, height: 10)
+                    Text(item.objectType.name)
+                        .font(.caption)
+                        .frame(width: 80, alignment: .leading)
+                    GeometryReader { geo in
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color(hex: item.objectType.colorHex) ?? .accentColor)
+                            .frame(
+                                width: totalCount > 0 ? geo.size.width * CGFloat(item.count) / CGFloat(totalCount) : 0,
+                                height: 16
+                            )
+                    }
+                    .frame(height: 16)
+                    Text("\(item.count)")
+                        .font(.caption.monospacedDigit())
+                        .frame(width: 36, alignment: .trailing)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(item.objectType.name): \(item.count) (\(percentage(item.count))%)")
+            }
+        }
+        .padding(.vertical, 8)
     }
 
     // MARK: - Region Bar Chart (Req 13.3)
