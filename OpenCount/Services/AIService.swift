@@ -344,13 +344,9 @@ final class CoreMLAIService: ObservableObject, AIServiceProtocol {
     /// the model is cached before first inference, reducing perceived latency.
     /// Safe to call multiple times; warm-up is idempotent.
     func warmUp() async {
-        do {
-            await ModelActor.shared.warmUp()
-            isModelLoaded = true
-            os_log(.info, log: .default, "[CoreMLAIService] Warm-up triggered")
-        } catch {
-            os_log(.error, log: .default, "[CoreMLAIService] Warm-up error: %{public}@", error.localizedDescription)
-        }
+        await ModelActor.shared.warmUp()
+        isModelLoaded = true
+        os_log(.info, log: .default, "[CoreMLAIService] Warm-up triggered")
     }
 
     // MARK: - AIServiceProtocol: detect
