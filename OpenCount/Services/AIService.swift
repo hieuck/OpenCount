@@ -11,7 +11,7 @@ import os.log
 /// Requirements: 5.1, 5.2, 5.3, 5.8, 5.9, 5.10, 5.11
 protocol AIServiceProtocol: AnyObject {
     /// Progress of the current inference operation, in the range [0.0, 1.0].
-    var aiProgress: Double { get }
+    @MainActor var aiProgress: Double { get }
 
     /// Runs object detection on the given image and returns all detections above the threshold.
     /// - Parameters:

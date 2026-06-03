@@ -86,19 +86,5 @@ struct ArrowAnnotation: Identifiable, Codable, Equatable {
     var colorHex: String = "#FF0000"
 }
 
-// MARK: - CGPoint Codable conformance
-
-extension CGPoint: @retroactive Codable {
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let x = try container.decode(Double.self)
-        let y = try container.decode(Double.self)
-        self.init(x: x, y: y)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Double(x))
-        try container.encode(Double(y))
-    }
-}
+// CGPoint already conforms to Codable via CoreGraphics on iOS 16+.
+// No extension needed.

@@ -67,9 +67,12 @@ struct BatchImageResult: Identifiable, Codable {
     let sessionImage: SessionImage
     var detections: [AIDetection]
     var isProcessed: Bool
-    var error: AppError?
+    var errorDescription: String?     // AppError can't be Codable due to associated values
     var retryCount: Int = 0
     var processedAt: Date?
+
+    // Computed property for backwards compatibility
+    var hasError: Bool { errorDescription != nil }
 }
 
 // MARK: - BatchJobViewModel
@@ -207,7 +210,7 @@ final class BatchJobViewModel: ObservableObject {
                 sessionImage: img,
                 detections: [],
                 isProcessed: false,
-                error: nil,
+                errorDescription: nil,
                 retryCount: 0,
                 processedAt: nil
             )
@@ -335,7 +338,7 @@ final class BatchJobViewModel: ObservableObject {
 
             guard let image = loadImage(for: results[index].sessionImage) else {
                 results[index].isProcessed = true
-                results[index].error = .imageFileMissing
+                results[index].errorDescription = AppError.imageFileMissing.localizedDescription
                 results[index].processedAt = Date()
                 return
             }
@@ -356,14 +359,14 @@ final class BatchJobViewModel: ObservableObject {
             } catch let appError as AppError {
                 if attempt == maxRetries - 1 {
                     results[index].isProcessed = true
-                    results[index].error = appError
+                    results[index].errorDescription = appError.localizedDescription
                     results[index].retryCount = attempt + 1
                     results[index].processedAt = Date()
                 }
             } catch {
                 if attempt == maxRetries - 1 {
                     results[index].isProcessed = true
-                    results[index].error = .aiInferenceOutOfMemory
+                    results[index].errorDescription = AppError.aiInferenceOutOfMemory.localizedDescription
                     results[index].retryCount = attempt + 1
                     results[index].processedAt = Date()
                 }
@@ -443,7 +446,7 @@ final class BatchJobViewModel: ObservableObject {
     /// Retries all failed images in the batch.
     func retryFailedImages(confidenceThreshold: Float = 0.5) {
         let failedIndices = results.enumerated()
-            .filter { $0.element.error != nil && $0.element.isProcessed }
+            .filter { $0.element.hasError && $0.element.isProcessed }
             .map { $0.offset }
 
         guard !failedIndices.isEmpty else { return }
@@ -451,7 +454,7 @@ final class BatchJobViewModel: ObservableObject {
         Task {
             for index in failedIndices {
                 guard !isCancelled else { break }
-                results[index].error = nil
+                results[index].errorDescription = nil
                 results[index].isProcessed = false
                 results[index].retryCount = 0
                 results[index].processedAt = nil

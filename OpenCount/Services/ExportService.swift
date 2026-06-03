@@ -141,7 +141,7 @@ extension ExportServiceProtocol {
     }
     func bulkExport(sessions: [CountSession], format: ExportFormat) throws -> URL {
         var progress = ExportProgress(totalItems: sessions.count)
-        return try bulkExport(sessions: sessions, format: format) { _ in progress = $0 }
+        return try bulkExport(sessions: sessions, format: format) { p in progress = p }
     }
     func exportMultipleSessions(sessions: [CountSession], formats: Set<ExportFormat>) throws -> URL {
         try exportMultipleSessions(sessions: sessions, formats: formats, imageProvider: nil) { _ in }

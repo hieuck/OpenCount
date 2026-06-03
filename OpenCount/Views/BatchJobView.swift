@@ -222,7 +222,7 @@ struct BatchResultRow: View {
         if !result.isProcessed {
             Image(systemName: "clock")
                 .foregroundStyle(.secondary)
-        } else if result.error != nil {
+        } else if result.hasError {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
         } else {

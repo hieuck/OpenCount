@@ -348,7 +348,7 @@ struct SessionListView: View {
                 Text("No Results")
                     .font(.title2)
                     .fontWeight(.semibold)
-                Text("No sessions match "\(viewModel.searchQuery)".")
+                Text("No sessions match \"\(viewModel.searchQuery)\".")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

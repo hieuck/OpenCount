@@ -133,20 +133,16 @@ struct CountHistoryView: View {
 
     private func exportAuditLog() {
         isExportingAuditLog = true
-        Task.detached(priority: .userInitiated) {
+        Task { @MainActor in
             do {
                 let url = try buildAuditLogCSV()
-                await MainActor.run {
-                    isExportingAuditLog = false
-                    auditLogURL = url
-                    isShareSheetPresented = true
-                }
+                isExportingAuditLog = false
+                auditLogURL = url
+                isShareSheetPresented = true
             } catch {
-                await MainActor.run {
-                    isExportingAuditLog = false
-                    exportError = error.localizedDescription
-                    isShowingExportError = true
-                }
+                isExportingAuditLog = false
+                exportError = error.localizedDescription
+                isShowingExportError = true
             }
         }
     }

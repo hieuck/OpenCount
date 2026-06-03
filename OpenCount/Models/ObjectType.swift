@@ -3,7 +3,7 @@ import Foundation
 // MARK: - ObjectType
 
 /// A user-defined category of object to count within a Session.
-final class ObjectType: ObservableObject, Identifiable, Codable {
+final class ObjectType: ObservableObject, Identifiable, Codable, Hashable {
     var id: UUID
     var name: String
     var colorHex: String
@@ -53,5 +53,14 @@ final class ObjectType: ObservableObject, Identifiable, Codable {
         try c.encode(iconName,    forKey: .iconName)
         try c.encode(sortOrder,   forKey: .sortOrder)
         try c.encodeIfPresent(targetCount, forKey: .targetCount)
+    }
+
+    // MARK: - Hashable (required for use as Dictionary key)
+    static func == (lhs: ObjectType, rhs: ObjectType) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }

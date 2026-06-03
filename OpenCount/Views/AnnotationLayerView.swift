@@ -296,8 +296,8 @@ struct TextAnnotationView: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(.ultraThinMaterial)
-                .shadow(radius: 4)
         )
+        .shadow(radius: 4)
     }
 
     // MARK: - Helpers
@@ -366,7 +366,7 @@ struct LayerPanelView: View {
                                 viewModel.toggleLayer(layer)
                             } label: {
                                 Image(systemName: viewModel.isVisible(layer) ? "eye.fill" : "eye.slash")
-                                    .foregroundStyle(viewModel.isVisible(layer) ? .accentColor : .secondary)
+                                    .foregroundStyle(viewModel.isVisible(layer) ? Color.accentColor : Color.secondary)
                                     .imageScale(.medium)
                             }
                             .buttonStyle(.plain)
@@ -420,7 +420,7 @@ struct LayerPanelView: View {
                 Spacer()
                 if viewModel.activeTool == tool {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                 }
             }

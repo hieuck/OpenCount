@@ -47,8 +47,8 @@ struct PencilCanvasView: UIViewRepresentable {
         canvas.addInteraction(pencilInteraction)
 
         // Pencil hover preview via UIHoverGestureRecognizer — Requirement 31.5
-        // Available on iPadOS 16.1+
-        if #available(iPadOS 16.1, *) {
+        // Available on iOS 16.1+
+        if #available(iOS 16.1, *) {
             let hoverRecognizer = UIHoverGestureRecognizer(
                 target: context.coordinator,
                 action: #selector(Coordinator.handleHover(_:))
