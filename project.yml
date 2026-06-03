@@ -18,6 +18,7 @@ settings:
     ALWAYS_SEARCH_USER_PATHS: NO
     CLANG_ENABLE_MODULES: YES
     SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+    ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT: YES
   configs:
     Debug:
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
@@ -250,13 +251,12 @@ schemes:
     archive:
       config: Release
 
-  # Scheme for unsigned IPA builds — only the main app, no Watch/Clip dependencies
-  # that would confuse xcodebuild -sdk iphoneos
+  # Scheme for unsigned IPA builds — only the main app, no Watch/Clip/Widget
+  # that would trigger asset catalog simulator SDK issues in CI
   OpenCountIPA:
     build:
       targets:
         OpenCount: [build, run, profile, analyze, archive]
-        OpenCountWidget: [build, run, profile, analyze, archive]
     run:
       config: Release
     archive:
