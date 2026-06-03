@@ -98,7 +98,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
-            ONLY_ACTIVE_ARCH=NO \
+            ONLY_ACTIVE_ARCH=NO ASSETCATALOG_COMPILER_OPTIMIZATION=space \
             build \
           | xcbeautify --renderer github-actions || \
           xcodebuild \
@@ -113,7 +113,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
-            ONLY_ACTIVE_ARCH=NO \
+            ONLY_ACTIVE_ARCH=NO ASSETCATALOG_COMPILER_OPTIMIZATION=space \
             build
 
       # ── Find the built .app ──────────────────────────────────────────────────
