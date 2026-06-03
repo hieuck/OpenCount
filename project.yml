@@ -250,6 +250,18 @@ schemes:
     archive:
       config: Release
 
+  # Scheme for unsigned IPA builds — only the main app, no Watch/Clip dependencies
+  # that would confuse xcodebuild -sdk iphoneos
+  OpenCountIPA:
+    build:
+      targets:
+        OpenCount: [build, run, profile, analyze, archive]
+        OpenCountWidget: [build, run, profile, analyze, archive]
+    run:
+      config: Release
+    archive:
+      config: Release
+
   OpenCountWatch:
     build:
       targets:

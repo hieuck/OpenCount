@@ -36,7 +36,7 @@ on:
       - master
 
 env:
-  SCHEME: OpenCount
+  SCHEME: OpenCountIPA
   DERIVED_DATA: ${{ github.workspace }}/.build/DerivedData
   APP_PATH: ${{ github.workspace }}/.build/DerivedData/Build/Products/Release-iphoneos/OpenCount.app
   IPA_DIR: ${{ github.workspace }}/.build/IPA
@@ -87,6 +87,7 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
+            -destination "generic/platform=iOS" \
             -derivedDataPath "$DERIVED_DATA" \
             IPHONEOS_DEPLOYMENT_TARGET=16.0 \
             CODE_SIGNING_ALLOWED=NO \
