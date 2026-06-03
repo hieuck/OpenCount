@@ -64,29 +64,34 @@ struct FeedbackComposerView: View {
     private var typePicker: some View {
         Section("Feedback Type") {
             ForEach(FeedbackType.allCases) { type in
-                Button {
-                    selectedType = type
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: type.systemImage)
-                            .foregroundStyle(iconColor(for: type))
-                            .frame(width: 24)
-                            .accessibilityHidden(true)
-                        Text(type.rawValue)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if selectedType == type {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.accent)
-                                .accessibilityHidden(true)
-                        }
-                    }
-                }
-                .accessibilityLabel(type.rawValue)
-                .accessibilityHint("Select \(type.rawValue) as the feedback type.")
-                .accessibilityAddTraits(selectedType == type ? .isSelected : [])
+                feedbackTypeRow(type)
             }
         }
+    }
+
+    @ViewBuilder
+    private func feedbackTypeRow(_ type: FeedbackType) -> some View {
+        Button {
+            selectedType = type
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: type.systemImage)
+                    .foregroundStyle(iconColor(for: type))
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                Text(type.rawValue)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if selectedType == type {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Color.accentColor)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .accessibilityLabel(type.rawValue)
+        .accessibilityHint("Select \(type.rawValue) as the feedback type.")
+        .accessibilityAddTraits(selectedType == type ? .isSelected : [])
     }
 
     /// Multiline description editor — Requirement 32.1

@@ -159,7 +159,9 @@ final class FeedbackService: NSObject, FeedbackServiceProtocol, MXMetricManagerS
         for payload in payloads {
             if let crashPayloads = payload.crashDiagnostics, !crashPayloads.isEmpty {
                 let description = crashPayloads.map { crash in
-                    "Signal: \(crash.signal)\nException: \(crash.exceptionType ?? "unknown")\n"
+                    let signal = Int(crash.signal)
+                    let exception = crash.exceptionType ?? "unknown"
+                    return "Signal: \(signal)\nException: \(exception)\n"
                 }.joined(separator: "\n---\n")
 
                 savePendingCrash(description)

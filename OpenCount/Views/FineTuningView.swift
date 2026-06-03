@@ -167,13 +167,8 @@ struct FineTuningView: View {
     // MARK: - Loss chart
 
     private var lossChart: some View {
-        struct LossEntry: Identifiable {
-            let id = UUID()
-            let epoch: Int
-            let loss: Double
-        }
         let entries = viewModel.lossHistory.enumerated().map {
-            LossEntry(epoch: $0.offset + 1, loss: $0.element)
+            FineTuningLossEntry(epoch: $0.offset + 1, loss: $0.element)
         }
         return Chart(entries) { entry in
             LineMark(
@@ -261,4 +256,12 @@ final class FineTuningViewModel: ObservableObject {
         CountMarker(normalizedX: 0.3, normalizedY: 0.4, objectType: type1, session: session),
     ]
     return FineTuningView(session: session)
+}
+
+// MARK: - FineTuningLossEntry (outside @ViewBuilder to avoid compiler errors)
+
+private struct FineTuningLossEntry: Identifiable {
+    let id = UUID()
+    let epoch: Int
+    let loss: Double
 }
