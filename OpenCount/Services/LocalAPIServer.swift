@@ -51,7 +51,9 @@ final class LocalAPIServer: ObservableObject {
             )
             listener = try NWListener(using: params)
             listener?.newConnectionHandler = { [weak self] connection in
-                self?.handleConnection(connection)
+                Task { @MainActor [weak self] in
+                    self?.handleConnection(connection)
+                }
             }
             listener?.stateUpdateHandler = { [weak self] state in
                 Task { @MainActor in

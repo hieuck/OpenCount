@@ -60,8 +60,6 @@ final class LiveCountViewModel: NSObject, ObservableObject {
     private let aiService = CoreMLAIService()
     private let sessionQueue = DispatchQueue(label: "com.opencount.captureSession",
                                              qos: .userInitiated)
-    private let inferenceQueue = DispatchQueue(label: "com.opencount.inference",
-                                               qos: .userInitiated)
 
     /// The currently active camera position.
     private var currentCameraPosition: AVCaptureDevice.Position = .back
@@ -309,8 +307,14 @@ final class LiveCountViewModel: NSObject, ObservableObject {
 
         // Set video orientation to portrait.
         if let connection = output.connection(with: .video) {
-            if connection.isVideoRotationAngleSupported(90) {
-                connection.videoRotationAngle = 90
+            if #available(iOS 17.0, *) {
+                if connection.isVideoRotationAngleSupported(90) {
+                    connection.videoRotationAngle = 90
+                }
+            } else {
+                if connection.isVideoOrientationSupported {
+                    connection.videoOrientation = .portrait
+                }
             }
         }
 
@@ -354,54 +358,32 @@ extension LiveCountViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        let now = CACurrentMediaTime()
-
-        // Throttle: skip this frame if we haven't waited long enough since the last inference.
-        // Also skip if a previous inference is still in flight.
-        guard now - lastInferenceTime >= inferenceInterval,
-              !inferenceInFlight else { return }
-
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-
-        // Store the latest pixel buffer for freeze().
-        latestPixelBuffer = pixelBuffer
-
-        lastInferenceTime = now
-        inferenceInFlight = true
-
-        // Convert pixel buffer to UIImage for the AI service.
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
-            inferenceInFlight = false
-            return
-        }
-        let image = UIImage(cgImage: cgImage)
-
-        // Capture threshold on the calling queue to avoid data races.
-        let threshold = confidenceThreshold
-
-        // Run inference on the inference queue.
-        inferenceQueue.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self else { return }
-
-            Task {
-                do {
-                    let detections = try await self.aiService.detect(
-                        in: image,
-                        confidenceThreshold: threshold
-                    )
-                    await MainActor.run {
-                        self.liveDetections = detections
-                        self.inferenceInFlight = false
-                    }
-                } catch {
-                    await MainActor.run {
-                        self.inferenceInFlight = false
-                        // Silently drop inference errors on live frames to avoid
-                        // flooding the user with alerts; only surface persistent errors.
-                    }
-                }
+            let now = CACurrentMediaTime()
+            guard now - self.lastInferenceTime >= self.inferenceInterval,
+                  !self.inferenceInFlight else { return }
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+            self.latestPixelBuffer = pixelBuffer
+            self.lastInferenceTime = now
+            self.inferenceInFlight = true
+            let threshold = self.confidenceThreshold
+            let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+            let context = CIContext()
+            guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
+                self.inferenceInFlight = false
+                return
+            }
+            let image = UIImage(cgImage: cgImage)
+            do {
+                let detections = try await self.aiService.detect(
+                    in: image,
+                    confidenceThreshold: threshold
+                )
+                self.liveDetections = detections
+                self.inferenceInFlight = false
+            } catch {
+                self.inferenceInFlight = false
             }
         }
     }

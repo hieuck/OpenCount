@@ -102,7 +102,7 @@ final class AppState: ObservableObject {
 
     func saveAll() {
         for session in sessions {
-            try? storage.save(session) as Void
+            Task { try? await storage.save(session) }
         }
     }
 
