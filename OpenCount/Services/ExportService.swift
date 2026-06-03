@@ -140,8 +140,7 @@ extension ExportServiceProtocol {
         try exportPDF(session: session, image: image, annotationData: nil)
     }
     func bulkExport(sessions: [CountSession], format: ExportFormat) throws -> URL {
-        var progress = ExportProgress(totalItems: sessions.count)
-        return try bulkExport(sessions: sessions, format: format) { p in progress = p }
+        return try bulkExport(sessions: sessions, format: format) { _ in }
     }
     func exportMultipleSessions(sessions: [CountSession], formats: Set<ExportFormat>) throws -> URL {
         try exportMultipleSessions(sessions: sessions, formats: formats, imageProvider: nil) { _ in }
@@ -285,7 +284,7 @@ final class ExportService: ExportServiceProtocol {
             try? FileManager.default.removeItem(at: xlsxURL)
         }
 
-        guard let archive = Archive(url: xlsxURL, accessMode: .create) else {
+        guard let archive = try? Archive(url: xlsxURL, accessMode: .create) else {
             throw AppError.exportWriteFailure(reason: "Failed to create XLSX archive.")
         }
 
@@ -696,7 +695,7 @@ final class ExportService: ExportServiceProtocol {
         UIGraphicsBeginPDFContextToData(pdfData, CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight), nil)
         UIGraphicsBeginPDFPage()
 
-        guard let context = UIGraphicsGetCurrentContext() else {
+        guard UIGraphicsGetCurrentContext() != nil else {
             throw AppError.exportWriteFailure(reason: "Could not create PDF context.")
         }
 
@@ -870,7 +869,7 @@ final class ExportService: ExportServiceProtocol {
         let zipURL = tempDir.appendingPathComponent(zipName)
         try? FileManager.default.removeItem(at: zipURL)
 
-        guard let archive = Archive(url: zipURL, accessMode: .create) else {
+        guard let archive = try? Archive(url: zipURL, accessMode: .create) else {
             throw AppError.exportWriteFailure(reason: "Failed to create ZIP archive.")
         }
 
@@ -901,7 +900,7 @@ final class ExportService: ExportServiceProtocol {
 
         try? FileManager.default.removeItem(at: zipURL)
 
-        guard let archive = Archive(url: zipURL, accessMode: .create) else {
+        guard let archive = try? Archive(url: zipURL, accessMode: .create) else {
             throw AppError.exportWriteFailure(reason: "Failed to create ZIP archive.")
         }
 

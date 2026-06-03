@@ -93,7 +93,7 @@ final class CollaborationService: ObservableObject {
         syncStatus = .idle
 
         guard let subID = subscriptionID else { return }
-        try? await database.deleteSubscription(withID: subID)
+        _ = try? await database.deleteSubscription(withID: subID)
         subscriptionID = nil
         sessionID = nil
     }

@@ -37,7 +37,7 @@ final class BulkExportService {
         // Remove any existing file at the destination
         try? FileManager.default.removeItem(at: zipURL)
 
-        guard let archive = Archive(url: zipURL, accessMode: .create) else {
+        guard let archive = try? Archive(url: zipURL, accessMode: .create) else {
             throw BulkExportError.archiveCreationFailed
         }
 
