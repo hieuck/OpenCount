@@ -124,9 +124,12 @@ final class CustomModelService: CustomModelServiceProtocol, ObservableObject {
 
         // Extract class labels from metadata
         let classLabels: [String]
-        if let labelsArray = desc.metadata["classes"] as? [String] {
+        let metadataDict = desc.metadata
+        let classesKey = MLModelMetadataKey(rawValue: "classes")
+        let userDefinedKey = MLModelMetadataKey(rawValue: "com.apple.coreml.model.userDefinedMetadata")
+        if let labelsArray = metadataDict[classesKey] as? [String] {
             classLabels = labelsArray
-        } else if let labelsString = desc.metadata["com.apple.coreml.model.userDefinedMetadata"] as? String {
+        } else if let labelsString = metadataDict[userDefinedKey] as? String {
             classLabels = labelsString.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         } else {
             // Fallback: try to extract from output feature names

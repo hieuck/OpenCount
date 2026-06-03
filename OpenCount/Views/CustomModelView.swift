@@ -67,30 +67,36 @@ struct CustomModelView: View {
 
     // MARK: - Active model section
 
+    @ViewBuilder
     private var activeModelSection: some View {
         Section {
-            if let active = modelService.activeModelMetadata {
-                modelRow(active, isActive: true)
-            } else {
-                HStack {
-                    Image(systemName: "brain.head.profile")
-                        .foregroundStyle(.accentColor)
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("YOLOv8n (Built-in)")
-                            .font(.body)
-                        Text("80 classes · 640×640")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-                .accessibilityLabel("Active model: YOLOv8n built-in, 80 classes")
-            }
+            activeModelRowContent
         } header: {
             Text("Active Model")
+        }
+    }
+
+    @ViewBuilder
+    private var activeModelRowContent: some View {
+        if let active = modelService.activeModelMetadata {
+            modelRow(active, isActive: true)
+        } else {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("YOLOv8n (Built-in)")
+                        .font(.body)
+                    Text("80 classes · 640×640")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+            .accessibilityLabel("Active model: YOLOv8n built-in, 80 classes")
         }
     }
 
@@ -118,7 +124,7 @@ struct CustomModelView: View {
                     Spacer()
                     if modelService.activeModelMetadata == nil {
                         Image(systemName: "checkmark")
-                            .foregroundStyle(.accentColor)
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
             }

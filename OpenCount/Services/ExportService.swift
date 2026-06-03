@@ -534,7 +534,7 @@ final class ExportService: ExportServiceProtocol {
         var num = index + 1
         while num > 0 {
             let rem = (num - 1) % 26
-            result = String(UnicodeScalar(UInt8(65 + rem))!) + result
+            result = String(UnicodeScalar(UInt8(65 + rem))) + result
             num = (num - 1) / 26
         }
         return result

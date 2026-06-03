@@ -94,21 +94,7 @@ struct ExportSheet: View {
 
                 // MARK: Format description
                 Section {
-                    HStack(spacing: 12) {
-                        Image(systemName: selectedFormat.systemImage)
-                            .font(.title2)
-                            .foregroundStyle(.accent)
-                            .frame(width: 36)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(selectedFormat.rawValue)
-                                .font(.headline)
-                            Text(formatDescription(selectedFormat))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    formatDescriptionRow
                 }
 
                 // MARK: Annotation Layer Selection (image/PDF only) — Requirement 34.6
@@ -294,6 +280,25 @@ struct ExportSheet: View {
 
     // MARK: - Helpers
 
+    /// Format description row — broken out to avoid type-checker timeout.
+    private var formatDescriptionRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: selectedFormat.systemImage)
+                .font(.title2)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 36)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(selectedFormat.rawValue)
+                    .font(.headline)
+                Text(formatDescription(selectedFormat))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
     /// True when the selected format requires an image but none was provided.
     private var requiresImageButMissing: Bool {
         (selectedFormat == .annotatedImage || selectedFormat == .pdf) && image == nil
@@ -304,6 +309,8 @@ struct ExportSheet: View {
         switch format {
         case .csv:
             return "Spreadsheet-compatible file with all marker coordinates, tallies, and metadata."
+        case .xlsx:
+            return "Microsoft Excel workbook with two sheets: Data and Summary."
         case .json:
             return "Structured JSON file with full session data, suitable for programmatic processing."
         case .coco:
