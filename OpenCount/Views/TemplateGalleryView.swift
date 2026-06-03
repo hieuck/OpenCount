@@ -97,10 +97,10 @@ struct TemplateGalleryView: View {
         .task {
             await service.fetchTemplates(query: nil, category: selectedCategory)
         }
-        .onChange(of: searchQuery) { _, newValue in
+        .onChange(of: searchQuery) { newValue in
             Task { await service.fetchTemplates(query: newValue, category: selectedCategory) }
         }
-        .onChange(of: selectedCategory) { _, newValue in
+        .onChange(of: selectedCategory) { newValue in
             Task { await service.fetchTemplates(query: searchQuery.isEmpty ? nil : searchQuery, category: newValue) }
         }
     }

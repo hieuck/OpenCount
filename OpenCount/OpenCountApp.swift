@@ -63,13 +63,13 @@ struct OpenCountApp: App {
                 }
                 .onOpenURL { url in handleDeepLink(url) }
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             if newPhase == .background { appState.saveAll() }
             if newPhase == .active && localAPIServerEnabled && !localAPIServer.isRunning {
                 localAPIServer.start(storage: StorageService.shared)
             }
         }
-        .onChange(of: localAPIServerEnabled) { _, enabled in
+        .onChange(of: localAPIServerEnabled) { enabled in
             if enabled { localAPIServer.start(storage: StorageService.shared) }
             else { localAPIServer.stop() }
         }

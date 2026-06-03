@@ -248,7 +248,7 @@ struct FormulaEditorSheet: View {
                         TextField("Expression (e.g. Males / (Males + Females))", text: $expression, axis: .vertical)
                             .lineLimit(2...4)
                             .font(.system(.body, design: .monospaced))
-                            .onChange(of: expression) { _, _ in
+                            .onChange(of: expression) { _ in
                                 validateExpression()
                             }
                             .accessibilityLabel("Formula expression")

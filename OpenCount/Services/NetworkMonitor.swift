@@ -127,7 +127,7 @@ struct OfflineFeatureAlert: ViewModifier {
             } message: {
                 Text("\(featureName) is not available while offline. Please connect to the internet and try again.")
             }
-            .onChange(of: isPresented) { _, newValue in
+            .onChange(of: isPresented) { newValue in
                 if newValue && !networkMonitor.isConnected {
                     // Keep alert open — feature is blocked
                 } else if newValue && networkMonitor.isConnected {

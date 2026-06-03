@@ -222,7 +222,7 @@ struct NewSessionSheet: View {
                                 systemImage: "photo.on.rectangle.angled"
                             )
                         }
-                        .onChange(of: photoPickerItems) { _, items in
+                        .onChange(of: photoPickerItems) { items in
                             Task {
                                 var images: [UIImage] = []
                                 for item in items {

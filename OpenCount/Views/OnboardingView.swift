@@ -258,7 +258,7 @@ struct OnboardingPageView: View {
                 isVisible = true
             }
         }
-        .onChange(of: isActive) { _, active in
+        .onChange(of: isActive) { active in
             if active {
                 isVisible = true
             } else {
@@ -660,7 +660,7 @@ struct SampleSessionView: View {
             currentStep = 0
             tapCount = 0
         }
-        .onChange(of: currentStep) { _, step in
+        .onChange(of: currentStep) { step in
             if step >= steps.count {
                 onComplete()
                 dismiss()

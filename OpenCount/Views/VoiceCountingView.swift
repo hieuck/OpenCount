@@ -241,7 +241,7 @@ struct VoiceCountingView: View {
         .accessibilityHint(voiceService.isListening
             ? "Tap to stop listening for voice commands."
             : "Tap to start listening. Say 'count' to add, 'undo' to remove, 'next' to switch type.")
-        .onChange(of: voiceService.isListening) { _, listening in
+        .onChange(of: voiceService.isListening) { listening in
             pulseAnimation = listening
         }
     }

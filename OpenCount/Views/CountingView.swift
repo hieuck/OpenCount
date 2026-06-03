@@ -650,7 +650,7 @@ struct CountingView: View {
             selection: $photoPickerItem,
             matching: .images
         )
-        .onChange(of: photoPickerItem) { _, newItem in
+        .onChange(of: photoPickerItem) { newItem in
             guard let newItem else { return }
             Task {
                 if let data = try? await newItem.loadTransferable(type: Data.self),

@@ -63,7 +63,7 @@ struct CoachMarkModifier: ViewModifier {
                         .onAppear {
                             targetFrame = proxy.frame(in: .global)
                         }
-                        .onChange(of: proxy.frame(in: .global)) { _, newFrame in
+                        .onChange(of: proxy.frame(in: .global)) { newFrame in
                             targetFrame = newFrame
                         }
                 }

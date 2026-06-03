@@ -82,7 +82,7 @@ struct SessionListView: View {
             sessionContent
         }
         .task { await viewModel.loadSessions() }
-        .onChange(of: deepLinkedSessionID) { _, newID in
+        .onChange(of: deepLinkedSessionID) { newID in
             guard let id = newID else { return }
             if let session = viewModel.filteredSessions.first(where: { $0.id == id }) {
                 navigationPath = [session]
