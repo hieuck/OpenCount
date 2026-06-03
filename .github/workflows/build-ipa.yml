@@ -95,8 +95,8 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
-            build 2>&1 | tee /tmp/xcodebuild.log | xcbeautify --renderer github-actions || \
-          (cat /tmp/xcodebuild.log | grep -E "error:|BUILD FAILED" && exit 1)
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES \
+            build 2>&1 | xcbeautify --renderer github-actions; exit ${PIPESTATUS[0]}
 
       # ── Find the built .app ──────────────────────────────────────────────────
       - name: Locate .app bundle
