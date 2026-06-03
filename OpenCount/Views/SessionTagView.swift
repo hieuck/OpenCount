@@ -181,7 +181,7 @@ private struct TagRow: View {
                 Spacer()
                 if isAssigned {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                 } else {
                     Image(systemName: "circle")

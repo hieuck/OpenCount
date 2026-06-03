@@ -82,12 +82,12 @@ jobs:
       - name: Build unsigned .app
         run: |
           set -o pipefail
-
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
+            -destination "generic/platform=iOS" \
             -derivedDataPath "$DERIVED_DATA" \
             IPHONEOS_DEPLOYMENT_TARGET=16.0 \
             CODE_SIGNING_ALLOWED=NO \
@@ -95,23 +95,8 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
-            ONLY_ACTIVE_ARCH=NO \
-            build \
-          | xcbeautify --renderer github-actions 2>/dev/null || \
-          xcodebuild \
-            -project OpenCount.xcodeproj \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath "$DERIVED_DATA" \
-            IPHONEOS_DEPLOYMENT_TARGET=16.0 \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            SUPPORTS_MACCATALYST=NO \
-            ONLY_ACTIVE_ARCH=NO \
-            build
+            build 2>&1 | tee /tmp/xcodebuild.log | xcbeautify --renderer github-actions || \
+          (cat /tmp/xcodebuild.log | grep -E "error:|BUILD FAILED" && exit 1)
 
       # ── Find the built .app ──────────────────────────────────────────────────
       - name: Locate .app bundle

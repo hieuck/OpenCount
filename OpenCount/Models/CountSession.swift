@@ -12,7 +12,11 @@ struct TallyHistoryEntry: Codable {
 
 /// A counting session — the central model of OpenCount.
 /// Stored as JSON in Documents/sessions/<id>.json
-final class CountSession: ObservableObject, Identifiable, Codable {
+final class CountSession: ObservableObject, Identifiable, Codable, Hashable {
+
+    // MARK: - Hashable
+    static func == (lhs: CountSession, rhs: CountSession) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
     var id: UUID
     var name: String
     var sessionDescription: String?

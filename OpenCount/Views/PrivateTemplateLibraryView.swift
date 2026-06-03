@@ -107,7 +107,7 @@ struct PrivateTemplateLibraryView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Color.accentColor.opacity(0.15)))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
 
             // Object type color swatches preview

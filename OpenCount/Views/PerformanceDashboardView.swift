@@ -19,7 +19,7 @@ struct PerformanceDashboardView: View {
     }
 
     private var latencyEntries: [LatencyEntry] {
-        monitor.aiLatencies.enumerated().map { LatencyEntry(id: UUID(), index: $0.offset, ms: $0.element) }
+        monitor.aiLatencies.enumerated().map { LatencyEntry(index: $0.offset, ms: $0.element) }
     }
 
     var body: some View {

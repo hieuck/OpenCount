@@ -79,194 +79,161 @@ struct SessionListView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            Group {
-                if viewModel.filteredSessions.isEmpty {
-                    emptyStateView
-                } else {
-                    sessionList
-                }
-            }
-            .navigationTitle("Sessions")
-            .searchable(
-                text: $viewModel.searchQuery,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search sessions"
-            )
-            .searchSuggestions {
-                SessionSearchSuggestionsView(
-                    sessions: viewModel.sessions,
-                    onSelect: { suggestion in
-                        viewModel.searchQuery = suggestion
-                    }
-                )
-            }
-            .toolbar {
-                // iCloud sync status indicator — Requirement 15.4
-                ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 8) {
-                        iCloudSyncStatusView(status: syncViewModel.syncStatus)
-                        // Settings button — Requirement 17.1
-                        Button {
-                            isSettingsPresented = true
-                        } label: {
-                            Image(systemName: "gear")
-                        }
-                        .accessibilityLabel("Settings")
-                        .accessibilityHint("Open app settings.")
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        isShowingNewSessionSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("New session")
-                    .accessibilityHint("Create a new counting session.")
-                    // Keyboard shortcut ⌘N — Requirement 31.6
-                    .keyboardShortcut("n", modifiers: .command)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        isShowingTemplateGallery = true
-                    } label: {
-                        Image(systemName: "square.stack.3d.up")
-                    }
-                    .accessibilityLabel("Template Gallery")
-                    .accessibilityHint("Browse and install community Object Type templates.")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        isShowingDashboard = true
-                    } label: {
-                        Image(systemName: "chart.xyaxis.line")
-                    }
-                    .accessibilityLabel("Dashboard")
-                    .accessibilityHint("View aggregate statistics across all sessions.")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        isShowingBulkExport = true
-                    } label: {
-                        Image(systemName: "arrow.down.doc")
-                    }
-                    .accessibilityLabel("Bulk Export")
-                    .accessibilityHint("Export multiple sessions as a ZIP archive.")
-                    .disabled(viewModel.sessions.isEmpty)
-                }
-                // Sort menu
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        ForEach(SessionSortOrder.allCases) { order in
-                            Button {
-                                sortOrder = order
-                            } label: {
-                                HStack {
-                                    Label(order.rawValue, systemImage: order.systemImage)
-                                    if sortOrder == order {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                    }
-                    .accessibilityLabel("Sort sessions")
-                    .accessibilityHint("Choose how to sort the session list.")
-                }
-            }
-            .sheet(isPresented: $isShowingNewSessionSheet) {
-                NewSessionSheet { name, description, _, images, objectTypeNames in
-                    Task {
-                        let session = try? await viewModel.createSession(
-                            name: name,
-                            description: description,
-                            objectTypeNames: objectTypeNames
-                        )
-                        // Import images into the session if provided
-                        if let session, !images.isEmpty {
-                            let imagesDir = FileManager.default
-                                .urls(for: .documentDirectory, in: .userDomainMask)[0]
-                                .appendingPathComponent("images")
-                                .appendingPathComponent(session.id.uuidString)
-                            try? FileManager.default.createDirectory(
-                                at: imagesDir, withIntermediateDirectories: true)
-                            for image in images {
-                                let filename = "\(UUID().uuidString).jpg"
-                                let fileURL = imagesDir.appendingPathComponent(filename)
-                                if let data = image.jpegData(compressionQuality: 0.85) {
-                                    try? data.write(to: fileURL)
-                                }
-                                let sessionImage = SessionImage(
-                                    filename: filename,
-                                    session: session
-                                )
-                                session.images.append(sessionImage)
-                            }
-                            session.modifiedAt = Date()
-                            try? await viewModel.storage.save(session)
-                        }
-                    }
-                }
-            }
-            // Settings sheet — Requirements 17.1–17.5
-            .sheet(isPresented: $isSettingsPresented) {
-                SettingsView()
-                    .environmentObject(syncViewModel)
-            }
-            // Template Gallery — Requirement 26.1–26.6
-            .sheet(isPresented: $isShowingTemplateGallery) {
-                TemplateGalleryView(targetSession: nil)
-                    .environmentObject(networkMonitor)
-            }
-            // Dashboard — aggregate statistics across all sessions
-            .sheet(isPresented: $isShowingDashboard) {
-                SessionDashboardView(sessions: viewModel.sessions)
-            }
-            // Bulk Export — export multiple sessions as ZIP
-            .sheet(isPresented: $isShowingBulkExport) {
-                BulkExportView(sessions: viewModel.sessions)
-            }
-            // Confirmation alert before deleting — Requirements 1.4, 16.6
-            .alert(
-                deleteAlertTitle,
-                isPresented: $isShowingDeleteConfirmation,
-                presenting: sessionToDelete
-            ) { session in
-                Button("Delete", role: .destructive) {
-                    Task {
-                        try? await viewModel.deleteSession(session)
-                    }
-                }
-                .accessibilityLabel("Confirm delete \(session.name)")
-
-                Button("Cancel", role: .cancel) {
-                    sessionToDelete = nil
-                }
-                .accessibilityLabel("Cancel delete")
-            } message: { session in
-                Text("Are you sure you want to delete '\(session.name)'? This cannot be undone.")
-            }
+            sessionContent
         }
-        .task {
-            await viewModel.loadSessions()
-        }
-        // Handle deep-link navigation — Requirement 27.1–27.4
+        .task { await viewModel.loadSessions() }
         .onChange(of: deepLinkedSessionID) { _, newID in
             guard let id = newID else { return }
-            // Find the session in the loaded list and push it onto the navigation stack
             if let session = viewModel.filteredSessions.first(where: { $0.id == id }) {
                 navigationPath = [session]
                 deepLinkedSessionID = nil
             } else {
-                // Sessions may not be loaded yet; load them first then navigate
                 Task {
                     await viewModel.loadSessions()
                     if let session = viewModel.filteredSessions.first(where: { $0.id == id }) {
                         navigationPath = [session]
                     }
                     deepLinkedSessionID = nil
+                }
+            }
+        }
+    }
+
+    // MARK: - Session content (broken out to avoid type-checker timeout)
+
+    @ViewBuilder
+    private var sessionContent: some View {
+        Group {
+            if viewModel.filteredSessions.isEmpty {
+                emptyStateView
+            } else {
+                sessionList
+            }
+        }
+        .navigationTitle("Sessions")
+        .searchable(
+            text: $viewModel.searchQuery,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search sessions"
+        )
+        .searchSuggestions {
+            SessionSearchSuggestionsView(
+                sessions: viewModel.sessions,
+                onSelect: { suggestion in viewModel.searchQuery = suggestion }
+            )
+        }
+        .toolbar { sessionToolbar }
+        .sheet(isPresented: $isShowingNewSessionSheet) { newSessionSheet }
+        .sheet(isPresented: $isSettingsPresented) {
+            SettingsView().environmentObject(syncViewModel)
+        }
+        .sheet(isPresented: $isShowingTemplateGallery) {
+            TemplateGalleryView(targetSession: nil).environmentObject(networkMonitor)
+        }
+        .sheet(isPresented: $isShowingDashboard) {
+            SessionDashboardView(sessions: viewModel.sessions)
+        }
+        .sheet(isPresented: $isShowingBulkExport) {
+            BulkExportView(sessions: viewModel.sessions)
+        }
+        .alert(
+            deleteAlertTitle,
+            isPresented: $isShowingDeleteConfirmation,
+            presenting: sessionToDelete
+        ) { session in
+            Button("Delete", role: .destructive) {
+                Task { try? await viewModel.deleteSession(session) }
+            }
+            .accessibilityLabel("Confirm delete \(session.name)")
+            Button("Cancel", role: .cancel) { sessionToDelete = nil }
+                .accessibilityLabel("Cancel delete")
+        } message: { session in
+            Text("Are you sure you want to delete '\(session.name)'? This cannot be undone.")
+        }
+    }
+
+    // MARK: - Toolbar (broken out to avoid type-checker timeout)
+
+    @ToolbarContentBuilder
+    private var sessionToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarLeading) {
+            HStack(spacing: 8) {
+                iCloudSyncStatusView(status: syncViewModel.syncStatus)
+                Button { isSettingsPresented = true } label: {
+                    Image(systemName: "gear")
+                }
+                .accessibilityLabel("Settings")
+                .accessibilityHint("Open app settings.")
+            }
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button { isShowingNewSessionSheet = true } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("New session")
+            .keyboardShortcut("n", modifiers: .command)
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button { isShowingTemplateGallery = true } label: {
+                Image(systemName: "square.stack.3d.up")
+            }
+            .accessibilityLabel("Template Gallery")
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button { isShowingDashboard = true } label: {
+                Image(systemName: "chart.xyaxis.line")
+            }
+            .accessibilityLabel("Dashboard")
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button { isShowingBulkExport = true } label: {
+                Image(systemName: "arrow.down.doc")
+            }
+            .accessibilityLabel("Bulk Export")
+            .disabled(viewModel.sessions.isEmpty)
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Menu {
+                ForEach(SessionSortOrder.allCases) { order in
+                    Button { sortOrder = order } label: {
+                        HStack {
+                            Label(order.rawValue, systemImage: order.systemImage)
+                            if sortOrder == order { Image(systemName: "checkmark") }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "arrow.up.arrow.down")
+            }
+            .accessibilityLabel("Sort sessions")
+        }
+    }
+
+    // MARK: - New session sheet (broken out)
+
+    @ViewBuilder
+    private var newSessionSheet: some View {
+        NewSessionSheet { name, description, _, images, objectTypeNames in
+            Task {
+                let session = try? await viewModel.createSession(
+                    name: name,
+                    description: description,
+                    objectTypeNames: objectTypeNames
+                )
+                if let session, !images.isEmpty {
+                    let imagesDir = FileManager.default
+                        .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        .appendingPathComponent("images")
+                        .appendingPathComponent(session.id.uuidString)
+                    try? FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+                    for image in images {
+                        let filename = "\(UUID().uuidString).jpg"
+                        let fileURL = imagesDir.appendingPathComponent(filename)
+                        if let data = image.jpegData(compressionQuality: 0.85) { try? data.write(to: fileURL) }
+                        session.images.append(SessionImage(filename: filename, session: session))
+                    }
+                    session.modifiedAt = Date()
+                    try? await viewModel.storage.save(session)
                 }
             }
         }
