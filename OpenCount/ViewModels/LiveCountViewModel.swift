@@ -53,7 +53,7 @@ final class LiveCountViewModel: NSObject, ObservableObject {
     // MARK: - AVFoundation
 
     /// The capture session. Exposed so the preview layer can attach to it.
-    let captureSession = AVCaptureSession()
+    nonisolated(unsafe) let captureSession = AVCaptureSession()
 
     // MARK: - Private
 
@@ -99,13 +99,17 @@ final class LiveCountViewModel: NSObject, ObservableObject {
         switch status {
         case .authorized:
             sessionQueue.async { [weak self] in
-                self?.configureAndStartSession()
+                Task { @MainActor [weak self] in
+                    self?.configureAndStartSession()
+                }
             }
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 if granted {
-                    self?.sessionQueue.async {
-                        self?.configureAndStartSession()
+                    self?.sessionQueue.async { [weak self] in
+                        Task { @MainActor [weak self] in
+                            self?.configureAndStartSession()
+                        }
                     }
                 } else {
                     Task { @MainActor [weak self] in

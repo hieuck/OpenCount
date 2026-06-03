@@ -170,7 +170,9 @@ final class CountingViewModel: ObservableObject {
     }
 
     deinit {
-        cleanup()
+        Task { @MainActor [weak self] in
+            self?.cleanup()
+        }
     }
 
     // MARK: - Memory management

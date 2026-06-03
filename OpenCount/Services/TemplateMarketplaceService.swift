@@ -177,7 +177,7 @@ final class TemplateMarketplaceService: ObservableObject {
     // MARK: - CloudKit configuration
 
     /// The CloudKit public database zone for the marketplace.
-    static let zoneName = "TemplateMarketplace"
+    nonisolated static let zoneName = "TemplateMarketplace"
     nonisolated static let zoneID = CKRecordZone.ID(zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
 
     private let publicDatabase: CKDatabase

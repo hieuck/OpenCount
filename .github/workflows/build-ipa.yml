@@ -82,27 +82,39 @@ jobs:
       - name: Build unsigned .app
         run: |
           set -o pipefail
+          # List available simulators to pick best destination
+          DEST=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in sorted(data['devices'].items(), reverse=True):
+              if 'iOS' not in runtime:
+                  continue
+              for d in devices:
+                  if d.get('isAvailable') and 'iPhone' in d['name']:
+                      print(f'platform=iOS Simulator,id={d[\"udid\"]}')
+                      sys.exit(0)
+          print('platform=iOS Simulator,name=iPhone 16,OS=latest')
+          " 2>/dev/null || echo "platform=iOS Simulator,name=iPhone 16,OS=latest")
+          echo "Using destination: $DEST"
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
-            -sdk iphoneos \
-            -destination "generic/platform=iOS" \
+            -destination "$DEST" \
             -derivedDataPath "$DERIVED_DATA" \
-            IPHONEOS_DEPLOYMENT_TARGET=16.0 \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             SUPPORTS_MACCATALYST=NO \
             ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES \
+            ONLY_ACTIVE_ARCH=NO \
             build 2>&1 | xcbeautify --renderer github-actions; exit ${PIPESTATUS[0]}
 
       # ── Find the built .app ──────────────────────────────────────────────────
       - name: Locate .app bundle
         id: locate_app
         run: |
-          APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" | grep "Release-iphoneos" | head -1)
+          # Look for simulator build first, then device build
+          APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" | grep -E "Release-(iphonesimulator|iphoneos)" | head -1)
           if [ -z "$APP" ]; then
             APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" | head -1)
           fi
