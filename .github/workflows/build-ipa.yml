@@ -46,17 +46,25 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
 
+      - name: Debug available destinations
+        run: |
+          echo "=== All runtimes ==="
+          xcrun simctl list runtimes 2>&1 || true
+          echo ""
+          echo "=== Available simulators ==="
+          xcrun simctl list devices available 2>&1 | head -40
+          echo ""
+          echo "=== xcodebuild show destinations ==="
+          xcodebuild -project OpenCount.xcodeproj -scheme OpenCount -showdestinations 2>&1 | head -60 || true
+
       - name: Find simulator UDID
         id: sim
         run: |
-          echo "Available simulators:"
-          xcrun simctl list devices available | grep -i "iphone" | head -20
-          # Extract first iPhone UDID using regex
-          UDID=$(xcrun simctl list devices available | grep -i "iphone" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
-          echo "Selected UDID: $UDID"
+          # Extract first available iPhone simulator UDID
+          UDID=$(xcrun simctl list devices available 2>&1 | grep -E "iPhone" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
+          echo "UDID found: '$UDID'"
           if [ -z "$UDID" ]; then
-            echo "ERROR: No iPhone simulator found"
-            xcrun simctl list runtimes
+            echo "ERROR: No iPhone simulator UDID found. Exiting."
             exit 1
           fi
           echo "udid=$UDID" >> $GITHUB_OUTPUT
@@ -64,7 +72,7 @@ jobs:
       - name: Build .app
         run: |
           set -o pipefail
-          echo "Building for simulator: ${{ steps.sim.outputs.udid }}"
+          echo "Building for UDID: ${{ steps.sim.outputs.udid }}"
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
@@ -81,9 +89,9 @@ jobs:
       - name: Locate .app
         id: app
         run: |
-          APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" -not -name "*Tests*" | head -1)
+          APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" | grep -v "Tests" | head -1)
           echo "app_path=$APP" >> $GITHUB_OUTPUT
-          echo "App: $APP"
+          echo "Found: $APP"
           ls -la "$APP" || true
 
       - name: Package IPA
@@ -117,10 +125,5 @@ jobs:
           path: ${{ env.IPA_DIR }}/OpenCount-*.ipa
           retention-days: 90
 
-      - name: Install instructions
-        run: |
-          echo "IPA: OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
-          echo ""
-          echo "Install via Sideloadly: https://sideloadly.io"
-          echo "Install via AltStore: https://altstore.io"
-          echo "Install via TrollStore: https://ios.cfw.guide/trollstore"
+      - name: Done
+        run: echo "IPA built successfully! Download from Actions Artifacts tab above."
