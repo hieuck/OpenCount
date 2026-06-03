@@ -1,4 +1,24 @@
 import SwiftUI
+import UIKit
+
+// MARK: - HapticFeedback Helper
+
+enum HapticFeedback {
+    static func markerPlaced() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
+    static func selectionChanged() {
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+    }
+
+    static func successNotification() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    }
+}
 
 // MARK: - TallyCounterView
 
@@ -85,6 +105,7 @@ struct TallyCounterView: View {
                     let count = viewModel.markers.filter { $0.objectType.id == type.id }.count
 
                     Button {
+                        HapticFeedback.selectionChanged()
                         withAnimation(.spring(response: 0.3)) {
                             currentTypeIndex = index
                         }
@@ -171,6 +192,10 @@ struct TallyCounterView: View {
             viewModel.selectedObjectType = type
             viewModel.placeMarker(at: CGPoint(x: 0.5, y: 0.5))
 
+            // Haptic feedback for tap
+            HapticFeedback.markerPlaced()
+            HapticFeedback.successNotification()
+
             // Flash feedback
             withAnimation { showFlash = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -218,6 +243,7 @@ struct TallyCounterView: View {
 
     private var undoButton: some View {
         Button {
+            HapticFeedback.selectionChanged()
             viewModel.undo()
         } label: {
             Label("Undo", systemImage: "arrow.uturn.backward")

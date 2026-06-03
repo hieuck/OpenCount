@@ -4,6 +4,35 @@ import PencilKit
 import PhotosUI
 import UniformTypeIdentifiers
 
+// MARK: - Haptic Feedback Helper
+
+/// Provides haptic feedback for counting interactions.
+enum HapticFeedback {
+    /// Light impact for marker placement
+    static func markerPlaced() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
+    /// Medium impact for marker deletion
+    static func markerDeleted() {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    /// Success notification for AI detection completion
+    static func aiDetectionComplete() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    }
+
+    /// Selection feedback for undo/redo actions
+    static func undoRedo() {
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+    }
+}
+
 // MARK: - CountingView
 
 /// The main counting screen for a session.
@@ -133,6 +162,7 @@ struct CountingView: View {
                             lineColor: .blue,
                             lineOpacity: 0.7,
                             onCellTapped: { index in
+                                HapticFeedback.markerPlaced()
                                 viewModel.toggleCell(index)
                             }
                         )
@@ -390,6 +420,7 @@ struct CountingView: View {
 
                 // Grid toggle button
                 Button {
+                    HapticFeedback.undoRedo()
                     viewModel.isGridOverlayEnabled.toggle()
                 } label: {
                     Image(systemName: viewModel.isGridOverlayEnabled
@@ -407,6 +438,7 @@ struct CountingView: View {
 
                 // Heatmap toggle button
                 Button {
+                    HapticFeedback.undoRedo()
                     viewModel.isHeatmapEnabled.toggle()
                 } label: {
                     Image(systemName: viewModel.isHeatmapEnabled
@@ -447,6 +479,7 @@ struct CountingView: View {
 
                 // Redo
                 Button {
+                    HapticFeedback.undoRedo()
                     viewModel.redo()
                 } label: {
                     Image(systemName: "arrow.uturn.forward")
@@ -459,6 +492,7 @@ struct CountingView: View {
 
                 // Undo
                 Button {
+                    HapticFeedback.undoRedo()
                     viewModel.undo()
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
@@ -834,6 +868,10 @@ struct ImageCanvas: View {
                 // Only place if within image bounds
                 guard (0.0...1.0).contains(normalized.x),
                       (0.0...1.0).contains(normalized.y) else { return }
+
+                // Haptic feedback for marker placement
+                HapticFeedbackManager.shared.impactLight()
+
                 viewModel.placeMarker(at: normalized)
             }
     }
@@ -955,6 +993,7 @@ struct CountMarkerView: View {
             .contextMenu {
                 // Delete action
                 Button(role: .destructive) {
+                    HapticFeedbackManager.shared.impactHeavy()
                     viewModel.removeMarker(marker)
                 } label: {
                     Label("Delete Marker", systemImage: "trash")
@@ -969,6 +1008,7 @@ struct CountMarkerView: View {
                     Menu("Reassign to…") {
                         ForEach(otherTypes.sorted { $0.sortOrder < $1.sortOrder }) { type in
                             Button {
+                                HapticFeedbackManager.shared.selectionChanged()
                                 viewModel.reassignMarker(marker, to: type)
                             } label: {
                                 Label(type.name, systemImage: type.iconName)
@@ -1077,6 +1117,7 @@ struct AIBoundingBoxView: View {
         .accessibilityHint("Long press to accept or dismiss this detection.")
         .contextMenu {
             Button {
+                HapticFeedbackManager.shared.notificationSuccess()
                 viewModel.acceptDetection(detection)
             } label: {
                 Label("Accept Detection", systemImage: "checkmark.circle")
@@ -1084,6 +1125,7 @@ struct AIBoundingBoxView: View {
             .accessibilityLabel("Accept this AI detection")
 
             Button(role: .destructive) {
+                HapticFeedbackManager.shared.impactMedium()
                 viewModel.deleteDetection(detection)
             } label: {
                 Label("Dismiss Detection", systemImage: "xmark.circle")
@@ -1196,6 +1238,7 @@ struct AIControlPanel: View {
             // Run AI button — triggers actual AI detection on the current image
             // Requirement 5.1, 5.3: run AI detection on the current session image
             Button {
+                HapticFeedback.markerPlaced()
                 NotificationCenter.default.post(name: .runAIDetectionRequested, object: nil)
             } label: {
                 HStack(spacing: 6) {
@@ -1229,6 +1272,7 @@ struct AIControlPanel: View {
             // Accept All button
             // Requirement 5.4: Accept All converts all filtered detections to markers
             Button {
+                HapticFeedback.aiDetectionComplete()
                 viewModel.acceptAllDetections()
             } label: {
                 HStack(spacing: 6) {
@@ -1257,6 +1301,7 @@ struct AIControlPanel: View {
 
             // Find Missed Objects button — Requirement 35.2, 35.3
             Button {
+                HapticFeedback.markerPlaced()
                 NotificationCenter.default.post(name: .findMissedObjectsRequested, object: nil)
             } label: {
                 HStack(spacing: 6) {
@@ -1509,7 +1554,10 @@ struct ObjectTypeChip: View {
 
     var body: some View {
         ZStack {
-            Button(action: onTap) {
+            Button(action: {
+                HapticFeedback.undoRedo()
+                onTap()
+            }) {
                 HStack(spacing: 6) {
                     // Icon
                     Image(systemName: objectType.iconName)
@@ -1740,6 +1788,7 @@ struct MissedCandidateChip: View {
 
             // Accept
             Button {
+                HapticFeedback.aiDetectionComplete()
                 onAccept()
             } label: {
                 Image(systemName: "checkmark.circle.fill")
@@ -1751,6 +1800,7 @@ struct MissedCandidateChip: View {
 
             // Dismiss
             Button {
+                HapticFeedback.markerDeleted()
                 onDismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -1901,6 +1951,7 @@ struct ReviewModeSheet: View {
 
                 // Delete button
                 Button(role: .destructive) {
+                    HapticFeedback.markerDeleted()
                     viewModel.removeMarker(marker)
                     // Stay at same index (next marker slides in), or go back if at end
                     if currentIndex >= viewModel.markers.count {
@@ -1932,6 +1983,7 @@ struct ReviewModeSheet: View {
         HStack(spacing: 20) {
             // Previous
             Button {
+                HapticFeedback.undoRedo()
                 withAnimation(.easeInOut(duration: 0.2)) {
                     currentIndex = max(0, currentIndex - 1)
                 }
@@ -1954,6 +2006,7 @@ struct ReviewModeSheet: View {
 
             // Next
             Button {
+                HapticFeedback.undoRedo()
                 withAnimation(.easeInOut(duration: 0.2)) {
                     currentIndex = min(markers.count - 1, currentIndex + 1)
                 }

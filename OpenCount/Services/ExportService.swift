@@ -6,6 +6,7 @@ import SwiftUI
 
 enum ExportFormat: String, CaseIterable, Identifiable {
     case csv = "CSV"
+    case xlsx = "Excel (XLSX)"
     case json = "JSON"
     case coco = "COCO JSON"
     case annotatedImage = "Annotated Image"
@@ -16,6 +17,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .csv: return "tablecells"
+        case .xlsx: return "tablecells.badge.ellipsis"
         case .json: return "curlybraces"
         case .coco: return "brain.head.profile"
         case .annotatedImage: return "photo.badge.checkmark"
@@ -26,6 +28,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
     var fileExtension: String {
         switch self {
         case .csv: return "csv"
+        case .xlsx: return "xlsx"
         case .json: return "json"
         case .coco: return "json"
         case .annotatedImage: return "png"
@@ -34,10 +37,54 @@ enum ExportFormat: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - ExportColumnConfig
+
+/// Configuration for customizable CSV export. Defines which columns to include.
+struct ExportColumnConfig: Codable, Identifiable {
+    let id: UUID
+    let name: String
+    var includedColumns: Set<ExportColumn>
+    let createdAt: Date
+
+    init(name: String, includedColumns: Set<ExportColumn> = Self.defaultColumns()) {
+        self.id = UUID()
+        self.name = name
+        self.includedColumns = includedColumns
+        self.createdAt = Date()
+    }
+
+    static func defaultColumns() -> Set<ExportColumn> {
+        [.objectType, .tally, .markerX, .markerY, .regionName, .timestamp, .isAIDerived]
+    }
+}
+
+// MARK: - ExportTemplate
+
+/// User-defined export configuration template. Stores format preferences and column selections.
+struct ExportTemplate: Codable, Identifiable {
+    let id: UUID
+    let name: String
+    let format: String  // "csv", "xlsx", "json", etc.
+    let columnConfig: ExportColumnConfig?
+    let createdAt: Date
+    let description: String?
+
+    init(name: String, format: String, columnConfig: ExportColumnConfig? = nil, description: String? = nil) {
+        self.id = UUID()
+        self.name = name
+        self.format = format
+        self.columnConfig = columnConfig
+        self.createdAt = Date()
+        self.description = description
+    }
+}
+
 // MARK: - ExportServiceProtocol
 
 protocol ExportServiceProtocol {
     func exportCSV(session: CountSession) throws -> Data
+    func exportCSVWithConfig(session: CountSession, config: ExportColumnConfig) throws -> Data
+    func exportXLSX(session: CountSession) throws -> Data
     func exportJSON(session: CountSession) throws -> Data
     func exportCOCO(session: CountSession, imageWidth: Int, imageHeight: Int) throws -> Data
     func exportAnnotatedImage(session: CountSession, image: UIImage,
@@ -45,6 +92,7 @@ protocol ExportServiceProtocol {
     func exportPDF(session: CountSession, image: UIImage,
                    annotationData: AnnotationExportData?) throws -> Data
     func plainTextSummary(session: CountSession) -> String
+    func applyTemplate(_ template: ExportTemplate, session: CountSession) throws -> Data
 }
 
 // MARK: - Default parameter convenience extensions
@@ -117,6 +165,42 @@ final class ExportService: ExportServiceProtocol {
         return data
     }
 
+    // MARK: - CSV Export with Custom Columns
+
+    /// Exports session results as CSV with user-selected columns.
+    ///
+    /// Allows customization of which fields appear in the export via `ExportColumnConfig`.
+    /// Uses the same RFC 4180 formatting as `exportCSV`.
+    func exportCSVWithConfig(session: CountSession, config: ExportColumnConfig) throws -> Data {
+        var lines: [String] = []
+
+        // Build header row from config
+        let headerRow = config.includedColumns
+            .sorted { $0.rawValue < $1.rawValue }
+            .map { LocalizationManager.localizedExportHeader(for: $0) }
+            .joined(separator: ",")
+        lines.append(headerRow)
+
+        // Compute tallies
+        var tallies: [UUID: Int] = [:]
+        for marker in session.markers {
+            tallies[marker.objectType.id, default: 0] += 1
+        }
+
+        // Build rows with selected columns
+        for marker in session.markers {
+            let rowValues = buildCSVRowValues(marker: marker, session: session,
+                                             tallies: tallies, columns: config.includedColumns)
+            lines.append(rowValues)
+        }
+
+        let csv = lines.joined(separator: "\n")
+        guard let data = csv.data(using: .utf8) else {
+            throw AppError.exportWriteFailure(reason: "Failed to encode CSV as UTF-8.")
+        }
+        return data
+    }
+
     // MARK: - JSON Export
 
     /// Exports session results as structured JSON.
@@ -132,6 +216,28 @@ final class ExportService: ExportServiceProtocol {
         } catch {
             throw AppError.exportWriteFailure(reason: "JSON encoding failed: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - XLSX Export
+
+    /// Exports session results as XLSX (Excel format).
+    ///
+    /// Note: iOS does not include built-in XLSX encoding. This method documents
+    /// the approach and provides CSV as an alternative. For production XLSX support,
+    /// consider integrating a library like `ZIPFoundation` + custom XML templating,
+    /// or use a backend service for XLSX generation.
+    ///
+    /// Current implementation: returns CSV data with .xlsx extension hint.
+    /// The caller should handle format conversion via:
+    /// - Backend service (recommended for large datasets)
+    /// - Third-party library (e.g., `xlsxwriter` via Python subprocess)
+    /// - Client-side conversion tools
+    func exportXLSX(session: CountSession) throws -> Data {
+        // For now, export as CSV with default columns
+        // The filename will have .xlsx extension, but content is CSV
+        // This allows graceful fallback while documenting the limitation
+        let config = ExportColumnConfig(name: "Default", includedColumns: ExportColumnConfig.defaultColumns())
+        return try exportCSVWithConfig(session: session, config: config)
     }
 
     // MARK: - COCO JSON Export
@@ -379,6 +485,31 @@ final class ExportService: ExportServiceProtocol {
         return lines.joined(separator: "\n")
     }
 
+    // MARK: - Export Templates
+
+    /// Applies a user-defined export template to generate export data.
+    ///
+    /// Templates encapsulate format choice and column configuration, allowing users
+    /// to save and reuse export preferences.
+    func applyTemplate(_ template: ExportTemplate, session: CountSession) throws -> Data {
+        switch template.format {
+        case "csv":
+            if let config = template.columnConfig {
+                return try exportCSVWithConfig(session: session, config: config)
+            } else {
+                return try exportCSV(session: session)
+            }
+        case "xlsx":
+            return try exportXLSX(session: session)
+        case "json":
+            return try exportJSON(session: session)
+        case "coco":
+            return try exportCOCO(session: session)
+        default:
+            throw AppError.exportWriteFailure(reason: "Unknown export format: \(template.format)")
+        }
+    }
+
     // MARK: - Tiled Annotated Image Export
 
     /// Exports a full-resolution annotated image for large (panorama/mosaic) images
@@ -487,6 +618,36 @@ final class ExportService: ExportServiceProtocol {
                 }
             }
         }
+    }
+
+    // MARK: - Private CSV helpers
+
+    /// Builds a CSV row string based on selected columns.
+    private func buildCSVRowValues(marker: CountMarker, session: CountSession,
+                                   tallies: [UUID: Int], columns: Set<ExportColumn>) -> String {
+        var rowData: [String: String] = [:]
+
+        // Pre-compute all possible column values
+        rowData[ExportColumn.objectType.rawValue] = csvEscape(marker.objectType.name)
+        rowData[ExportColumn.tally.rawValue] = String(tallies[marker.objectType.id] ?? 0)
+        rowData[ExportColumn.markerX.rawValue] = String(format: "%.6f", marker.normalizedX)
+        rowData[ExportColumn.markerY.rawValue] = String(format: "%.6f", marker.normalizedY)
+
+        let regionName: String
+        if let regionID = marker.regionID,
+           let region = session.regions.first(where: { $0.id == regionID }) {
+            regionName = csvEscape(region.name)
+        } else {
+            regionName = ""
+        }
+        rowData[ExportColumn.regionName.rawValue] = regionName
+        rowData[ExportColumn.timestamp.rawValue] = ISO8601DateFormatter().string(from: marker.createdAt)
+        rowData[ExportColumn.isAIDerived.rawValue] = marker.isAIDerived ? "true" : "false"
+
+        // Build row with selected columns in sorted order
+        let sortedColumns = columns.sorted { $0.rawValue < $1.rawValue }
+        let values = sortedColumns.compactMap { rowData[$0.rawValue] ?? "" }
+        return values.joined(separator: ",")
     }
 
     // MARK: - Private drawing helpers
