@@ -183,13 +183,17 @@ final class CountingViewModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.handleMemoryWarning()
+            Task { @MainActor [weak self] in
+                self?.handleMemoryWarning()
+            }
         }
     }
 
     private func setupDetectionCleanupTimer() {
         detectionCleanupTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            self?.cleanupOldDetections()
+            Task { @MainActor [weak self] in
+                self?.cleanupOldDetections()
+            }
         }
     }
 
