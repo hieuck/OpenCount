@@ -85,9 +85,7 @@ actor ModelActor {
         }
 
         // Progress handler — forwards updates to the caller.
-        request.progressHandler = { [progressHandler] _, progress, _ in
-            progressHandler(progress)
-        }
+        // Note: VNCoreMLRequest does not support progressHandler in iOS 16
 
         request.imageCropAndScaleOption = .scaleFit
 
