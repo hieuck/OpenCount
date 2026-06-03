@@ -1,25 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Build IPA — Unsigned build for Sideloadly / AltStore re-signing
-#
-# Triggered manually (workflow_dispatch) or on version tags (v*) or master push.
-#
-# NO signing secrets required. The workflow builds an unsigned .app,
-# packages it into an IPA, and uploads it as a GitHub Actions artifact.
-#
-# To install on your iPhone:
-#   Option A — Sideloadly (Mac/PC): https://sideloadly.io
-#     1. Download the IPA from the Actions artifacts tab
-#     2. Connect iPhone via USB, open Sideloadly
-#     3. Drag the IPA in, enter your Apple ID, click Start
-#     4. Trust the developer certificate on iPhone: Settings → General → VPN & Device Management
-#
-#   Option B — AltStore (Mac/PC): https://altstore.io
-#     1. Install AltStore on your iPhone
-#     2. Download the IPA, open AltStore → My Apps → + → select the IPA
-#
-#   Option C — TrollStore (no re-signing needed, jailbreak-free):
-#     If your device supports TrollStore, install the IPA directly.
-# ─────────────────────────────────────────────────────────────────────────────
 name: Build IPA (Unsigned — Sideloadly / AltStore)
 
 on:
@@ -47,15 +25,12 @@ jobs:
     runs-on: macos-15
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Select Xcode ─────────────────────────────────────────────────────────
       - name: Select Xcode ${{ env.XCODE_VERSION }}
         run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
 
-      # ── Cache SPM ────────────────────────────────────────────────────────────
       - name: Cache SPM
         uses: actions/cache@v4
         with:
@@ -63,65 +38,38 @@ jobs:
             ${{ github.workspace }}/.build/DerivedData/SourcePackages
             ~/.swiftpm
           key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
-          restore-keys: |
-            spm-${{ runner.os }}-
+          restore-keys: spm-${{ runner.os }}-
 
-      # ── Install tools ────────────────────────────────────────────────────────
-      - name: Install tools (xcodegen, xcbeautify)
-        run: |
-          brew install xcodegen xcbeautify || true
-          xcodegen --version
+      - name: Install tools
+        run: brew install xcodegen xcbeautify || true
 
-      # ── Generate Xcode project ───────────────────────────────────────────────
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
 
-      # ── Find best simulator ───────────────────────────────────────────────────
-      - name: Find simulator
+      - name: Find simulator UDID
         id: sim
         run: |
-          echo "=== Available iOS Simulators ==="
-          xcrun simctl list devices available | grep -i "iphone" | head -10
-          echo "================================"
-          SIM_ID=$(xcrun simctl list devices available -j | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          candidates = []
-          for runtime, devices in data['devices'].items():
-              if 'iOS' not in runtime:
-                  continue
-              for d in devices:
-                  if d.get('isAvailable') and 'iPhone' in d['name']:
-                      candidates.append((runtime, d['udid'], d['name']))
-          if candidates:
-              candidates.sort(key=lambda x: x[0], reverse=True)
-              best = candidates[0]
-              print(best[1])
-              import sys; print(f'Found: {best[2]} on {best[0]}', file=sys.stderr)
-          " 2>/tmp/sim_debug.txt)
-          cat /tmp/sim_debug.txt || true
-          if [ -n "$SIM_ID" ]; then
-            echo "dest=platform=iOS Simulator,id=$SIM_ID" >> $GITHUB_OUTPUT
-            echo "Using simulator id: $SIM_ID"
-          else
-            # Fallback: list all runtimes and pick first iPhone
-            echo "dest=platform=iOS Simulator,name=iPhone 16,OS=18.4" >> $GITHUB_OUTPUT
-            echo "Using fallback destination"
+          echo "Available simulators:"
+          xcrun simctl list devices available | grep -i "iphone" | head -20
+          # Extract first iPhone UDID using regex
+          UDID=$(xcrun simctl list devices available | grep -i "iphone" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
+          echo "Selected UDID: $UDID"
+          if [ -z "$UDID" ]; then
+            echo "ERROR: No iPhone simulator found"
+            xcrun simctl list runtimes
+            exit 1
           fi
+          echo "udid=$UDID" >> $GITHUB_OUTPUT
 
-      # ── Build (simulator, unsigned) ──────────────────────────────────────────
-      # NOTE: We build for simulator (available on CI) and package as IPA.
-      # The IPA can be installed via Sideloadly/AltStore which will re-sign for device.
-      - name: Build .app (simulator)
+      - name: Build .app
         run: |
           set -o pipefail
-          DEST="${{ steps.sim.outputs.dest }}"
-          echo "Building with destination: $DEST"
+          echo "Building for simulator: ${{ steps.sim.outputs.udid }}"
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
-            -destination "$DEST" \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
@@ -130,51 +78,38 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             build 2>&1 | xcbeautify --renderer github-actions; exit ${PIPESTATUS[0]}
 
-      # ── Locate .app ───────────────────────────────────────────────────────────
-      - name: Locate .app bundle
-        id: locate_app
+      - name: Locate .app
+        id: app
         run: |
-          echo "=== Build products ==="
-          find "$DERIVED_DATA/Build/Products" -name "OpenCount.app" -not -path "*/SourcePackages/*" 2>/dev/null | head -5
-          echo "======================"
-          APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" -not -path "*Tests*" | head -1)
+          APP=$(find "$DERIVED_DATA" -name "OpenCount.app" -not -path "*/SourcePackages/*" -not -name "*Tests*" | head -1)
           echo "app_path=$APP" >> $GITHUB_OUTPUT
-          echo "Found .app at: $APP"
-          ls -la "$APP" 2>/dev/null || echo "App not found"
+          echo "App: $APP"
+          ls -la "$APP" || true
 
-      # ── Package into IPA ─────────────────────────────────────────────────────
-      - name: Package .app into IPA
+      - name: Package IPA
         run: |
-          APP="${{ steps.locate_app.outputs.app_path }}"
-          if [ -z "$APP" ] || [ ! -d "$APP" ]; then
-            echo "ERROR: .app bundle not found at: $APP"
-            exit 1
-          fi
+          APP="${{ steps.app.outputs.app_path }}"
           mkdir -p "$IPA_DIR/Payload"
           cp -R "$APP" "$IPA_DIR/Payload/OpenCount.app"
           cd "$IPA_DIR"
           zip -r OpenCount-unsigned.ipa Payload
-          echo "IPA created: $(ls -lh OpenCount-unsigned.ipa)"
+          ls -lh OpenCount-unsigned.ipa
 
-      # ── Compute version ───────────────────────────────────────────────────────
       - name: Compute version
         id: version
         run: |
-          SHORT_SHA=$(git rev-parse --short HEAD)
+          SHA=$(git rev-parse --short HEAD)
           TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
-          if [ -n "$TAG" ]; then VERSION="$TAG"; else VERSION="dev-${SHORT_SHA}"; fi
+          VER="${TAG:-dev-$SHA}"
           SUFFIX="${{ github.event.inputs.version_suffix }}"
-          if [ -n "$SUFFIX" ]; then VERSION="${VERSION}-${SUFFIX}"; fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "IPA version: $VERSION"
+          [ -n "$SUFFIX" ] && VER="$VER-$SUFFIX"
+          echo "version=$VER" >> $GITHUB_OUTPUT
 
-      # ── Rename IPA ────────────────────────────────────────────────────────────
       - name: Rename IPA
         run: |
           mv "$IPA_DIR/OpenCount-unsigned.ipa" \
              "$IPA_DIR/OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
 
-      # ── Upload IPA artifact ───────────────────────────────────────────────────
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
@@ -182,27 +117,10 @@ jobs:
           path: ${{ env.IPA_DIR }}/OpenCount-*.ipa
           retention-days: 90
 
-      # ── Print install instructions ────────────────────────────────────────────
       - name: Install instructions
         run: |
+          echo "IPA: OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
           echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  ✅  IPA built: OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
-          echo ""
-          echo "  IMPORTANT: This IPA is built for the iOS Simulator architecture."
-          echo "  You MUST use Sideloadly or AltStore to re-sign it for your device."
-          echo ""
-          echo "  ── Option A: Sideloadly (easiest, Mac or PC) ──────────────"
-          echo "  1. Download: https://sideloadly.io"
-          echo "  2. Download IPA from Actions → Artifacts tab"
-          echo "  3. Connect iPhone via USB, open Sideloadly"
-          echo "  4. Drag IPA in, enter Apple ID, click Start"
-          echo "  5. Trust: Settings → General → VPN & Device Management"
-          echo ""
-          echo "  ── Option B: AltStore ──────────────────────────────────────"
-          echo "  1. Install AltStore: https://altstore.io"
-          echo "  2. AltStore on iPhone → My Apps → + → select IPA"
-          echo ""
-          echo "  ── Option C: TrollStore (no re-signing) ────────────────────"
-          echo "  https://ios.cfw.guide/trollstore"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Install via Sideloadly: https://sideloadly.io"
+          echo "Install via AltStore: https://altstore.io"
+          echo "Install via TrollStore: https://ios.cfw.guide/trollstore"
