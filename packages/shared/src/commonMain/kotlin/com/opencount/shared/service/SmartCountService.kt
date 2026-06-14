@@ -95,8 +95,5 @@ class CountingVelocityTracker(private val windowSeconds: Long = 120) {
     }
 }
 
-private var _timeOffset = 0L
-internal fun currentTimeSeconds(): Long {
-    _timeOffset++
-    return (kotlinx.datetime.Clock.System.now().toEpochMilliseconds() / 1000) + _timeOffset
-}
+internal fun currentTimeSeconds(): Long =
+    kotlinx.datetime.Clock.System.now().toEpochMilliseconds() / 1000

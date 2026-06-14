@@ -1,6 +1,5 @@
 package com.opencount.shared.service
 
-import com.opencount.shared.i18n.Strings
 import com.opencount.shared.model.CountSession
 import com.opencount.shared.model.CountMarker
 import com.opencount.shared.model.ObjectType
