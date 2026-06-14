@@ -97,12 +97,28 @@ jobs:
           mv "$IPA_DIR/OpenCount-unsigned.ipa" \
              "$IPA_DIR/OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
 
-      - name: Upload IPA
+      - name: Upload IPA as artifact
         uses: actions/upload-artifact@v4
         with:
           name: OpenCount-IPA-${{ steps.version.outputs.version }}
           path: ${{ env.IPA_DIR }}/OpenCount-*.ipa
           retention-days: 90
+
+      - name: Create Release with IPA
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OpenCount ${{ steps.version.outputs.version }}
+          body: |
+            ## OpenCount ${{ steps.version.outputs.version }}
+            
+            ### Installation
+            Download the IPA below and install via Sideloadly or AltStore.
+            
+            ### Changes
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+          files: ${{ env.IPA_DIR }}/OpenCount-*.ipa
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Done
         run: |
