@@ -14,25 +14,16 @@ import com.opencount.shared.i18n.Strings
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CountingScreen(
-    sessionId: String? = null,
     modifier: Modifier = Modifier,
     viewModel: SessionViewModel = viewModel(),
 ) {
     val count by viewModel.count.collectAsStateWithLifecycle()
     val currentSession by viewModel.currentSession.collectAsStateWithLifecycle()
 
-    LaunchedEffect(sessionId) {
-        sessionId?.let { viewModel.selectSession(it) }
-    }
-
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(currentSession?.name ?: Strings.tallyMode)
-                }
-            )
+            TopAppBar(title = { Text(currentSession?.name ?: Strings.tallyMode) })
         }
     ) { padding ->
         Column(
@@ -40,20 +31,12 @@ fun CountingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = "$count",
-                style = MaterialTheme.typography.displayLarge,
-            )
+            Text(text = "$count", style = MaterialTheme.typography.displayLarge)
             if (currentSession != null) {
-                Text(
-                    text = currentSession!!.name,
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                Text(text = currentSession!!.name, style = MaterialTheme.typography.titleMedium)
             }
             Spacer(modifier = Modifier.height(32.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(onClick = { viewModel.incrementCount() }) {
                     Text(Strings.addMarker)
                 }

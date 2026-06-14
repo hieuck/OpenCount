@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -20,20 +21,18 @@ import com.opencount.android.ui.screens.SessionListScreen
 import com.opencount.android.ui.screens.SettingsScreen
 import com.opencount.android.viewmodel.SessionViewModel
 
-sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     data object Sessions : Screen("sessions", "Sessions", Icons.Default.Home)
     data object Counting : Screen("counting", "Count", Icons.Default.Add)
     data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenCountApp() {
     val navController = rememberNavController()
     val sessionViewModel: SessionViewModel = viewModel()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-
     val items = listOf(Screen.Sessions, Screen.Counting, Screen.Settings)
 
     Scaffold(

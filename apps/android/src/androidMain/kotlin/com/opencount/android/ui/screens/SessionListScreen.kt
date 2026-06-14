@@ -87,7 +87,7 @@ fun SessionListScreen(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text(Strings.renameSession) },
+                    label = { Text("Session Name") },
                     singleLine = true,
                 )
             },

@@ -49,22 +49,8 @@ class SessionViewModel : ViewModel() {
         if (session != null) selectSession(session)
     }
 
-    fun incrementCount() {
-        _count.value = _count.value + 1
-    }
-
-    fun decrementCount() {
-        if (_count.value > 0) _count.value = _count.value - 1
-    }
-
-    fun deleteSession(id: String) {
-        storage.delete(id)
-        if (_currentSession.value?.id == id) _currentSession.value = null
-        loadSessions()
-    }
-
-    fun exportSession(id: String): String? {
-        val session = storage.load(id) ?: return null
-        return export.exportToJson(session)
-    }
+    fun incrementCount() { _count.value = _count.value + 1 }
+    fun decrementCount() { if (_count.value > 0) _count.value = _count.value - 1 }
+    fun deleteSession(id: String) { storage.delete(id); if (_currentSession.value?.id == id) _currentSession.value = null; loadSessions() }
+    fun exportSession(id: String): String? = storage.load(id)?.let { export.exportToJson(it) }
 }
