@@ -1,159 +1,152 @@
 # OpenCount
 
-[![CI — Build & Test](https://github.com/opencount-app/opencount/actions/workflows/ci.yml/badge.svg)](https://github.com/opencount-app/opencount/actions/workflows/ci.yml)
-[![Build IPA](https://github.com/opencount-app/opencount/actions/workflows/build-ipa.yml/badge.svg)](https://github.com/opencount-app/opencount/actions/workflows/build-ipa.yml)
+> AI-powered object counting for every platform. Native. Private. Open source.
 
-**The most powerful free, open-source iOS counting app.** Surpasses ZapCount and CountThings with more features, better UX, and zero paywalls.
-
-## Why OpenCount?
-
-| Feature | OpenCount | ZapCount | CountThings |
-|---------|-----------|----------|-------------|
-| AI Object Detection | ✅ On-device YOLOv8 | ✅ | ✅ |
-| Voice Counting | ✅ | ❌ | ❌ |
-| Count Formulas | ✅ | ❌ | ❌ |
-| Session Tags | ✅ | ❌ | ❌ |
-| Bulk ZIP Export | ✅ | ❌ | ❌ |
-| Cross-session Dashboard | ✅ | ❌ | ❌ |
-| Smart Suggestions | ✅ | ❌ | ❌ |
-| Apple Watch | ✅ | ❌ | ❌ |
-| AR Counting | ✅ | ❌ | ❌ |
-| Collaboration | ✅ CloudKit | ❌ | ❌ |
-| COCO Export | ✅ | ❌ | ✅ |
-| App Clip | ✅ | ❌ | ❌ |
-| macOS Catalyst | ✅ | ❌ | ❌ |
-| Open Source | ✅ MIT | ❌ | ❌ |
-| **Price** | **Free** | Paid | Freemium |
-
-## Features
-
-### Core Counting
-- Tap-to-place markers with undo/redo (50 levels)
-- Multi-class counting with custom colors, icons, and target counts
-- Distraction-free Tally Counter mode
-- **Voice Counting** — hands-free counting via speech recognition
-- Review Mode — step through all markers one by one
-- Duplicate detection with smart warnings
-- Fatigue warning for high-velocity counting
-
-### AI Detection
-- On-device YOLOv8-nano via CoreML/Vision (no internet required)
-- Zero-shot similarity detection using VNFeaturePrintObservation
-- Adjustable confidence threshold
-- "Find Missed Objects" secondary AI pass
-- Batch processing for multiple images
-- Custom CoreML model import
-
-### Organization
-- **Session Tags** — color-coded tags with emoji for quick organization
-- **Smart Suggestions** — recommends object types from past sessions
-- Search and filter sessions
-- Session templates (private library + community marketplace)
-- iCloud sync via CloudKit
-
-### Analytics
-- **Cross-session Dashboard** — activity timeline, top object types, trends
-- **Count Formulas** — custom expressions like "Males / (Males + Females)"
-- Per-session statistics with pie charts, bar charts, density analysis
-- Tally change history (audit log)
-- Cross-session comparison charts
-
-### Export
-- CSV (RFC 4180 compliant, localized headers)
-- JSON (structured, ISO 8601 dates)
-- COCO JSON (compatible with Roboflow, CVAT, Label Studio)
-- Annotated Image (PNG with markers, regions, annotations)
-- PDF report (image + tally table + metadata)
-- **Bulk ZIP Export** — export multiple sessions at once
-
-### Platform
-- iPhone + iPad (adaptive layout, Stage Manager support)
-- Apple Watch companion app with complications
-- WidgetKit home screen widget
-- App Clip for quick counting via NFC/QR
-- macOS Catalyst support
-- AR counting via ARKit
-- Live camera counting
-- Handoff between devices
-- Siri Shortcuts integration
-- Local REST API for automation (localhost:47200)
-
-## Requirements
-
-- iOS 16.0+
-- Xcode 16.0+
-- Swift 5.9+
-- xcodegen (`brew install xcodegen`)
-
-## Quick Start
-
-```bash
-# Clone the repo
-git clone https://github.com/opencount-app/opencount.git
-cd opencount
-
-# Generate the Xcode project
-make generate
-
-# Build for simulator
-make build
-
-# Run tests
-make test
-```
-
-## Building an IPA
-
-```bash
-# Set your Apple Developer Team ID
-export DEVELOPMENT_TEAM=YOUR_TEAM_ID
-
-# Archive and export IPA
-make ipa
-```
-
-The IPA will be at `.build/OpenCount.ipa`.
-
-## Adding the AI Model
-
-```bash
-pip install coremltools ultralytics
-python -c "from ultralytics import YOLO; YOLO('yolov8n.pt').export(format='coreml', nms=True)"
-```
-
-Drag `yolov8n.mlpackage` into the Xcode project (OpenCount target). Without the model, the app runs in mock mode with synthetic detections.
+OpenCount is a free, open-source, cross-platform AI-powered object counter that surpasses commercial alternatives (CountThings, Zap Count) with on-device AI detection, voice counting, AR counting, collaboration, and extensive export capabilities.
 
 ## Architecture
 
 ```
-SwiftUI Views
-    ↓ @StateObject / @ObservedObject
-ViewModels (SessionListVM, CountingVM, LiveCountVM, AnnotationLayerVM, ...)
-    ↓ async/await
-Services (AIService, ExportService, StorageService, CollaborationService,
-          VoiceCountingService, BulkExportService, SmartSuggestionsService, ...)
-    ↓
-Data / Infrastructure (SwiftData, CloudKit, CoreML/Vision, Speech, ARKit)
-```
-
-## Project Structure
-
-```
 OpenCount/
-├── Models/          — SwiftData models + in-memory structs
-├── Views/           — SwiftUI views (40+ screens)
-├── ViewModels/      — ObservableObject view models
-├── Services/        — Business logic and platform integrations
-├── Intents/         — App Intents for Siri Shortcuts
-└── Resources/       — Localizable strings, sample data
-
-OpenCountWatch/      — watchOS companion app
-OpenCountWidget/     — WidgetKit extension
-OpenCountClip/       — App Clip (< 15 MB)
-OpenCountTests/      — Unit + property-based tests
-OpenCountUITests/    — UI tests with accessibility audit
+├── apps/
+│   ├── ios/                 # iOS/iPadOS native app (SwiftUI)
+│   │   ├── app/             # Main target
+│   │   ├── watch/           # watchOS companion
+│   │   ├── widget/          # WidgetKit extension
+│   │   ├── clip/            # App Clip
+│   │   ├── tests/           # Property-based tests (SwiftCheck)
+│   │   └── uitests/         # XCUITest smoke tests
+│   ├── android/             # Android native app (Jetpack Compose)
+│   ├── desktop/             # Desktop app (Compose for Desktop - Win/Mac/Linux)
+│   └── web/                 # Web app (Kotlin/JS)
+├── packages/
+│   └── shared/              # KMP shared module (cross-platform core)
+│       └── src/
+│           ├── commonMain/  # Shared business logic
+│           ├── iosMain/     # iOS-specific implementations
+│           ├── androidMain/ # Android-specific implementations
+│           ├── desktopMain/ # Desktop-specific implementations
+│           └── jsMain/      # Web-specific implementations
+├── docs/                    # Documentation
+├── project.yml              # XcodeGen project spec (iOS)
+├── build.gradle.kts         # Gradle root (Android/Desktop/Web)
+└── settings.gradle.kts      # Gradle settings
 ```
+
+## Platform Coverage
+
+| Platform | Tech Stack | Status |
+|----------|------------|--------|
+| iOS 16+ / iPadOS | SwiftUI, Vision, CoreML, ARKit | ✅ **Stable** |
+| watchOS 9+ | SwiftUI, WCSession | ✅ **Stable** |
+| macOS (Mac Catalyst) | SwiftUI (shared iOS code) | 🔄 Planned |
+| Android | Kotlin, Jetpack Compose | 🚧 In Progress |
+| Desktop (Win/Mac/Linux) | Kotlin, Compose for Desktop | 🚧 In Progress |
+| Web | Kotlin/JS, Compose for Web | 🗺️ Planned |
+
+## Features
+
+- **AI-Powered Detection**: On-device YOLOv8 via CoreML/Vision (iOS), ML Kit (Android)
+- **Manual Counting**: Tap-to-count with multi-type categorization
+- **Voice Counting**: Speech-to-text hands-free counting (multi-language)
+- **Live Camera Counting**: Real-time object detection
+- **AR Counting**: Augmented reality overlay counting (iOS ARKit)
+- **Video Counting**: Frame-by-frame video analysis
+- **Multi-Image Sessions**: Organize multiple images per session
+- **Regions**: Define rectangular, elliptical, or polygonal count zones
+- **Formulas**: Custom expressions for derived metrics
+- **Tags & Search**: Color-coded tags with full-text search
+- **Collaboration**: Real-time sync via CloudKit
+- **Apple Pencil / Stylus**: Precision marking with hover ghost
+- **Tally Mode**: Distraction-free counting interface
+- **Heatmap**: Density visualization of markers
+- **Export**: CSV, XLSX, JSON, COCO JSON, PDF, Annotated Image
+- **Bulk Export**: Multi-session ZIP export
+- **i18n**: 8 languages (English, Vietnamese, Japanese, Korean, Chinese, French, German, Spanish)
+- **Templates**: Private template library + public marketplace
+
+## AI Engine
+
+- **On-device**: All AI runs locally — zero data leaves the device
+- **Default Model**: YOLOv8-nano via CoreML (iOS) / TensorFlow Lite (Android)
+- **Custom Models**: Import CoreML (.mlpackage) / TFLite models
+- **Smart Counting**: Duplicate detection, clustering, fatigue warnings
+- **Panorama Support**: Auto-tiling for large images with NMS dedup
+
+## Quick Start
+
+### Prerequisites
+
+- **iOS**: Xcode 16+, CocoaPods or SPM (automatic)
+- **Android/Desktop**: JDK 17+, Gradle 8.9+
+- **All Platforms**: Git
+
+### iOS
+
+```bash
+make ios-generate     # Generate Xcode project
+make ios-build        # Build for simulator
+make ios-test         # Run iOS tests
+make ios-ipa          # Build unsigned IPA
+```
+
+### Android, Desktop & Shared (KMP)
+
+```bash
+./gradlew :packages:shared:check   # Build + test shared module
+./gradlew :apps:android:assembleDebug  # Build Android APK
+./gradlew :apps:desktop:run            # Run Desktop app
+```
+
+### All Tests
+
+```bash
+# KMP (cross-platform)
+./gradlew :packages:shared:desktopTest  # 32+ unit/integration/e2e tests
+
+# iOS
+make ios-test
+```
+
+## Testing Strategy
+
+| Layer | Type | Framework | Location |
+|-------|------|-----------|----------|
+| **Unit** | Model & utility tests | kotlin.test | `packages/shared/src/commonTest/` |
+| **Integration** | Cross-service workflows | kotlin.test | `packages/shared/src/commonTest/` |
+| **E2E** | Full user workflow simulation | kotlin.test | `packages/shared/src/commonTest/e2e/` |
+| **i18n** | Multi-language string validation | kotlin.test | `packages/shared/src/commonTest/i18n/` |
+| **Property** | SwiftCheck invariants | SwiftCheck | `apps/ios/tests/` |
+| **UI** | XCUITest smoke & accessibility | XCTest | `apps/ios/uitests/` |
+
+## Internationalization
+
+8 languages built into the shared KMP module:
+
+- English (default), Vietnamese, Japanese, Korean, Chinese
+- French, German, Spanish
+
+Switch at runtime via `Strings.language = "vi"`.
 
 ## License
 
-MIT License — free forever, no paywalls, no subscriptions.
+Open source. Free forever. No telemetry, no accounts required.
+
+## Comparison
+
+| Feature | OpenCount | CountThings | Zap Count |
+|---------|-----------|-------------|-----------|
+| Native iOS | ✅ SwiftUI | ✅ | ✅ |
+| Native Android | 🚧 Jetpack Compose | ❌ | ❌ |
+| Desktop App | 🚧 Compose Desktop | ❌ | ❌ |
+| Web App | 🗺️ Planned | ❌ | ❌ |
+| On-device AI | ✅ YOLOv8 | ❌ (cloud) | ❌ (cloud) |
+| Voice Counting | ✅ | ❌ | ❌ |
+| AR Mode | ✅ (ARKit) | ❌ | ❌ |
+| Video Analysis | ✅ | ❌ | ❌ |
+| Bulk Export | ✅ | ❌ | ❌ |
+| Collaboration | ✅ (CloudKit) | ❌ | ❌ |
+| Custom AI Models | ✅ | ❌ | ❌ |
+| Open Source | ✅ | ❌ | ❌ |
+| Privacy (no cloud) | ✅ | ❌ | ❌ |
+| Price | Free | $$$ | $$$ |

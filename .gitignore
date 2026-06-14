@@ -1,0 +1,49 @@
+# Xcode / iOS
+*.xcworkspace/
+*.xcuserdata/
+DerivedData/
+.build/
+*.xcodeproj/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Gradle / KMP
+.gradle/
+build/
+local.properties
+*.iml
+
+# Kotlin
+*.class
+
+# Android
+android/build/
+android/.gradle/
+
+# Node / npm (if used)
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Project-specific
+ExportOptions.plist

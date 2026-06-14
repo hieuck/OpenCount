@@ -46,7 +46,7 @@ targets:
     deploymentTarget: "16.0"
     bundleId: com.opencount.app
     info:
-      path: OpenCount/Info.plist
+      path: apps/ios/app/Info.plist
       properties:
         CFBundleDisplayName: OpenCount
         CFBundleShortVersionString: "1.1"
@@ -73,7 +73,7 @@ targets:
         NSUserActivityTypes:
           - com.opencount.counting
     entitlements:
-      path: OpenCount/OpenCount.entitlements
+      path: apps/ios/app/OpenCount.entitlements
       properties:
         com.apple.developer.icloud-container-identifiers:
           - iCloud.com.opencount.app
@@ -84,7 +84,7 @@ targets:
         com.apple.security.application-groups:
           - group.com.opencount.app
     sources:
-      - path: OpenCount
+      - path: apps/ios/app
         excludes:
           - "**/*.md"
     dependencies:
@@ -111,7 +111,7 @@ targets:
     deploymentTarget: "16.0"
     bundleId: com.opencount.app.tests
     sources:
-      - path: OpenCountTests
+      - path: apps/ios/tests
     dependencies:
       - target: OpenCount
       - package: SwiftCheck
@@ -128,7 +128,7 @@ targets:
     deploymentTarget: "16.0"
     bundleId: com.opencount.app.widget
     info:
-      path: OpenCountWidget/Info.plist
+      path: apps/ios/widget/Info.plist
       properties:
         CFBundleDisplayName: OpenCountWidget
         CFBundleShortVersionString: "1.0"
@@ -136,7 +136,7 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     sources:
-      - path: OpenCountWidget
+      - path: apps/ios/widget
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app.widget
@@ -151,14 +151,14 @@ targets:
     deploymentTarget: "9.0"
     bundleId: com.opencount.app.watchkitapp
     info:
-      path: OpenCountWatch/Info.plist
+      path: apps/ios/watch/Info.plist
       properties:
         CFBundleDisplayName: OpenCount
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"
         WKApplication: true
     sources:
-      - path: OpenCountWatch
+      - path: apps/ios/watch
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app.watchkitapp
@@ -175,7 +175,7 @@ targets:
     deploymentTarget: "16.0"
     bundleId: com.opencount.app.clip
     info:
-      path: OpenCountClip/Info.plist
+      path: apps/ios/clip/Info.plist
       properties:
         CFBundleDisplayName: OpenCount
         CFBundleShortVersionString: "1.0"
@@ -191,12 +191,12 @@ targets:
           NSAppClipRequestEphemeralUserNotification: false
           NSAppClipRequestLocationConfirmation: false
     entitlements:
-      path: OpenCountClip/OpenCountClip.entitlements
+      path: apps/ios/clip/OpenCountClip.entitlements
       properties:
         com.apple.developer.associated-domains:
           - appclip:opencount.app
     sources:
-      - path: OpenCountClip
+      - path: apps/ios/clip
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app.clip
@@ -212,7 +212,7 @@ targets:
     deploymentTarget: "16.0"
     bundleId: com.opencount.app.uitests
     sources:
-      - path: OpenCountUITests
+      - path: apps/ios/uitests
     dependencies:
       - target: OpenCount
     settings:

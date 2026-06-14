@@ -1,94 +1,112 @@
-# OpenCount — Makefile
-# Convenience targets for local development and CI.
-#
-# Prerequisites (macOS only):
-#   brew install xcodegen
-#   brew install xcbeautify   (optional, prettier build output)
+# OpenCount Monorepo Makefile
+# ===========================
+# Targets for all platforms
 
-SCHEME        := OpenCount
-PROJECT       := OpenCount.xcodeproj
-WORKSPACE     := OpenCount.xcworkspace
-SIMULATOR     := platform=iOS Simulator,name=iPhone 16,OS=latest
-DERIVED_DATA  := $(PWD)/.build/DerivedData
-ARCHIVE_PATH  := $(PWD)/.build/OpenCount.xcarchive
-IPA_PATH      := $(PWD)/.build/OpenCount.ipa
+# ─── iOS (XcodeGen) ──────────────────────────────────────────────────────────
+IOS_PROJECT = OpenCount.xcodeproj
 
-# ─── Project generation ───────────────────────────────────────────────────────
+.PHONY: ios-generate ios-build ios-test ios-archive ios-ipa
 
-.PHONY: generate
-generate:
-	xcodegen generate --spec project.yml
-	@echo "✅  $(PROJECT) generated"
+ios-generate:
+	xcodegen generate
 
-# ─── Build (Simulator — no signing required) ──────────────────────────────────
+ios-build:
+	xcodegen generate && \
+	xcodebuild -project $(IOS_PROJECT) -scheme OpenCount \
+		-derivedDataPath .build/DerivedData \
+		-destination 'platform=iOS Simulator,name=iPhone 16' build
 
-.PHONY: build
-build: generate
-	set -o pipefail && xcodebuild \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-destination "$(SIMULATOR)" \
-		-derivedDataPath $(DERIVED_DATA) \
-		CODE_SIGNING_ALLOWED=NO \
-		build \
-	| xcbeautify || xcodebuild \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-destination "$(SIMULATOR)" \
-		-derivedDataPath $(DERIVED_DATA) \
-		CODE_SIGNING_ALLOWED=NO \
-		build
+ios-test:
+	xcodegen generate && \
+	xcodebuild -project $(IOS_PROJECT) -scheme OpenCount \
+		-derivedDataPath .build/DerivedData \
+		-destination 'platform=iOS Simulator,name=iPhone 16' test
 
-# ─── Test (Simulator) ─────────────────────────────────────────────────────────
+ios-archive:
+	xcodegen generate && \
+	xcodebuild -project $(IOS_PROJECT) -scheme OpenCountIPA \
+		-derivedDataPath .build/DerivedData \
+		-archivePath .build/OpenCount.xcarchive archive
 
-.PHONY: test
-test: generate
-	set -o pipefail && xcodebuild \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-destination "$(SIMULATOR)" \
-		-derivedDataPath $(DERIVED_DATA) \
-		CODE_SIGNING_ALLOWED=NO \
-		test \
-	| xcbeautify || xcodebuild \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-destination "$(SIMULATOR)" \
-		-derivedDataPath $(DERIVED_DATA) \
-		CODE_SIGNING_ALLOWED=NO \
-		test
-
-# ─── Archive + IPA (requires signing — set DEVELOPMENT_TEAM) ─────────────────
-
-.PHONY: archive
-archive: generate
-	xcodebuild \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-configuration Release \
-		-archivePath $(ARCHIVE_PATH) \
-		-derivedDataPath $(DERIVED_DATA) \
-		DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM) \
-		CODE_SIGN_STYLE=Automatic \
-		archive
-
-.PHONY: ipa
-ipa: archive
-	xcodebuild \
-		-exportArchive \
-		-archivePath $(ARCHIVE_PATH) \
-		-exportPath $(IPA_PATH) \
+ios-ipa:
+	xcodegen generate && \
+	xcodebuild -project $(IOS_PROJECT) -scheme OpenCountIPA \
+		-derivedDataPath .build/DerivedData \
+		-archivePath .build/OpenCount.xcarchive archive && \
+	xcodebuild -exportArchive -archivePath .build/OpenCount.xcarchive \
+		-exportPath .build/OpenCount.ipa \
 		-exportOptionsPlist ExportOptions.plist
-	@echo "✅  IPA exported to $(IPA_PATH)"
 
-# ─── Clean ────────────────────────────────────────────────────────────────────
+# ─── KMP / Gradle (Android + Desktop + Web + Shared) ─────────────────────────
+GRADLE = ./gradlew
 
-.PHONY: clean
+.PHONY: kmp-build kmp-test kmp-check
+
+kmp-build:
+	$(GRADLE) build
+
+kmp-test:
+	$(GRADLE) :packages:shared:check
+
+kmp-check:
+	$(GRADLE) check
+
+kmp-shared-publish:
+	$(GRADLE) :packages:shared:publishToMavenLocal
+
+# ─── Platform-specific KMP ───────────────────────────────────────────────────
+.PHONY: android-build android-install desktop-run desktop-package
+
+android-build:
+	$(GRADLE) :apps:android:assembleDebug
+
+android-install:
+	$(GRADLE) :apps:android:installDebug
+
+desktop-run:
+	$(GRADLE) :apps:desktop:run
+
+desktop-package:
+	$(GRADLE) :apps:desktop:packageDistributable
+
+# ─── All Tests ───────────────────────────────────────────────────────────────
+.PHONY: test-all
+
+test-all: ios-test kmp-test
+
+# ─── Clean ───────────────────────────────────────────────────────────────────
+.PHONY: clean clean-all
+
 clean:
-	rm -rf $(DERIVED_DATA) $(ARCHIVE_PATH) $(IPA_PATH)
-	@echo "✅  Build artifacts cleaned"
+	$(GRADLE) clean
+	rm -rf .build/DerivedData
+	rm -rf $(IOS_PROJECT)
 
-.PHONY: clean-all
 clean-all: clean
-	rm -rf $(PROJECT)
-	@echo "✅  Generated project removed"
+	rm -rf .build
+	rm -rf ~/.gradle/caches/
+
+# ─── Help ────────────────────────────────────────────────────────────────────
+.PHONY: help
+
+help:
+	@echo "OpenCount Monorepo Targets:"
+	@echo "  iOS:"
+	@echo "    ios-generate  - Generate Xcode project"
+	@echo "    ios-build     - Build for iOS Simulator"
+	@echo "    ios-test      - Run iOS tests"
+	@echo "    ios-archive   - Archive for App Store"
+	@echo "    ios-ipa       - Build unsigned IPA"
+	@echo ""
+	@echo "  KMP (Cross-Platform):"
+	@echo "    kmp-build     - Build all KMP targets"
+	@echo "    kmp-test      - Run KMP tests"
+	@echo "    kmp-check     - Run all checks"
+	@echo ""
+	@echo "  Platform-Specific:"
+	@echo "    android-build - Build Android APK"
+	@echo "    android-install - Install on connected device"
+	@echo "    desktop-run   - Run Desktop app"
+	@echo "    desktop-package - Package Desktop distributable"
+	@echo ""
+	@echo "  All: test-all   - Run all tests (iOS + KMP)"

@@ -63,3 +63,47 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+## 5. OpenCount Project Conventions
+
+### Monorepo Structure
+```
+apps/ios/          - iOS/macOS native (Swift/SwiftUI)
+apps/android/      - Android native (Kotlin/Jetpack Compose)
+apps/desktop/      - Compose Desktop (Kotlin)
+apps/web/          - Kotlin/JS web app
+packages/shared/   - KMP shared module
+```
+
+### Build Commands
+- `./gradlew :packages:shared:desktopTest` - Run cross-platform tests (32+ tests)
+- `./gradlew :packages:shared:check` - Build + check shared module
+- `make ios-test` - Run iOS tests
+- `make ios-generate` - Generate Xcode project
+
+### KMP Shared Module
+- `commonMain/` - All shared business logic (models, services, i18n)
+- `iosMain/` - iOS-specific implementations (expect/actual)
+- `androidMain/` - Android-specific implementations
+- `desktopMain/` - Desktop (JVM) implementations
+- `jsMain/` - Web (JS) implementations
+
+### i18n
+- All strings in `packages/shared/.../i18n/LocalizedStrings.kt`
+- 8 languages: en, vi, ja, ko, zh, fr, de, es
+- Access via `Strings.addMarker`, `Strings.sessions`, etc.
+
+### Testing Layers
+- **Unit tests**: `commonTest/` (pure model/utility logic)
+- **Integration tests**: `commonTest/` (cross-service workflows)
+- **E2E tests**: `commonTest/e2e/` (full user workflow simulation)
+- **Property tests**: `apps/ios/tests/` (SwiftCheck)
+- **UI tests**: `apps/ios/uitests/` (XCUITest)
+
+### Model Migration (iOS → KMP)
+- `Codable` → `@Serializable`
+- `Date` → `kotlinx.datetime.Instant`
+- `ObservableObject` → `data class`
+- New models in KMP first, then Swift bridge
