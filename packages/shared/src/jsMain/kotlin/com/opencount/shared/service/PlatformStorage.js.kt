@@ -5,30 +5,28 @@ import kotlinx.browser.localStorage
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-actual class PlatformStorage {
+actual class PlatformStorage : StorageBackend {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val storageKey = "opencount_sessions"
 
-    actual fun saveSession(session: CountSession) {
+    override fun saveSession(session: CountSession) {
         val sessions = loadAllRaw().toMutableList()
-        val index = sessions.indexOfFirst { it.startsWith("\"${session.id}\"") || it.contains("\"id\":\"${session.id}\"") }
         val entry = json.encodeToString(session)
+        val index = sessions.indexOfFirst { it.contains("\"${session.id}\"") }
         if (index >= 0) sessions[index] = entry else sessions.add(entry)
         setAll(sessions)
     }
 
-    actual fun loadSession(id: String): CountSession? {
-        return loadAll().find { it.id == id }
-    }
+    override fun loadSession(id: String): CountSession? = loadAll().find { it.id == id }
 
-    actual fun loadAllSessions(): List<CountSession> = loadAll()
+    override fun loadAllSessions(): List<CountSession> = loadAll()
 
-    actual fun deleteSession(id: String) {
+    override fun deleteSession(id: String) {
         val sessions = loadAll().filter { it.id != id }
         setAll(sessions.map { json.encodeToString(it) })
     }
 
-    actual fun sessionExists(id: String): Boolean = loadAll().any { it.id == id }
+    override fun sessionExists(id: String): Boolean = loadAll().any { it.id == id }
 
     private fun loadAll(): List<CountSession> {
         return loadAllRaw().mapNotNull { raw ->
