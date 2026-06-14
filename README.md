@@ -40,9 +40,9 @@ OpenCount/
 | iOS 16+ / iPadOS | SwiftUI, Vision, CoreML, ARKit | ✅ **Stable** |
 | watchOS 9+ | SwiftUI, WCSession | ✅ **Stable** |
 | macOS (Mac Catalyst) | SwiftUI (shared iOS code) | 🔄 Planned |
-| Android | Kotlin, Jetpack Compose | 🚧 In Progress |
-| Desktop (Win/Mac/Linux) | Kotlin, Compose for Desktop | 🚧 In Progress |
-| Web | Kotlin/JS, Compose for Web | 🗺️ Planned |
+| Android | Kotlin, Jetpack Compose | ✅ **Stable** (APK ~10MB) |
+| Desktop (Win/Mac/Linux) | Kotlin, Compose for Desktop | ✅ **Stable** |
+| Web | Kotlin/JS | 🚧 Interactive prototype |
 
 ## Features
 
@@ -101,10 +101,19 @@ make ios-ipa          # Build unsigned IPA
 ### All Tests
 
 ```bash
-# KMP (cross-platform)
-./gradlew :packages:shared:desktopTest  # All unit/integration/e2e tests
+# KMP (cross-platform) — 200+ tests
+./gradlew :packages:shared:desktopTest
 
-# iOS
+# Android build
+./gradlew :apps:android:assembleDebug
+
+# Desktop build
+./gradlew :apps:desktop:compileKotlinDesktop
+
+# Web build
+./gradlew :apps:web:compileKotlinJs
+
+# iOS (requires macOS)
 make ios-test
 ```
 
@@ -115,8 +124,11 @@ make ios-test
 | **Unit** | Model & utility tests | kotlin.test | `packages/shared/src/commonTest/` |
 | **Integration** | Cross-service workflows | kotlin.test | `packages/shared/src/commonTest/` |
 | **E2E** | Full user workflow simulation | kotlin.test | `packages/shared/src/commonTest/e2e/` |
-| **i18n** | Multi-language string validation | kotlin.test | `packages/shared/src/commonTest/i18n/` |
-| **Property** | SwiftCheck invariants | SwiftCheck | `apps/ios/tests/` |
+| **Thread Safety** | Concurrent access & race conditions | kotlin.test | `packages/shared/src/commonTest/` |
+| **Stress** | Large datasets (10K+ markers) | kotlin.test | `packages/shared/src/commonTest/` |
+| **Property** | Invariant verification | kotlin.test | `packages/shared/src/commonTest/` |
+| **i18n** | Multi-language string validation (8 langs) | kotlin.test | `packages/shared/src/commonTest/i18n/` |
+| **SwiftCheck** | iOS property invariants | SwiftCheck | `apps/ios/tests/` |
 | **UI** | XCUITest smoke & accessibility | XCTest | `apps/ios/uitests/` |
 
 ## Internationalization

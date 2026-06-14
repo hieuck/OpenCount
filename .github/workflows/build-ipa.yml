@@ -43,36 +43,18 @@ jobs:
       - name: Install tools
         run: brew install xcodegen xcbeautify || true
 
-      - name: Download iOS platform
-        run: |
-          xcodebuild -downloadPlatform iOS 2>/dev/null || true
-          xcrun simctl list runtimes | head -10
-
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
 
-      - name: Find simulator UDID
-        id: sim
-        run: |
-          echo "Available iPhone simulators:"
-          xcrun simctl list devices available | grep -i "iphone" | head -20
-          UDID=$(xcrun simctl list devices available | grep -E "iPhone" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
-          echo "Selected UDID: $UDID"
-          if [ -z "$UDID" ]; then
-            echo "ERROR: No iPhone simulator found after platform download"
-            exit 1
-          fi
-          echo "udid=$UDID" >> $GITHUB_OUTPUT
-
-      - name: Build .app
+      - name: Build .app for generic device
         run: |
           set -o pipefail
-          echo "Building for simulator UDID: ${{ steps.sim.outputs.udid }}"
+          echo "Building unsigned .app for device architecture (arm64)"
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -destination "generic/platform=iOS" \
             -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
