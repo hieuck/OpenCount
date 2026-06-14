@@ -9,60 +9,73 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.opencount.android.viewmodel.SessionViewModel
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.opencount.android.ui.screens.CountingScreen
 import com.opencount.android.ui.screens.SessionListScreen
 import com.opencount.android.ui.screens.SettingsScreen
+import com.opencount.android.viewmodel.SessionViewModel
+
+sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    data object Sessions : Screen("sessions", "Sessions", Icons.Default.Home)
+    data object Counting : Screen("counting", "Count", Icons.Default.Add)
+    data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenCountApp() {
-    var currentScreen by remember { mutableStateOf("sessions") }
-    var selectedSessionId by remember { mutableStateOf<String?>(null) }
+    val navController = rememberNavController()
     val sessionViewModel: SessionViewModel = viewModel()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+
+    val items = listOf(Screen.Sessions, Screen.Counting, Screen.Settings)
 
     Scaffold(
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(
-                    selected = currentScreen == "sessions",
-                    onClick = { currentScreen = "sessions" },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Sessions") },
-                    label = { Text("Sessions") },
-                )
-                NavigationBarItem(
-                    selected = currentScreen == "counting",
-                    onClick = {
-                        currentScreen = "counting"
-                        selectedSessionId = null
-                    },
-                    icon = { Icon(Icons.Default.Add, contentDescription = "Count") },
-                    label = { Text("Count") },
-                )
-                NavigationBarItem(
-                    selected = currentScreen == "settings",
-                    onClick = { currentScreen = "settings" },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text("Settings") },
-                )
+                items.forEach { screen ->
+                    NavigationBarItem(
+                        icon = { Icon(screen.icon, contentDescription = screen.label) },
+                        label = { Text(screen.label) },
+                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                        onClick = {
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                    )
+                }
             }
         }
     ) { padding ->
-        when (currentScreen) {
-            "sessions" -> SessionListScreen(
-                onSessionSelected = { id ->
-                    selectedSessionId = id
-                    currentScreen = "counting"
-                },
-                modifier = Modifier.padding(padding),
-                viewModel = sessionViewModel,
-            )
-            "counting" -> CountingScreen(
-                sessionId = selectedSessionId,
-                modifier = Modifier.padding(padding),
-                viewModel = sessionViewModel,
-            )
-            "settings" -> SettingsScreen(modifier = Modifier.padding(padding))
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Sessions.route,
+            modifier = Modifier.padding(padding),
+        ) {
+            composable(Screen.Sessions.route) {
+                SessionListScreen(
+                    onSessionSelected = { id ->
+                        sessionViewModel.selectSessionById(id)
+                        navController.navigate(Screen.Counting.route)
+                    },
+                    viewModel = sessionViewModel,
+                )
+            }
+            composable(Screen.Counting.route) {
+                CountingScreen(viewModel = sessionViewModel)
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen()
+            }
         }
     }
 }

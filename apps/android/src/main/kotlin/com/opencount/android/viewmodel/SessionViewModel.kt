@@ -44,6 +44,11 @@ class SessionViewModel : ViewModel() {
         _count.value = Counter.totalCount(session)
     }
 
+    fun selectSessionById(id: String) {
+        val session = storage.load(id)
+        if (session != null) selectSession(session)
+    }
+
     fun incrementCount() {
         _count.value = _count.value + 1
     }
