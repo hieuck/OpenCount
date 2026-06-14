@@ -1,6 +1,7 @@
 package com.opencount.shared.model
 
 import kotlinx.datetime.Instant
+import kotlin.random.Random
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -35,9 +36,8 @@ data class CountSession(
     }
 }
 
-private var _uuidCounter = 0L
 internal fun uuid(): String {
-    _uuidCounter++
     val timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
-    return "${timestamp}-${_uuidCounter}"
+    val random = (Random.nextLong() and 0xFFFFFFFFFFFF) or 0x1000000000000
+    return "${timestamp}-${random}"
 }
