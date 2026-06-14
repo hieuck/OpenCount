@@ -49,14 +49,12 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
 
-      - name: Build .app (simulator, unsigned)
+      - name: Build .app for device (unsigned)
         run: |
           set -o pipefail
-          echo "Building unsigned .app (simulator)"
-          DEST=$(xcrun simctl list devices available -j 2>/dev/null | python3 -c "import json,sys;d=json.load(sys.stdin);[print(f'platform=iOS Simulator,id={dd[\"udid\"]}') or sys.exit(0) for r,ds in sorted(d.get('devices',{}).items(),reverse=True) if 'iOS' in r for dd in ds if dd.get('isAvailable') and ('iPhone' in dd['name'] or 'iPad' in dd['name'])]" 2>/dev/null) || DEST="platform=iOS Simulator,name=iPhone 16"
-          echo "Destination: $DEST"
+          echo "Building unsigned .app for device (arm64)"
           xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" -configuration Debug \
-            -destination "$DEST" -derivedDataPath "$DERIVED_DATA" \
+            -destination "generic/platform=iOS" -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM="" SUPPORTS_MACCATALYST=NO \
             ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES ONLY_ACTIVE_ARCH=NO \
             build 2>&1 | xcbeautify --renderer github-actions; exit ${PIPESTATUS[0]}
