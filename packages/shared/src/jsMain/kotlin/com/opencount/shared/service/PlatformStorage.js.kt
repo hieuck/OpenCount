@@ -37,12 +37,13 @@ actual class PlatformStorage : StorageBackend {
     private fun loadAllRaw(): List<String> {
         val stored = localStorage.getItem(storageKey) ?: return emptyList()
         return try {
-            @Suppress("UNCHECKED_CAST")
-            (JSON.parse<Array<*>>(stored) as Array<*>).filterIsInstance<String>()
+            val arr: Array<*> = js("JSON.parse(stored)")
+            arr.filterIsInstance<String>()
         } catch (_: Exception) { emptyList() }
     }
 
     private fun setAll(sessions: List<String>) {
-        localStorage.setItem(storageKey, JSON.stringify(sessions.toTypedArray()))
+        val jsonStr: String = js("JSON.stringify(sessions.toArray())")
+        localStorage.setItem(storageKey, jsonStr)
     }
 }

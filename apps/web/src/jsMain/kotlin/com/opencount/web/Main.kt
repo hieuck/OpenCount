@@ -8,7 +8,7 @@ fun main() {
     root.innerHTML = """
         <div style="font-family: sans-serif; max-width: 600px; margin: 40px auto; text-align: center;">
             <h1>${Strings.appName} Web</h1>
-            <p>${Strings.appVersion}: ${OpenCountSDK.VERSION}</p>
+            <p>${Strings.version}: ${OpenCountSDK.VERSION}</p>
             <p>${Strings.liveCount} — ${Strings.aiDetect} — ${Strings.voiceCount}</p>
             <p>${Strings.sessions}</p>
         </div>

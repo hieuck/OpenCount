@@ -9,6 +9,10 @@ kotlin {
         languageSettings.optIn("kotlin.ExperimentalMultiplatform")
     }
 
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
     androidTarget {
         compilations.all {
             compileTaskProvider.configure {

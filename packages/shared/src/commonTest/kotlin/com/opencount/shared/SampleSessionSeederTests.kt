@@ -52,7 +52,7 @@ class SampleSessionSeederTests {
     fun testSeedAndReload() {
         val fake = FakePlatformStorage()
         val storage = com.opencount.shared.service.StorageService(fake)
-        SampleSessionSeeder.seedIfNeeded(storage)
+        SampleSessionSeeder.seedIfNeeded(storage, force = true)
         val sessions = storage.loadAll()
         assertEquals(1, sessions.size)
         assertEquals("Sample Count", sessions[0].name)

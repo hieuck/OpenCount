@@ -38,7 +38,7 @@ class SmartSuggestionsService {
             for (type in session.objectTypes) {
                 if (type.name in excludingNames) continue
                 frequencyMap[type.name] = (frequencyMap[type.name] ?: 0) + 1
-                typeMap.putIfAbsent(type.name, type)
+                if (!typeMap.containsKey(type.name)) typeMap[type.name] = type
             }
         }
 
