@@ -1,0 +1,11 @@
+# Default owners for all files
+* @opencount/maintainers
+
+# iOS specific
+/apps/ios/ @opencount/ios-maintainers
+
+# KMP shared module
+/packages/shared/ @opencount/core-maintainers
+
+# CI/CD
+/.github/workflows/ @opencount/devops-maintainers
