@@ -8,6 +8,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.opencount.android.viewmodel.SessionViewModel
 import com.opencount.android.ui.screens.CountingScreen
 import com.opencount.android.ui.screens.SessionListScreen
 import com.opencount.android.ui.screens.SettingsScreen
@@ -16,6 +18,8 @@ import com.opencount.android.ui.screens.SettingsScreen
 @Composable
 fun OpenCountApp() {
     var currentScreen by remember { mutableStateOf("sessions") }
+    var selectedSessionId by remember { mutableStateOf<String?>(null) }
+    val sessionViewModel: SessionViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
@@ -28,7 +32,10 @@ fun OpenCountApp() {
                 )
                 NavigationBarItem(
                     selected = currentScreen == "counting",
-                    onClick = { currentScreen = "counting" },
+                    onClick = {
+                        currentScreen = "counting"
+                        selectedSessionId = null
+                    },
                     icon = { Icon(Icons.Default.Add, contentDescription = "Count") },
                     label = { Text("Count") },
                 )
@@ -42,8 +49,19 @@ fun OpenCountApp() {
         }
     ) { padding ->
         when (currentScreen) {
-            "sessions" -> SessionListScreen(modifier = Modifier.padding(padding))
-            "counting" -> CountingScreen(modifier = Modifier.padding(padding))
+            "sessions" -> SessionListScreen(
+                onSessionSelected = { id ->
+                    selectedSessionId = id
+                    currentScreen = "counting"
+                },
+                modifier = Modifier.padding(padding),
+                viewModel = sessionViewModel,
+            )
+            "counting" -> CountingScreen(
+                sessionId = selectedSessionId,
+                modifier = Modifier.padding(padding),
+                viewModel = sessionViewModel,
+            )
             "settings" -> SettingsScreen(modifier = Modifier.padding(padding))
         }
     }

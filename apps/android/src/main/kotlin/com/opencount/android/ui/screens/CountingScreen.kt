@@ -6,17 +6,33 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.opencount.android.viewmodel.SessionViewModel
 import com.opencount.shared.i18n.Strings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CountingScreen(modifier: Modifier = Modifier) {
-    var count by remember { mutableStateOf(0) }
+fun CountingScreen(
+    sessionId: String? = null,
+    modifier: Modifier = Modifier,
+    viewModel: SessionViewModel = viewModel(),
+) {
+    val count by viewModel.count.collectAsStateWithLifecycle()
+    val currentSession by viewModel.currentSession.collectAsStateWithLifecycle()
+
+    LaunchedEffect(sessionId) {
+        sessionId?.let { viewModel.selectSession(it) }
+    }
 
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(title = { Text(Strings.tallyMode) })
+            TopAppBar(
+                title = {
+                    Text(currentSession?.name ?: Strings.tallyMode)
+                }
+            )
         }
     ) { padding ->
         Column(
@@ -28,14 +44,20 @@ fun CountingScreen(modifier: Modifier = Modifier) {
                 text = "$count",
                 style = MaterialTheme.typography.displayLarge,
             )
+            if (currentSession != null) {
+                Text(
+                    text = currentSession!!.name,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
             Spacer(modifier = Modifier.height(32.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Button(onClick = { count++ }) {
+                Button(onClick = { viewModel.incrementCount() }) {
                     Text(Strings.addMarker)
                 }
-                OutlinedButton(onClick = { if (count > 0) count-- }) {
+                OutlinedButton(onClick = { viewModel.decrementCount() }) {
                     Text(Strings.removeMarker)
                 }
             }
