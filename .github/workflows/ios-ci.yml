@@ -15,6 +15,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SCHEME: OpenCount
+  DERIVED_DATA: ${{ github.workspace }}/.build/DerivedData
+
 jobs:
   ios-build:
     name: Build & Test
@@ -25,13 +29,45 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.2'
+      - name: Cache SPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.DERIVED_DATA }}/SourcePackages
+            ~/.swiftpm
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
       - name: Generate Xcode project
         run: make ios-generate
+      - name: Find simulator
+        id: sim
+        run: |
+          DEST=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in sorted(data['devices'].items(), reverse=True):
+              if 'iOS' not in runtime: continue
+              for d in devices:
+                  if d.get('isAvailable') and 'iPhone' in d['name']:
+                      print(f'platform=iOS Simulator,id={d[\"udid\"]}')
+                      sys.exit(0)
+          print('platform=iOS Simulator,name=iPhone 16,OS=latest')
+          " 2>/dev/null || echo "platform=iOS Simulator,name=iPhone 16,OS=latest")
+          echo "destination=$DEST" >> $GITHUB_OUTPUT
+          echo "Using: $DEST"
       - name: Build iOS
-        run: xcodebuild -project OpenCount.xcodeproj -scheme OpenCount \
-          -derivedDataPath .build/DerivedData \
-          -destination 'platform=iOS Simulator,name=iPhone 16' build
+        run: |
+          xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -destination "${{ steps.sim.outputs.destination }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            SUPPORTS_MACCATALYST=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES build
       - name: Run iOS tests
-        run: xcodebuild -project OpenCount.xcodeproj -scheme OpenCount \
-          -derivedDataPath .build/DerivedData \
-          -destination 'platform=iOS Simulator,name=iPhone 16' test
+        run: |
+          xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -destination "${{ steps.sim.outputs.destination }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            SUPPORTS_MACCATALYST=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES test
