@@ -1,43 +1,50 @@
 package com.opencount.shared.service
 
 import com.opencount.shared.model.CountSession
+import kotlinx.browser.localStorage
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 actual class PlatformStorage {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val storageKey = "opencount_sessions"
 
     actual fun saveSession(session: CountSession) {
-        val existing = js("localStorage.getItem('opencount_sessions')") as? String ?: "[]"
-        val sessions = mutableListOf<Any>()
-        val parsed = try { JSON.parse<Array<Any>>(existing) } catch (_: Exception) { emptyArray() }
-        sessions.addAll(parsed.filter { it.asDynamic().id != session.id })
-        sessions.add(json.encodeToString(session))
-        js("localStorage.setItem('opencount_sessions', JSON.stringify(@))", sessions.toTypedArray())
+        val sessions = loadAllRaw().toMutableList()
+        val index = sessions.indexOfFirst { it.startsWith("\"${session.id}\"") || it.contains("\"id\":\"${session.id}\"") }
+        val entry = json.encodeToString(session)
+        if (index >= 0) sessions[index] = entry else sessions.add(entry)
+        setAll(sessions)
     }
 
     actual fun loadSession(id: String): CountSession? {
-        val all = loadAll().find { it.id == id }
-        return all
+        return loadAll().find { it.id == id }
     }
 
-    actual fun loadAllSessions(): List<CountSession> {
-        return loadAll()
-    }
+    actual fun loadAllSessions(): List<CountSession> = loadAll()
 
     actual fun deleteSession(id: String) {
-        val all = loadAll().filter { it.id != id }
-        js("localStorage.setItem('opencount_sessions', JSON.stringify(@))", all.map { json.encodeToString(it) }.toTypedArray())
+        val sessions = loadAll().filter { it.id != id }
+        setAll(sessions.map { json.encodeToString(it) })
     }
 
     actual fun sessionExists(id: String): Boolean = loadAll().any { it.id == id }
 
     private fun loadAll(): List<CountSession> {
-        val existing = js("localStorage.getItem('opencount_sessions')") as? String ?: return emptyList()
+        return loadAllRaw().mapNotNull { raw ->
+            try { json.decodeFromString<CountSession>(raw) } catch (_: Exception) { null }
+        }
+    }
+
+    private fun loadAllRaw(): List<String> {
+        val stored = localStorage.getItem(storageKey) ?: return emptyList()
         return try {
-            JSON.parse<Array<String>>(existing).mapNotNull { str ->
-                try { json.decodeFromString<CountSession>(str) } catch (_: Exception) { null }
-            }.toList()
+            @Suppress("UNCHECKED_CAST")
+            (JSON.parse<Array<*>>(stored) as Array<*>).filterIsInstance<String>()
         } catch (_: Exception) { emptyList() }
+    }
+
+    private fun setAll(sessions: List<String>) {
+        localStorage.setItem(storageKey, JSON.stringify(sessions.toTypedArray()))
     }
 }

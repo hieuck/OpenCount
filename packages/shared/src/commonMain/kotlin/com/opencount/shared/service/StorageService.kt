@@ -33,5 +33,5 @@ class StorageService(private val platform: PlatformStorage) {
 
     fun toJson(session: CountSession): String = json.encodeToString(session)
 
-    fun fromJson(jsonString: String): CountSession = json.decodeFromString(jsonString)
+    fun fromJson(jsonString: String): CountSession = json.decodeFromString<CountSession>(jsonString)
 }

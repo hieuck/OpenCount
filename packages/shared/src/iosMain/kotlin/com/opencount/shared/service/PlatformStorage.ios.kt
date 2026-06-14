@@ -14,7 +14,7 @@ actual class PlatformStorage {
 
     actual fun loadSession(id: String): CountSession? {
         val jsonString = NativeStorageHelper.load(id) ?: return null
-        return try { json.decodeFromString(jsonString) } catch (_: Exception) { null }
+        return try { json.decodeFromString<CountSession>(jsonString) } catch (_: Exception) { null }
     }
 
     actual fun loadAllSessions(): List<CountSession> {

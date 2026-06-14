@@ -70,15 +70,14 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ### Monorepo Structure
 ```
-apps/ios/          - iOS/macOS native (Swift/SwiftUI)
+apps/ios/          - iOS native (Swift/SwiftUI, Mac Catalyst planned)
 apps/android/      - Android native (Kotlin/Jetpack Compose)
 apps/desktop/      - Compose Desktop (Kotlin)
-apps/web/          - Kotlin/JS web app
 packages/shared/   - KMP shared module
 ```
 
 ### Build Commands
-- `./gradlew :packages:shared:desktopTest` - Run cross-platform tests (32+ tests)
+- `./gradlew :packages:shared:desktopTest` - Run cross-platform tests
 - `./gradlew :packages:shared:check` - Build + check shared module
 - `make ios-test` - Run iOS tests
 - `make ios-generate` - Generate Xcode project

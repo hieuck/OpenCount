@@ -13,6 +13,7 @@ data class NormalizedRect(
     val midY: Double get() = y + height / 2.0
 }
 
+@Serializable
 data class AIDetection(
     val id: String,
     val normalizedBoundingBox: NormalizedRect,

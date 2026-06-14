@@ -18,7 +18,7 @@ OpenCount/
 │   │   └── uitests/         # XCUITest smoke tests
 │   ├── android/             # Android native app (Jetpack Compose)
 │   ├── desktop/             # Desktop app (Compose for Desktop - Win/Mac/Linux)
-│   └── web/                 # Web app (Kotlin/JS)
+│   └── web/                 # Web app (Kotlin/JS, scaffold)
 ├── packages/
 │   └── shared/              # KMP shared module (cross-platform core)
 │       └── src/
@@ -102,7 +102,7 @@ make ios-ipa          # Build unsigned IPA
 
 ```bash
 # KMP (cross-platform)
-./gradlew :packages:shared:desktopTest  # 32+ unit/integration/e2e tests
+./gradlew :packages:shared:desktopTest  # All unit/integration/e2e tests
 
 # iOS
 make ios-test

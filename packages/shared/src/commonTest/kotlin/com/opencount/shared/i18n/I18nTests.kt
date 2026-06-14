@@ -44,25 +44,53 @@ class I18nTests {
     }
 
     @Test
+    fun testFrench() {
+        Strings.language = "fr"
+        assertEquals("Ajouter un marqueur", Strings.addMarker)
+        assertEquals("Paramètres", Strings.settings)
+        assertEquals("Tout effacer", Strings.clearAll)
+    }
+
+    @Test
+    fun testGerman() {
+        Strings.language = "de"
+        assertEquals("Marker hinzufügen", Strings.addMarker)
+        assertEquals("Einstellungen", Strings.settings)
+        assertEquals("Stapelexport", Strings.bulkExport)
+    }
+
+    @Test
+    fun testSpanish() {
+        Strings.language = "es"
+        assertEquals("Agregar marcador", Strings.addMarker)
+        assertEquals("Configuración", Strings.settings)
+        assertEquals("Exportación masiva", Strings.bulkExport)
+    }
+
+    @Test
     fun testFallbackToEnglish() {
         Strings.language = "unknown"
         assertEquals("OpenCount", Strings.appName)
     }
 
     @Test
-    fun testAllLanguagesHaveKeys() {
+    fun testAllLanguagesHaveKeySets() {
         val languages = listOf("en", "vi", "ja", "ko", "zh", "fr", "de", "es")
-        val testKeys = listOf(
-            "app.name" to { Strings.appName },
-            "session.new" to { Strings.newSession },
-            "export.title" to { Strings.export },
-            "settings.title" to { Strings.settings },
-            "counting.total" to { Strings.totalCount },
+        val keyProviders = listOf(
+            { Strings.appName }, { Strings.addMarker }, { Strings.removeMarker },
+            { Strings.totalCount }, { Strings.aiDetect }, { Strings.voiceCount },
+            { Strings.sessions }, { Strings.newSession }, { Strings.deleteSession },
+            { Strings.export }, { Strings.exportCSV }, { Strings.exportJSON },
+            { Strings.settings }, { Strings.languageLabel }, { Strings.about },
+            { Strings.addCategory }, { Strings.categoryName },
+            { Strings.addRegion }, { Strings.regionName },
+            { Strings.aiProcessing }, { Strings.aiConfidence },
+            { Strings.errorGeneric }, { Strings.errorSave }, { Strings.errorExport },
         )
         for (lang in languages) {
             Strings.language = lang
-            for ((_, accessor) in testKeys) {
-                assertTrue(accessor().isNotEmpty(), "Missing key for language: $lang")
+            for (provider in keyProviders) {
+                assertTrue(provider().isNotEmpty(), "Empty string for language: $lang")
             }
         }
     }
