@@ -109,4 +109,22 @@ help:
 	@echo "    desktop-run   - Run Desktop app"
 	@echo "    desktop-package - Package Desktop distributable"
 	@echo ""
+	@echo ""
+	@echo "  Release:"
+	@echo "    release          - Tag and verify production release"
+	@echo ""
 	@echo "  All: test-all   - Run all tests (iOS + KMP)"
+
+# ─── Release ─────────────────────────────────────────────────────────────────
+.PHONY: release
+
+VERSION ?= $(shell git describe --tags --dirty 2>/dev/null || echo "1.0.0")
+
+release:
+	@echo "=== OpenCount Release $(VERSION) ==="
+	$(GRADLE) :packages:shared:desktopTest
+	$(GRADLE) :apps:desktop:compileKotlinDesktop
+	$(GRADLE) :apps:web:compileKotlinJs
+	@echo "=== All builds passed ==="
+	git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
+	@echo "Tagged v$(VERSION). Push with: git push origin v$(VERSION)"

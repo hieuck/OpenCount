@@ -72,6 +72,9 @@ targets:
             CFBundleURLName: com.opencount.app
         NSUserActivityTypes:
           - com.opencount.counting
+        UIBackgroundModes:
+          - audio
+          - processing
     entitlements:
       path: apps/ios/app/OpenCount.entitlements
       properties:
@@ -85,6 +88,8 @@ targets:
           - group.com.opencount.app
     sources:
       - path: apps/ios/app
+      # KMP framework: build via ../gradlew :packages:shared:linkDebugFrameworkIosSimulatorArm64
+      # then add OpenCountShared.framework to linked frameworks and libraries
         excludes:
           - "**/*.md"
     dependencies:
