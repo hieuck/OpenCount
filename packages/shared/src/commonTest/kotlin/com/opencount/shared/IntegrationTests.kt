@@ -52,8 +52,8 @@ class IntegrationTests {
 
         // 6. Export to CSV
         val csv = export.exportToCsv(finalSession)
-        assertTrue(csv.contains("Boxes,3"))
-        assertTrue(csv.contains("Pallets,2"))
+        assertTrue(csv.contains("\"Boxes\",3"))
+        assertTrue(csv.contains("\"Pallets\",2"))
     }
 
     @Test
