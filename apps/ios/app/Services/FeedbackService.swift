@@ -160,7 +160,7 @@ final class FeedbackService: NSObject, FeedbackServiceProtocol, MXMetricManagerS
             if let crashPayloads = payload.crashDiagnostics, !crashPayloads.isEmpty {
                 let description = crashPayloads.map { crash in
                     let signal = crash.signal.map { Int(truncating: $0) } ?? -1
-                    let exception = crash.exceptionType ?? "unknown"
+                    let exception = crash.exceptionType?.stringValue ?? "unknown"
                     return "Signal: \(signal)\nException: \(exception)\n"
                 }.joined(separator: "\n---\n")
 
