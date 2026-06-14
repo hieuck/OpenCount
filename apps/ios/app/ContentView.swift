@@ -15,48 +15,36 @@ struct ContentView: View {
     }
 
     var body: some View {
-        // Default: show simple counter (like ZapCount)
-        // Swipe right or tap "Sessions" to access session list
-        if showCounter {
-            SimpleCounterView()
-                .overlay(alignment: .topLeading) {
-                    Button(action: { showCounter = false }) {
-                        Label("Sessions", systemImage: "list.bullet")
-                            .font(.caption)
-                            .padding(8)
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(8)
-                    }
-                    .padding(12)
-                }
-                .overlay(alignment: .topTrailing) {
-                    // Re-open onboarding
-                    Button(action: { /* future: settings */ }) {
-                        Image(systemName: "gearshape")
-                            .font(.caption)
-                            .padding(8)
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(8)
-                    }
-                    .padding(12)
-                }
-        } else {
-            Group {
+        ZStack {
+            if showCounter {
+                SimpleCounterView()
+            } else {
                 if horizontalSizeClass == .regular {
                     iPadSplitView
                 } else {
                     iPhoneStackView
                 }
             }
-            .overlay(alignment: .topLeading) {
+        }
+        .overlay(alignment: .topLeading) {
+            if showCounter {
+                Button(action: { showCounter = false }) {
+                    Label("Sessions", systemImage: "list.bullet").font(.caption).padding(8)
+                        .background(.ultraThinMaterial).cornerRadius(8)
+                }.padding(12)
+            } else {
                 Button(action: { showCounter = true }) {
-                    Label("Quick Count", systemImage: "plus.circle")
-                        .font(.caption)
-                        .padding(8)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(8)
-                }
-                .padding(12)
+                    Label("Quick Count", systemImage: "plus.circle").font(.caption).padding(8)
+                        .background(.ultraThinMaterial).cornerRadius(8)
+                }.padding(12)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if showCounter {
+                Button(action: {}) {
+                    Image(systemName: "gearshape").font(.caption).padding(8)
+                        .background(.ultraThinMaterial).cornerRadius(8)
+                }.padding(12)
             }
         }
         .fullScreenCover(isPresented: Binding(
