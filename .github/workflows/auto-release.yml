@@ -1,0 +1,38 @@
+name: Auto Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OpenCount ${{ github.ref_name }}
+          body: |
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+            
+            ## Installation
+            
+            ### iOS
+            1. Download the IPA from the Build IPA workflow
+            2. Install via Sideloadly (https://sideloadly.io) or AltStore (https://altstore.io)
+            
+            ### Desktop
+            ```bash
+            make desktop-package
+            ```
+            
+            ### Android
+            ```bash
+            ./gradlew :apps:android:assembleDebug
+            ```
+          token: ${{ secrets.GITHUB_TOKEN }}
