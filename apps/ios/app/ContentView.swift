@@ -8,17 +8,55 @@ struct ContentView: View {
     @Binding var deepLinkedSessionID: UUID?
     @StateObject private var iPadCoordinator = iPadLayoutCoordinator()
     @State private var selectedSession: CountSession? = nil
+    @State private var showCounter: Bool = true
 
     init(deepLinkedSessionID: Binding<UUID?> = .constant(nil)) {
         _deepLinkedSessionID = deepLinkedSessionID
     }
 
     var body: some View {
-        Group {
-            if horizontalSizeClass == .regular {
-                iPadSplitView
-            } else {
-                iPhoneStackView
+        // Default: show simple counter (like ZapCount)
+        // Swipe right or tap "Sessions" to access session list
+        if showCounter {
+            SimpleCounterView()
+                .overlay(alignment: .topLeading) {
+                    Button(action: { showCounter = false }) {
+                        Label("Sessions", systemImage: "list.bullet")
+                            .font(.caption)
+                            .padding(8)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(8)
+                    }
+                    .padding(12)
+                }
+                .overlay(alignment: .topTrailing) {
+                    // Re-open onboarding
+                    Button(action: { /* future: settings */ }) {
+                        Image(systemName: "gearshape")
+                            .font(.caption)
+                            .padding(8)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(8)
+                    }
+                    .padding(12)
+                }
+        } else {
+            Group {
+                if horizontalSizeClass == .regular {
+                    iPadSplitView
+                } else {
+                    iPhoneStackView
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                Button(action: { showCounter = true }) {
+                    Label("Quick Count", systemImage: "plus.circle")
+                        .font(.caption)
+                        .padding(8)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(8)
+                }
+                .padding(12)
             }
         }
         .fullScreenCover(isPresented: Binding(
