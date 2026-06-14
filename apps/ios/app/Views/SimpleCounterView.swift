@@ -22,7 +22,6 @@ struct SimpleCounterView: View {
                 Spacer()
 
                 Text("\(count)").font(.system(size: 48, weight: .bold))
-                    .contentTransition(.numericText(countsDown: true))
                     .animation(.spring(response: 0.2), value: count)
             }
             .padding(.horizontal, 20)
