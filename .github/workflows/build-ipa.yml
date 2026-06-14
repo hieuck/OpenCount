@@ -14,7 +14,7 @@ on:
       - master
 
 env:
-  SCHEME: OpenCountIPA
+  SCHEME: OpenCount
   DERIVED_DATA: ${{ github.workspace }}/.build/DerivedData
   IPA_DIR: ${{ github.workspace }}/.build/IPA
   XCODE_VERSION: "16.2"
@@ -49,32 +49,27 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
 
-      - name: Find simulator
-        id: sim
-        run: |
-          DEST=$(xcrun simctl list devices available -j | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          for runtime, devices in sorted(data['devices'].items(), reverse=True):
-              if 'iOS' not in runtime: continue
-              for d in devices:
-                  if d.get('isAvailable') and 'iPhone' in d['name']:
-                      print(f'platform=iOS Simulator,id={d[\"udid\"]}')
-                      sys.exit(0)
-          print('platform=iOS Simulator,name=iPhone 16,OS=latest')
-          " 2>/dev/null || echo "platform=iOS Simulator,name=iPhone 16,OS=latest")
-          echo "destination=$DEST" >> $GITHUB_OUTPUT
-          echo "Using destination: $DEST"
-
       - name: Build .app (simulator, unsigned)
         run: |
           set -o pipefail
           echo "Building unsigned .app (simulator)"
+          # Try to find an available simulator, fall back to generic
+          DEST=$(xcrun simctl list devices available -j 2>/dev/null | python3 -c "
+import json,sys
+data=json.load(sys.stdin)
+for r,ds in sorted(data.get('devices',{}).items(), reverse=True):
+    if 'iOS' not in r: continue
+    for d in ds:
+        if d.get('isAvailable') and ('iPhone' in d['name'] or 'iPad' in d['name']):
+            print(f'platform=iOS Simulator,id={d[\"udid\"]}'); sys.exit(0)
+print('platform=iOS Simulator,name=iPhone 16')
+" 2>/dev/null) || DEST="platform=iOS Simulator,name=iPhone 16"
+          echo "Destination: $DEST"
           xcodebuild \
             -project OpenCount.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Debug \
-            -destination "${{ steps.sim.outputs.destination }}" \
+            -destination "$DEST" \
             -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
