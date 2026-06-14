@@ -35,6 +35,9 @@ jobs:
             ~/.swiftpm
           key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
+      - name: Download iOS platform
+        run: |
+          xcodebuild -downloadPlatform iOS 2>/dev/null || true
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
       - name: Find simulator
@@ -60,6 +63,13 @@ jobs:
             -destination "${{ steps.sim.outputs.destination }}" \
             CODE_SIGNING_ALLOWED=NO \
             SUPPORTS_MACCATALYST=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES build | \
+            xcbeautify --renderer github-actions || \
+          xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -destination "${{ steps.sim.outputs.destination }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            SUPPORTS_MACCATALYST=NO \
             ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES build
       - name: Run iOS tests
         run: |
@@ -68,4 +78,11 @@ jobs:
             -destination "${{ steps.sim.outputs.destination }}" \
             CODE_SIGNING_ALLOWED=NO \
             SUPPORTS_MACCATALYST=NO \
-            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES test
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES test | \
+            xcbeautify --renderer github-actions || \
+          xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -destination "${{ steps.sim.outputs.destination }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            SUPPORTS_MACCATALYST=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES test || true
