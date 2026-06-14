@@ -223,6 +223,10 @@ fun SessionListView(
 
 @Composable
 fun SettingsView() {
+    val languages = listOf("en" to "English", "vi" to "Tiếng Việt", "ja" to "日本語",
+        "ko" to "한국어", "zh" to "中文", "fr" to "Français", "de" to "Deutsch", "es" to "Español")
+    var selectedLang by remember { mutableStateOf(Strings.language) }
+
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
         Text(Strings.settings, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(24.dp))
@@ -230,14 +234,31 @@ fun SettingsView() {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(Strings.languageLabel, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
-                Text(Strings.about, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                Text(Strings.feedback, style = MaterialTheme.typography.titleMedium)
+                languages.forEach { (code, name) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = selectedLang == code,
+                            onClick = {
+                                selectedLang = code
+                                Strings.language = code
+                            }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(name)
+                    }
+                }
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(16.dp))
+                Text(Strings.about, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
                 Text("${Strings.appName} v${com.opencount.shared.OpenCountSDK.VERSION}")
                 Text("${Strings.version}: ${com.opencount.shared.OpenCountSDK.NAME}")
+                Spacer(Modifier.height(8.dp))
+                Text(Strings.feedback, style = MaterialTheme.typography.titleMedium)
             }
         }
     }

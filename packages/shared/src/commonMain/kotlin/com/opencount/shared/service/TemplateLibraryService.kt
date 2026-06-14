@@ -2,7 +2,7 @@ package com.opencount.shared.service
 
 import com.opencount.shared.model.CountSession
 import com.opencount.shared.model.ObjectType
-import kotlinx.datetime.Instant
+import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -12,7 +12,7 @@ data class SessionTemplate(
     val id: String,
     val name: String,
     val description: String = "",
-    val createdAt: Instant,
+    val createdAt: kotlinx.datetime.Instant,
     val objectTypeData: List<TemplateObjectTypeData>,
 )
 
@@ -23,30 +23,24 @@ data class TemplateObjectTypeData(
     val iconName: String,
 )
 
-class TemplateLibraryService(private val storage: StorageBackend) {
+class TemplateLibraryService {
     private val json = Json { prettyPrint = true }
-
-    private val templatesKey = "templates_metadata"
+    private val templates = mutableListOf<SessionTemplate>()
 
     fun saveAsTemplate(name: String, description: String, session: CountSession) {
         val template = SessionTemplate(
-            id = kotlinx.datetime.Clock.System.now().toEpochMilliseconds().toString(),
+            id = Clock.System.now().toEpochMilliseconds().toString(),
             name = name,
             description = description,
-            createdAt = kotlinx.datetime.Clock.System.now(),
+            createdAt = Clock.System.now(),
             objectTypeData = session.objectTypes.map {
                 TemplateObjectTypeData(name = it.name, colorHex = it.colorHex, iconName = it.iconName)
             },
         )
-        val all = loadAll().toMutableList()
-        all.add(template)
-        saveAllMetadata(all)
+        templates.add(template)
     }
 
-    fun loadAll(): List<SessionTemplate> {
-        // Load from storage
-        return emptyList() // placeholder - real impl needs separate template storage
-    }
+    fun loadAll(): List<SessionTemplate> = templates.toList()
 
     fun applyTemplate(template: SessionTemplate, session: CountSession): CountSession {
         val types = template.objectTypeData.map { data ->
@@ -61,7 +55,15 @@ class TemplateLibraryService(private val storage: StorageBackend) {
 
     fun previewObjectTypes(template: SessionTemplate): List<TemplateObjectTypeData> = template.objectTypeData
 
-    private fun saveAllMetadata(templates: List<SessionTemplate>) {
-        // Persist template metadata
+    fun exportToJson(): String = json.encodeToString(templates)
+
+    fun importFromJson(jsonStr: String): List<SessionTemplate> {
+        val imported = try { json.decodeFromString<List<SessionTemplate>>(jsonStr) } catch (_: Exception) { emptyList<SessionTemplate>() }
+        templates.clear()
+        templates.addAll(imported)
+        return imported
     }
+
+    fun clear() { templates.clear() }
+    val count: Int get() = templates.size
 }

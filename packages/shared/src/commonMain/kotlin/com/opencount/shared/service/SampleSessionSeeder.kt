@@ -6,16 +6,20 @@ import com.opencount.shared.model.ObjectType
 import com.opencount.shared.model.NormalizedPoint
 import com.opencount.shared.model.CountRegion
 import com.opencount.shared.model.RegionShapeType
-import kotlinx.datetime.Instant
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+expect fun persistFlag(key: String, value: Boolean)
+expect fun readFlag(key: String): Boolean
 
 object SampleSessionSeeder {
     private const val SEEN_KEY = "sample_session_seeded"
 
     fun seedIfNeeded(storage: StorageService, force: Boolean = false) {
-        if (!force && hasSeen()) return
+        if (!force && readFlag(SEEN_KEY)) return
         val session = createSampleSession()
         storage.save(session)
-        markSeen()
+        persistFlag(SEEN_KEY, true)
     }
 
     fun createSampleSession(): CountSession {
@@ -53,16 +57,7 @@ object SampleSessionSeeder {
     }
 
     fun sampleJSON(): String {
-        val json = kotlinx.serialization.json.Json { prettyPrint = true }
+        val json = Json { prettyPrint = true }
         return json.encodeToString(CountSession.serializer(), createSampleSession())
-    }
-
-    private fun hasSeen(): Boolean {
-        // In-memory flag for now; platform implementations can persist
-        return false
-    }
-
-    private fun markSeen() {
-        // No-op for KMP; platform implementations can use SharedPreferences/NSUserDefaults
     }
 }

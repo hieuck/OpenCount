@@ -5,11 +5,16 @@ plugins {
 }
 
 kotlin {
+    sourceSets.all {
+        languageSettings.optIn("kotlin.ExperimentalMultiplatform")
+    }
+
     androidTarget {
         compilations.all {
             compileTaskProvider.configure {
                 compilerOptions {
                     jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                    freeCompilerArgs.add("-Xexpect-actual-classes")
                 }
             }
         }
@@ -36,6 +41,7 @@ kotlin {
             compileTaskProvider.configure {
                 compilerOptions {
                     jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                    freeCompilerArgs.add("-Xexpect-actual-classes")
                 }
             }
         }
