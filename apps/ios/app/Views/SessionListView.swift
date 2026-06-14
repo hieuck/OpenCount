@@ -220,20 +220,27 @@ struct SessionListView: View {
                     description: description,
                     objectTypeNames: objectTypeNames
                 )
-                if let session, !images.isEmpty {
-                    let imagesDir = FileManager.default
-                        .urls(for: .documentDirectory, in: .userDomainMask)[0]
-                        .appendingPathComponent("images")
-                        .appendingPathComponent(session.id.uuidString)
-                    try? FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
-                    for image in images {
-                        let filename = "\(UUID().uuidString).jpg"
-                        let fileURL = imagesDir.appendingPathComponent(filename)
-                        if let data = image.jpegData(compressionQuality: 0.85) { try? data.write(to: fileURL) }
-                        session.images.append(SessionImage(filename: filename, session: session))
+                if let session {
+                    if !images.isEmpty {
+                        let imagesDir = FileManager.default
+                            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                            .appendingPathComponent("images")
+                            .appendingPathComponent(session.id.uuidString)
+                        try? FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+                        for image in images {
+                            let filename = "\(UUID().uuidString).jpg"
+                            let fileURL = imagesDir.appendingPathComponent(filename)
+                            if let data = image.jpegData(compressionQuality: 0.85) { try? data.write(to: fileURL) }
+                            session.images.append(SessionImage(filename: filename, session: session))
+                        }
+                        session.modifiedAt = Date()
+                        try? await viewModel.storage.save(session)
                     }
-                    session.modifiedAt = Date()
-                    try? await viewModel.storage.save(session)
+                    // Navigate to counting view immediately after creation (iPhone & iPad)
+                    await MainActor.run {
+                        navigationPath = [session]
+                        selectedSession = session
+                    }
                 }
             }
         }
