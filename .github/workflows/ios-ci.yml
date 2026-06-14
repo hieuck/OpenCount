@@ -29,6 +29,8 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.2'
+      - name: Install tools
+        run: brew install xcodegen xcbeautify || true
       - name: Cache SPM
         uses: actions/cache@v4
         with:
@@ -38,7 +40,7 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
       - name: Generate Xcode project
-        run: make ios-generate
+        run: xcodegen generate --spec project.yml
       - name: Find simulator
         id: sim
         run: |
