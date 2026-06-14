@@ -1,14 +1,12 @@
 [versions]
 agp = "8.5.2"
 kotlin = "2.0.20"
-compose = "1.6.11"
 compose-multiplatform = "1.6.11"
-compose-compiler = "2.0.20"
+
 kotlinx-serialization = "1.7.1"
 kotlinx-datetime = "0.6.1"
 kotlinx-coroutines = "1.8.1"
 ktor = "2.3.12"
-coroutines = "1.8.1"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -23,6 +21,7 @@ ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
