@@ -101,7 +101,7 @@ struct FineTuningView: View {
                 if let status = viewModel.statusMessage {
                     Section("Status") {
                         Label(status, systemImage: viewModel.isTraining ? "gearshape.2" : "checkmark.circle.fill")
-                            .foregroundStyle(viewModel.isTraining ? .secondary : .green)
+                            .foregroundStyle(viewModel.isTraining ? Color.secondary : Color.green)
                             .accessibilityLabel(status)
                     }
                 }
