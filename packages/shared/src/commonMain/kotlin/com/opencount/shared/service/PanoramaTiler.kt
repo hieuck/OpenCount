@@ -5,6 +5,10 @@ import com.opencount.shared.model.NormalizedPoint
 import com.opencount.shared.model.NormalizedRect
 import kotlin.math.*
 
+/**
+ * Describes a single tile within a larger panorama image.
+ * Stores tile grid position and normalized dimensions/offsets relative to the full image.
+ */
 data class TileDescriptor(
     val tileX: Int,
     val tileY: Int,
@@ -13,6 +17,10 @@ data class TileDescriptor(
     val offsetX: Double,
     val offsetY: Double,
 ) {
+    /**
+     * Converts a normalized point from tile-local coordinates to full-image normalized coordinates.
+     * Useful for mapping detection results from a tile back to the original image.
+     */
     fun toFullImageNormalized(point: NormalizedPoint): NormalizedPoint {
         return NormalizedPoint(
             x = point.x * tileWidth + offsetX,
@@ -20,6 +28,10 @@ data class TileDescriptor(
         )
     }
 
+    /**
+     * Converts a normalized rect from tile-local coordinates to full-image normalized coordinates.
+     * Useful for mapping detection bounding boxes from a tile back to the original image.
+     */
     fun toFullImageNormalized(rect: NormalizedRect): NormalizedRect {
         return NormalizedRect(
             x = rect.x * tileWidth + offsetX,
@@ -30,15 +42,27 @@ data class TileDescriptor(
     }
 }
 
+/**
+ * Service for splitting large images (panoramas) into overlapping tiles suitable for AI inference.
+ * Reconstructs tile-local detections back to full-image coordinates and deduplicates via NMS.
+ */
 object PanoramaTiler {
     private const val MAX_DIMENSION = 4096
     private const val TILE_SIZE = 1280
     private const val OVERLAP = 0.2
 
+    /** Returns true if the given image dimensions exceed the maximum allowed size and require tiling. */
     fun requiresTiling(width: Double, height: Double): Boolean {
         return width > MAX_DIMENSION || height > MAX_DIMENSION
     }
 
+    /**
+     * Splits an image of the given dimensions into a grid of overlapping [TileDescriptor]s.
+     * If the image is small enough, returns a single tile covering the full image.
+     * @param imageWidth width of the full image in pixels
+     * @param imageHeight height of the full image in pixels
+     * @return list of tile descriptors with normalized positions and sizes
+     */
     fun tile(imageWidth: Double, imageHeight: Double): List<TileDescriptor> {
         if (!requiresTiling(imageWidth, imageHeight)) {
             return listOf(TileDescriptor(
@@ -72,6 +96,10 @@ object PanoramaTiler {
         return tiles
     }
 
+    /**
+     * Delegates to [NMS.nonMaximumSuppression] to deduplicate overlapping detections
+     * after mapping tile-local results back to full-image coordinates.
+     */
     fun nonMaximumSuppression(
         detections: List<AIDetection>,
         iouThreshold: Float = 0.5f,

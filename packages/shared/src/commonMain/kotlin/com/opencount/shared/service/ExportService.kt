@@ -7,18 +7,22 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+/** Supported export formats for session data. */
 enum class ExportFormat {
     CSV,
     JSON,
     COCO,
 }
 
+/** Metadata info block for COCO JSON export. */
 @Serializable
 data class COCOInfo(val description: String, val version: String = "1.0")
 
+/** A category entry in COCO format, mapping an object type to an integer ID. */
 @Serializable
 data class COCOCategory(val id: Int, val name: String, val supercategory: String = "object")
 
+/** An annotation entry in COCO format, representing a single marker as a bounding box. */
 @Serializable
 data class COCOAnnotation(
     val id: Int,
@@ -29,9 +33,11 @@ data class COCOAnnotation(
     val iscrowd: Int = 0,
 )
 
+/** An image entry in COCO format, referencing the source image. */
 @Serializable
 data class COCOImage(val id: Int, val file_name: String, val width: Int, val height: Int)
 
+/** Top-level COCO dataset container with info, images, annotations, and categories. */
 @Serializable
 data class COCODataset(
     val info: COCOInfo,
@@ -40,13 +46,23 @@ data class COCODataset(
     val categories: List<COCOCategory>,
 )
 
+/**
+ * Service for exporting counting session data in various formats (JSON, CSV, COCO).
+ * All export methods transform in-memory [CountSession] objects to string representations.
+ */
 class ExportService {
     private val json = Json { prettyPrint = true }
 
+    /** Exports a single [session] as a pretty-printed JSON string. */
     fun exportToJson(session: CountSession): String = json.encodeToString(session)
 
+    /** Exports a list of [sessions] as a pretty-printed JSON array string. */
     fun exportToJson(sessions: List<CountSession>): String = json.encodeToString(sessions)
 
+    /**
+     * Exports a single [session] as a CSV string with category names and total counts per row.
+     * Uses localized headers from [Strings].
+     */
     fun exportToCsv(session: CountSession): String {
         val tally = Counter.tallyByType(session)
         val sb = StringBuilder()
@@ -57,6 +73,10 @@ class ExportService {
         return sb.toString()
     }
 
+    /**
+     * Exports multiple [sessions] as a CSV string with session name, category name, and count per row.
+     * Useful for cross-session reporting.
+     */
     fun exportToCsv(sessions: List<CountSession>): String {
         val sb = StringBuilder()
         sb.appendLine("${Strings.sessions},${Strings.categoryName},${Strings.totalCount}")
@@ -69,6 +89,10 @@ class ExportService {
         return sb.toString()
     }
 
+    /**
+     * Exports a session to COCO JSON format, mapping markers to bounding box annotations.
+     * Uses placeholder image dimensions (1920x1080) when no image is available.
+     */
     fun exportToCoco(session: CountSession): String {
         val categories = session.objectTypes.mapIndexed { i, ot ->
             COCOCategory(id = i + 1, name = ot.name)
@@ -98,6 +122,10 @@ class ExportService {
         return json.encodeToString(dataset)
     }
 
+    /**
+     * Generates a human-readable plain-text summary of a session with total count
+     * and per-category tallies sorted by count descending.
+     */
     fun plainTextSummary(session: CountSession): String {
         val tally = Counter.tallyByType(session)
         val sb = StringBuilder()

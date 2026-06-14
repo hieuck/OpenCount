@@ -3,6 +3,10 @@ package com.opencount.shared.service
 import com.opencount.shared.model.CountSession
 import com.opencount.shared.model.ObjectType
 
+/**
+ * A suggested object type derived from historical usage patterns.
+ * @property frequency how many sessions this type appeared in
+ */
 data class ObjectTypeSuggestion(
     val name: String,
     val colorHex: String,
@@ -10,6 +14,7 @@ data class ObjectTypeSuggestion(
     val frequency: Int = 0,
 )
 
+/** Default set of SF Symbol icon names available for object types. */
 val iconCategories: List<String> = listOf(
     "circle.fill", "square.fill", "triangle.fill", "star.fill",
     "heart.fill", "flag.fill", "tag.fill", "bookmark.fill",
@@ -19,13 +24,24 @@ val iconCategories: List<String> = listOf(
     "house.fill", "building.fill", "cart.fill", "bag.fill",
 )
 
+/** Default palette of hex color strings available for object types. */
 val colorPalette: List<String> = listOf(
     "#FF5733", "#33FF57", "#3357FF", "#FF33F5",
     "#33FFF5", "#F5FF33", "#FF8333", "#8333FF",
     "#33FF83", "#FF3383", "#3383FF", "#83FF33",
 )
 
+/**
+ * Service that suggests object types based on historical usage frequency across sessions.
+ * Also provides a set of default types for new sessions.
+ */
 class SmartSuggestionsService {
+    /**
+     * Returns the most frequently used object types across [sessions], optionally excluding certain names.
+     * @param limit maximum number of suggestions to return
+     * @param excludingNames type names to exclude from results
+     * @return list of suggestions sorted by frequency descending
+     */
     fun suggestions(
         sessions: List<CountSession>,
         limit: Int = 5,
@@ -56,6 +72,7 @@ class SmartSuggestionsService {
             }
     }
 
+    /** Returns a list of four default [ObjectType]s (Cars, People, Trees, Animals) for new sessions. */
     fun generateDefaultTypes(): List<ObjectType> {
         return listOf(
             ObjectType.create("Cars", colorHex = "#FF5733"),

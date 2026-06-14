@@ -12,9 +12,18 @@ import kotlinx.serialization.json.Json
 expect fun persistFlag(key: String, value: Boolean)
 expect fun readFlag(key: String): Boolean
 
+/**
+ * Seeds a sample counting session on first launch to demonstrate app functionality.
+ * Uses platform-specific persist/read flags to ensure the sample is created only once.
+ */
 object SampleSessionSeeder {
     private const val SEEN_KEY = "sample_session_seeded"
 
+    /**
+     * Creates and saves a sample session if one has not already been created.
+     * @param storage the storage service to save into
+     * @param force if true, ignores the seen flag and always seeds
+     */
     fun seedIfNeeded(storage: StorageService, force: Boolean = false) {
         if (!force && readFlag(SEEN_KEY)) return
         val session = createSampleSession()
@@ -22,6 +31,10 @@ object SampleSessionSeeder {
         persistFlag(SEEN_KEY, true)
     }
 
+    /**
+     * Creates a sample [CountSession] with Cars, People, and Trees object types,
+     * several markers across two regions, and a welcome description.
+     */
     fun createSampleSession(): CountSession {
         val types = listOf(
             ObjectType.create("Cars", colorHex = "#FF5733"),
@@ -56,6 +69,7 @@ object SampleSessionSeeder {
         )
     }
 
+    /** Returns a pretty-printed JSON representation of the sample session, useful for previews. */
     fun sampleJSON(): String {
         val json = Json { prettyPrint = true }
         return json.encodeToString(CountSession.serializer(), createSampleSession())

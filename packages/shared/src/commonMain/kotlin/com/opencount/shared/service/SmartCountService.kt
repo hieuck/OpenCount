@@ -4,8 +4,17 @@ import com.opencount.shared.model.CountMarker
 import com.opencount.shared.model.NormalizedPoint
 import kotlin.math.*
 
+/**
+ * Service providing smart counting utilities: duplicate detection, clustering, grid density suggestions,
+ * and missed-count estimation based on area sampling.
+ */
 class SmartCountService(private val duplicateRadius: Double = 0.05) {
 
+    /**
+     * Checks whether a new marker point is a duplicate of existing markers of the same type.
+     * Uses Euclidean distance in normalized coordinates.
+     * @return true if a marker of the same [objectTypeId] exists within [duplicateRadius]
+     */
     fun isDuplicate(
         newPoint: NormalizedPoint,
         existingMarkers: List<CountMarker>,
@@ -20,6 +29,11 @@ class SmartCountService(private val duplicateRadius: Double = 0.05) {
         return false
     }
 
+    /**
+     * Groups nearby markers into spatial clusters using a flood-fill approach.
+     * @param clusterRadius the maximum normalized distance between markers in the same cluster
+     * @return list of clusters, each containing a group of nearby markers
+     */
     fun detectClusters(
         markers: List<CountMarker>,
         clusterRadius: Double = 0.1,
@@ -50,11 +64,22 @@ class SmartCountService(private val duplicateRadius: Double = 0.05) {
         return clusters
     }
 
+    /**
+     * Suggests an appropriate grid overlay density for a canvas of the given dimensions.
+     * @return a grid count between 3 and 20, proportional to the square root of the canvas area
+     */
     fun suggestGridDensity(canvasWidth: Double, canvasHeight: Double): Int {
         val area = canvasWidth * canvasHeight
         return sqrt(area).toInt().coerceAtLeast(3).coerceAtMost(20)
     }
 
+    /**
+     * Estimates the number of missed counts by extrapolating from a sampled area to the full image.
+     * @param detected number of objects detected in the sampled area
+     * @param imageArea total area of the full image
+     * @param sampleArea area that was actually sampled
+     * @return estimated count of undetected objects (always >= 0); returns 0 if inputs are invalid
+     */
     fun estimateMissedCount(
         detected: Int,
         imageArea: Double,
@@ -67,14 +92,23 @@ class SmartCountService(private val duplicateRadius: Double = 0.05) {
     }
 }
 
+/**
+ * Tracks the rate of marker placement over a rolling time window.
+ * Useful for detecting user fatigue (rapid, potentially erroneous tapping) during counting sessions.
+ */
 class CountingVelocityTracker(private val windowSeconds: Long = 120) {
     private val events = ArrayDeque<Pair<Long, Int>>()
 
+    /** Records a marker placement event at the given [timestamp] (epoch seconds). */
     fun recordMarker(timestamp: Long = currentTimeSeconds()) {
         prune(timestamp)
         events.addLast(Pair(timestamp, 1))
     }
 
+    /**
+     * Calculates the current marker placement rate in markers per minute.
+     * Based on events within the rolling time window.
+     */
     fun markersPerMinute(): Double {
         val now = currentTimeSeconds()
         prune(now)
@@ -84,6 +118,7 @@ class CountingVelocityTracker(private val windowSeconds: Long = 120) {
         return total.toDouble() / span.toDouble() * 60.0
     }
 
+    /** Returns true if the user is placing markers faster than the [threshold] (markers per minute). */
     fun isFatigued(threshold: Double = 60.0): Boolean {
         return markersPerMinute() > threshold
     }
