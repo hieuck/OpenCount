@@ -1,5 +1,29 @@
 # Changelog
 
+## [5.0.0] — 2026-06-15
+
+### Added
+- **ZapCount clone**: Complete image-first counting flow (pick → count → done)
+- **Vision AI detection**: VNDetectRectanglesRequest for real object detection
+- **Image cropping**: Drag-to-select area before counting
+- **Multi-object counting**: Count different object types simultaneously
+- **Object presets**: Quick-select common objects to count
+- **Count history**: Auto-saved history of recent counts
+- **CSV export**: Share count results as CSV files
+- **Auto Release**: Push tag → build IPA → create GitHub Release automatically
+
+### Fixed
+- iOS crash: Simulator build → device build (arm64)
+- Version number: 1.1 → 4.0.0
+- Parse errors: Wrong Vision API → VNDetectRectanglesRequest
+- CI: Missing simulator detection, YAML parsing, token permissions
+
+### Platforms
+- **iOS**: v4.5.0 IPA with Release configuration, device arm64
+- **Android**: Full Jetpack Compose app with theme, splash, nav
+- **Desktop**: Compose Desktop app with image counting
+- **Web**: Kotlin/JS interactive counter
+
 ## [1.0.0] — 2026-06-14
 
 ### Added
