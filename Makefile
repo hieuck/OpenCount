@@ -64,10 +64,10 @@ android-install:
 	$(GRADLE) :apps:android:installDebug
 
 desktop-run:
-	$(GRADLE) :apps:desktop:run
+	$(GRADLE) :apps:desktop:run --no-daemon
 
 desktop-package:
-	$(GRADLE) :apps:desktop:packageDistributable
+	$(GRADLE) :apps:desktop:createRuntimeImage --no-daemon
 
 # ─── All Tests ───────────────────────────────────────────────────────────────
 .PHONY: test-all
