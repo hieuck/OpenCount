@@ -54,13 +54,17 @@ jobs:
 
       - name: Build .app for device (unsigned)
         run: |
-          set -o pipefail
           echo "Building unsigned .app for device (arm64)"
+          set -o pipefail
           xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" -configuration Release \
             -destination "generic/platform=iOS" -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM="" SUPPORTS_MACCATALYST=NO \
             ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES ONLY_ACTIVE_ARCH=NO \
-            build 2>&1 | xcbeautify --renderer github-actions; exit ${PIPESTATUS[0]}
+            build 2>&1 | tee /tmp/xcodebuild.log | xcbeautify --renderer github-actions
+          status=$?
+          echo "xcodebuild exit code: $status"
+          if [ $status -ne 0 ]; then echo "=== Build log (last 30 lines) ==="; tail -30 /tmp/xcodebuild.log; fi
+          exit $status
 
       - name: Locate .app
         id: app
