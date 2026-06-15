@@ -48,7 +48,7 @@ jobs:
 
       - name: Download iOS platform
         run: |
-          xcodebuild -downloadAllPlatforms 2>&1 | tail -5 || true
+          xcodebuild -downloadPlatform iOS 2>&1 | tail -5 || true
           xcrun simctl list runtimes 2>&1 | tail -5
 
       - name: Generate Xcode project
@@ -58,10 +58,11 @@ jobs:
         run: |
           echo "Building unsigned .app for device (arm64)"
           xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" -configuration Release \
-            -sdk iphoneos -derivedDataPath "$DERIVED_DATA" \
+            -destination "generic/platform=iOS" -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM="" SUPPORTS_MACCATALYST=NO \
             ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES ONLY_ACTIVE_ARCH=NO \
-            build 2>&1
+            IPHONEOS_DEPLOYMENT_TARGET=16.0 VALIDATE_PRODUCT=NO \
+            build 2>&1 | xcbeautify --renderer github-actions; exit ${PIPESTATUS[0]}
 
       - name: Locate .app
         id: app
