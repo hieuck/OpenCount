@@ -171,18 +171,18 @@ struct SimpleCounterView: View {
             // Use Vision to detect salient regions (real visual attention)
             var points: [CGPoint] = []
             if let cgImage = img.cgImage {
-                let saliency = VNGenerateAttentionBasedSaliencyImageRequest()
+                // Use Vision to detect rectangles/objects in the image
+                let rectReq = VNDetectRectanglesRequest()
+                rectReq.minimumAspectRatio = 0.3
+                rectReq.maximumAspectRatio = 1.0
+                rectReq.minimumSize = 0.05
+                rectReq.maximumObservations = 30
                 if let handler = try? VNImageRequestHandler(cgImage: cgImage, options: [:]) {
-                    try? handler.perform([saliency])
-                    if let obs = saliency.results?.first {
-                        // Convert saliency heatmap to marker positions
-                        let heatmap = obs.saliencyMap
-                        // Use bounding boxes if available, otherwise heatmap
-                        if let rects = obs.salientObjects {
-                            for obj in rects.prefix(30) {
-                                let r = obj.boundingBox
-                                points.append(CGPoint(x: r.midX * w, y: (1 - r.midY) * h))
-                            }
+                    try? handler.perform([rectReq])
+                    if let rects = rectReq.results {
+                        for rect in rects {
+                            let r = rect.boundingBox
+                            points.append(CGPoint(x: r.midX * w, y: (1 - r.midY) * h))
                         }
                     }
                 }
