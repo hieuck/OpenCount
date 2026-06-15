@@ -48,8 +48,8 @@ jobs:
 
       - name: Download iOS platform
         run: |
-          xcodebuild -downloadPlatform iOS 2>&1 | tail -5 || true
-          xcrun simctl list runtimes 2>&1 | tail -5
+          xcodebuild -downloadPlatform iOS -verbose 2>&1 | tail -20 || true
+          xcrun simctl list runtimes 2>&1 | tail -10
 
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
