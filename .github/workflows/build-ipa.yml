@@ -20,48 +20,54 @@ env:
   SCHEME: OpenCount
   DERIVED_DATA: ${{ github.workspace }}/.build/DerivedData
   IPA_DIR: ${{ github.workspace }}/.build/IPA
-  XCODE_VERSION: "16.2"
 
 jobs:
   build-ipa:
     name: Build Unsigned IPA
     runs-on: macos-15
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.2'
-
+      - name: Install tools
+        run: brew install xcodegen xcbeautify || true
       - name: Cache SPM
         uses: actions/cache@v4
         with:
           path: |
-            ${{ github.workspace }}/.build/DerivedData/SourcePackages
+            ${{ env.DERIVED_DATA }}/SourcePackages
             ~/.swiftpm
           key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
-
-      - name: Install tools
-        run: brew install xcodegen xcbeautify || true
-
       - name: Download iOS platform
         run: xcodebuild -downloadPlatform iOS 2>/dev/null || true
-
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
-
-      - name: Build .app for device (unsigned)
+      - name: Find simulator
+        id: sim
         run: |
-          echo "Building unsigned .app (simulator)"
+          DEST=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in sorted(data['devices'].items(), reverse=True):
+              if 'iOS' not in runtime: continue
+              for d in devices:
+                  if d.get('isAvailable') and 'iPhone' in d['name']:
+                      print(f'platform=iOS Simulator,id={d[\"udid\"]}')
+                      sys.exit(0)
+          print('platform=iOS Simulator,name=iPhone 16,OS=latest')
+          " 2>/dev/null || echo "platform=iOS Simulator,name=iPhone 16,OS=latest")
+          echo "destination=$DEST" >> $GITHUB_OUTPUT
+          echo "Using: $DEST"
+      - name: Build .app
+        run: |
           xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" -configuration Debug \
-            -destination "platform=iOS Simulator,name=iPhone 16" -derivedDataPath "$DERIVED_DATA" \
-            CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM="" SUPPORTS_MACCATALYST=NO \
+            -destination "${{ steps.sim.outputs.destination }}" -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO SUPPORTS_MACCATALYST=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES \
             build 2>&1 | xcbeautify --renderer github-actions; exit ${PIPESTATUS[0]}
-
       - name: Locate .app
         id: app
         run: |
@@ -69,20 +75,15 @@ jobs:
           echo "app_path=$APP" >> $GITHUB_OUTPUT
           echo "Found: $APP"
           ls -la "$APP" || echo "App not found"
-
       - name: Package IPA
         run: |
           APP="${{ steps.app.outputs.app_path }}"
-          if [ -z "$APP" ] || [ ! -d "$APP" ]; then
-            echo "ERROR: .app not found"
-            exit 1
-          fi
+          if [ -z "$APP" ] || [ ! -d "$APP" ]; then echo "ERROR: .app not found"; exit 1; fi
           mkdir -p "$IPA_DIR/Payload"
           cp -R "$APP" "$IPA_DIR/Payload/OpenCount.app"
           cd "$IPA_DIR"
           zip -r OpenCount-unsigned.ipa Payload
           ls -lh OpenCount-unsigned.ipa
-
       - name: Compute version
         id: version
         run: |
@@ -92,19 +93,14 @@ jobs:
           SUFFIX="${{ github.event.inputs.version_suffix }}"
           [ -n "$SUFFIX" ] && VER="$VER-$SUFFIX"
           echo "version=$VER" >> $GITHUB_OUTPUT
-
       - name: Rename IPA
-        run: |
-          mv "$IPA_DIR/OpenCount-unsigned.ipa" \
-             "$IPA_DIR/OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
-
+        run: mv "$IPA_DIR/OpenCount-unsigned.ipa" "$IPA_DIR/OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
       - name: Upload IPA as artifact
         uses: actions/upload-artifact@v4
         with:
           name: OpenCount-IPA-${{ steps.version.outputs.version }}
           path: ${{ env.IPA_DIR }}/OpenCount-*.ipa
           retention-days: 90
-
       - name: Create Release with IPA
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -113,17 +109,10 @@ jobs:
           body: |
             ## OpenCount ${{ steps.version.outputs.version }}
             
-            ### Installation
             Download the IPA below and install via Sideloadly or AltStore.
-            
-            ### Changes
-            See [CHANGELOG.md](CHANGELOG.md) for details.
           files: ${{ env.IPA_DIR }}/OpenCount-*.ipa
           token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Done
         run: |
           echo "IPA: OpenCount-${{ steps.version.outputs.version }}-unsigned.ipa"
-          echo "Download from Actions -> Artifacts tab"
-          echo "Install via Sideloadly: https://sideloadly.io"
-          echo "Install via AltStore: https://altstore.io"
+          echo "Download from Actions -> Artifacts tab or Release page"
