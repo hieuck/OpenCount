@@ -46,17 +46,10 @@ jobs:
       - name: Find simulator
         id: sim
         run: |
-          SIM_LIST=$(xcrun simctl list devices available -j 2>/dev/null || echo '{"devices":{}}')
-          DEST=$(echo "$SIM_LIST" | python -c "import json,sys
-d=json.load(sys.stdin)
-for r,ds in sorted(d.get('devices',{}).items(),reverse=True):
-  if 'iOS' not in r: continue
-  for dd in ds:
-    if dd.get('isAvailable') and 'iPhone' in dd['name']:
-      print(f'platform=iOS Simulator,id={dd[\"udid\"]}'); sys.exit(0)
-print('platform=iOS Simulator,name=iPhone 16,OS=latest')" 2>/dev/null) || DEST="platform=iOS Simulator,name=iPhone 16,OS=latest"
+          SIM_LIST=$(xcrun simctl list devices available -j 2>/dev/null || echo '{}')
+          DEST=$(echo "$SIM_LIST" | python3 -c "import json,sys;d=json.load(sys.stdin);[print(f'platform=iOS Simulator,id={dd[\"udid\"]}') or sys.exit(0) for r,ds in sorted(d.get('devices',{}).items(),reverse=True) if 'iOS' in r for dd in ds if dd.get('isAvailable') and ('iPhone' in dd['name'] or 'iPad' in dd['name'])]" 2>/dev/null) || DEST="platform=iOS Simulator,name=iPhone 16,OS=latest"
           echo "destination=$DEST" >> $GITHUB_OUTPUT
-          echo "Found destination: $DEST"
+          echo "Using destination: $DEST"
       - name: Build .app
         run: |
           xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" -configuration Debug \
