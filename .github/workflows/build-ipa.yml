@@ -43,12 +43,23 @@ jobs:
           restore-keys: spm-${{ runner.os }}-
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
-      - name: Build .app for device
+      - name: Find simulator
+        id: sim
         run: |
-          xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" -configuration Release \
-            -derivedDataPath "$DERIVED_DATA" \
-            CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM="" SUPPORTS_MACCATALYST=NO \
-            build 2>&1 | xcbeautify --renderer github-actions; exit ${PIPESTATUS[0]}
+          DEST=$(xcrun simctl list devices available -j 2>/dev/null | python -c "import json,sys;d=json.load(sys.stdin);[print(f'platform=iOS Simulator,id={dd[\"udid\"]}') or sys.exit(0) for r,ds in sorted(d.get('devices',{}).items(),reverse=True) if 'iOS' in r for dd in ds if dd.get('isAvailable') and 'iPhone' in dd['name']]" 2>/dev/null) || DEST="platform=iOS Simulator,name=iPhone 16,OS=latest"
+          echo "destination=$DEST" >> $GITHUB_OUTPUT
+          echo "Using: $DEST"
+      - name: Build .app
+        run: |
+          xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" -configuration Debug \
+            -destination "${{ steps.sim.outputs.destination }}" -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO SUPPORTS_MACCATALYST=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES build | \
+            xcbeautify --renderer github-actions || \
+          xcodebuild -project OpenCount.xcodeproj -scheme "$SCHEME" -configuration Debug \
+            -destination "${{ steps.sim.outputs.destination }}" -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO SUPPORTS_MACCATALYST=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=YES build
       - name: Locate .app
         id: app
         run: |
