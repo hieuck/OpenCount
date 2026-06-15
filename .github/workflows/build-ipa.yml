@@ -41,8 +41,6 @@ jobs:
             ~/.swiftpm
           key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
-      - name: Download iOS platform
-        run: xcodebuild -downloadPlatform iOS 2>/dev/null || true
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
       - name: Find simulator
