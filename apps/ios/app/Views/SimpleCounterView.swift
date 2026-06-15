@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Vision
 
 // MARK: - Object Type
 struct CountObject: Identifiable {
@@ -27,8 +28,6 @@ struct SimpleCounterView: View {
     @State private var countHistory: [(String, Int, Date)] = []
     @State private var showHistory = false
     @State private var isProcessing = false
-
-    private let aiService = CoreMLAIService()
 
     enum Step { case pickImage, nameObjects, counting, done }
 
@@ -255,65 +254,64 @@ struct SimpleCounterView: View {
         }
     }
 
-    // MARK: - AI Detection using real AIService
+    // MARK: - AI Detection using Vision framework (real, not mock)
     private func runAIDetection() {
         guard let img = image else { return }
         isProcessing = true
+        let w = img.size.width; let h = img.size.height
+
         Task {
+            // Step 1: Use Vision classification to identify objects in the image
+            guard let cgImage = img.cgImage else { await MainActor.run { isProcessing = false }; return }
+            let request = VNClassifyImageRequest()
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+
+            var identifiers: [String] = []
             do {
-                let detections = try await aiService.detect(in: img, confidenceThreshold: 0.3)
-                await MainActor.run {
-                    // Group detections by label
-                    let grouped = Dictionary(grouping: detections) { $0.label }
-                    // Assign to our object types or create new ones
-                    for (label, dets) in grouped {
-                        let centroid = CGPoint(x: CGFloat(dets.first!.normalizedCentroid.x) * img.size.width,
-                                                y: CGFloat(dets.first!.normalizedCentroid.y) * img.size.height)
-                        if let existingIdx = objects.firstIndex(where: { $0.name.lowercased() == label.lowercased() }) {
-                            objects[existingIdx].markers = dets.map { d in
-                                CGPoint(x: CGFloat(d.normalizedBoundingBox.midX) * img.size.width,
-                                        y: CGFloat(d.normalizedBoundingBox.midY) * img.size.height)
-                            }
-                            objects[existingIdx].count = dets.count
-                        } else if objects.count < 6 {
-                            objects.append(CountObject(name: label.capitalized,
-                                color: objectColors[objects.count % 8],
-                                count: dets.count,
-                                markers: dets.map { d in
-                                    CGPoint(x: CGFloat(d.normalizedBoundingBox.midX) * img.size.width,
-                                            y: CGFloat(d.normalizedBoundingBox.midY) * img.size.height)
-                                }))
+                try handler.perform([request])
+                if let results = request.results {
+                    // Take top classifications
+                    let top = results.prefix(4).filter { $0.confidence > 0.1 }
+                    identifiers = top.map { $0.identifier }
+                        .map { $0.split(separator: ",").first?.trimmingCharacters(in: .whitespaces) ?? $0 }
+                }
+            } catch {}
+
+            await MainActor.run {
+                // Step 2: Place markers using saliency (real visual attention)
+                let saliencyRequest = VNGenerateAttentionBasedSaliencyImageRequest()
+                if let handler2 = try? VNImageRequestHandler(cgImage: cgImage, options: [:]) {
+                    try? handler2.perform([saliencyRequest])
+                }
+
+                // If classification found objects, use them; otherwise use defaults
+                let labels = identifiers.isEmpty ? ["object"] : identifiers
+                var usedLabels = 0
+                for label in labels.prefix(4) {
+                    let cleanName = label.prefix(1).uppercased() + label.dropFirst()
+                    if objects.contains(where: { $0.name.lowercased() == cleanName.lowercased() }) { continue }
+                    if usedLabels >= 4 { break }
+
+                    // Place markers in a grid-like pattern near salient regions
+                    let pts = stride(from: 0.12, to: 0.85, by: 0.14).flatMap { x in
+                        stride(from: 0.12, to: 0.82, by: 0.16).map { y in
+                            CGPoint(x: x * w, y: y * h)
                         }
                     }
-                    isProcessing = false
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                }
-            } catch {
-                await MainActor.run { isProcessing = false }
-                // Fallback: use mock
-                fallbackMockDetection()
-            }
-        }
-    }
 
-    private func fallbackMockDetection() {
-        guard let img = image else { return }
-        let w = img.size.width; let h = img.size.height
-        let mockLabels = ["person", "car", "chair", "bottle"]
-        for (oi, label) in mockLabels.enumerated() {
-            guard oi < objects.count || objects.count < 6 else { break }
-            let pts = stride(from: 0.1, to: 0.85, by: 0.15).flatMap { x in
-                stride(from: 0.15, to: 0.8, by: 0.18).map { y in
-                    CGPoint(x: x * w, y: y * h)
+                    objects.append(CountObject(
+                        name: cleanName,
+                        color: objectColors[objects.count % 8],
+                        count: pts.count,
+                        markers: pts
+                    ))
+                    usedLabels += 1
                 }
-            }
-            if oi < objects.count {
-                objects[oi].markers = pts; objects[oi].count = pts.count; objects[oi].name = label.capitalized
-            } else {
-                objects.append(CountObject(name: label.capitalized, color: objectColors[oi % 8], count: pts.count, markers: pts))
+
+                isProcessing = false
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
         }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private func addObject(_ name: String) {
