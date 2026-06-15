@@ -97,6 +97,7 @@ targets:
       - package: ZIPFoundation
       - sdk: Speech.framework
       - sdk: AVFoundation.framework
+      - sdk: Vision.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.opencount.app
