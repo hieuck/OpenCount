@@ -289,58 +289,46 @@ struct SimpleCounterView: View {
     }
 }
 
-// MARK: - Simple Crop View
+// MARK: - Simple Crop View (drag to select area)
 struct CropView: View {
     let image: UIImage
     @Binding var cropRect: CGRect
-    @State private var dragStart: CGPoint?
-    @State private var currentRect: CGRect = .zero
+    @State private var start: CGPoint?
+    @State private var rect: CGRect = .zero
 
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width; let h = geo.size.height
-            let scale = min(w / image.size.width, h / image.size.height)
-            let dw = image.size.width * scale; let dh = image.size.height * scale
-            let ox = (w - dw) / 2; let oy = (h - dh) / 2
-            ZStack {
-                Image(uiImage: image).resizable().scaledToFit()
-                    .frame(width: dw, height: dh).position(x: w/2, y: h/2)
-                // Dark overlay outside crop rect
-                if currentRect != .zero {
-                    Rectangle().fill(Color.black.opacity(0.5))
-                        .mask(
-                            Rectangle().overlay(
-                                RoundedRectangle(cornerRadius: 4).frame(width: currentRect.width, height: currentRect.height)
-                                    .position(x: currentRect.midX, y: currentRect.midY).blendMode(.destinationOut)
-                            )
-                        )
-                    RoundedRectangle(cornerRadius: 4).stroke(Color.white, lineWidth: 2)
-                        .frame(width: currentRect.width, height: currentRect.height)
-                        .position(x: currentRect.midX, y: currentRect.midY)
+        VStack {
+            Text("Drag to select counting area").font(.caption).foregroundColor(.secondary).padding(4)
+            GeometryReader { geo in
+                let imgW = image.size.width; let imgH = image.size.height
+                let scale = min(geo.size.width / imgW, geo.size.height / imgH)
+                let dw = imgW * scale; let dh = imgH * scale
+                ZStack {
+                    Image(uiImage: image).resizable().scaledToFit()
+                    if rect != .zero {
+                        Rectangle().fill(Color.black.opacity(0.3)).frame(width: dw, height: dh)
+                        Rectangle().fill(Color.clear)
+                            .frame(width: rect.width, height: rect.height)
+                            .position(x: rect.midX, y: rect.midY)
+                    }
+                    RoundedRectangle(cornerRadius: 2).stroke(Color.white, lineWidth: rect == .zero ? 0 : 2)
+                        .frame(width: rect.width, height: rect.height)
+                        .position(x: rect.midX, y: rect.midY)
                 }
-            }
-            .gesture(DragGesture().onChanged { v in
-                if dragStart == nil {
-                    dragStart = v.startLocation
-                    currentRect = CGRect(origin: v.startLocation, size: .zero)
-                }
-                let origin = CGPoint(x: min(dragStart!.x, v.location.x), y: min(dragStart!.y, v.location.y))
-                let size = CGSize(width: abs(v.location.x - dragStart!.x), height: abs(v.location.y - dragStart!.y))
-                currentRect = CGRect(origin: origin, size: size)
-            }.onEnded { _ in
-                dragStart = nil
-                // Normalize crop rect to image coordinates
-                let nx = (currentRect.minX - ox) / dw
-                let ny = (currentRect.minY - oy) / dh
-                let nw = currentRect.width / dw
-                let nh = currentRect.height / dh
-                cropRect = CGRect(x: max(0, nx), y: max(0, ny), width: min(1, nw), height: min(1, nh))
-            })
-            .overlay(alignment: .bottom) {
-                if currentRect == .zero {
-                    Text("Drag to select area to count").foregroundColor(.white).padding(8)
-                        .background(.ultraThinMaterial).cornerRadius(8).padding(16)
-                }
+                .frame(width: dw, height: dh).clipped()
+                .position(x: geo.size.width/2, y: geo.size.height/2)
+                .gesture(DragGesture().onChanged { v in
+                    if start == nil { start = v.startLocation }
+                    let ox = min(start!.x, v.location.x)
+                    let oy = min(start!.y, v.location.y)
+                    let ow = abs(v.location.x - start!.x)
+                    let oh = abs(v.location.y - start!.y)
+                    rect = CGRect(x: ox, y: oy, width: ow, height: oh)
+                }.onEnded { _ in
+                    start = nil
+                    cropRect = CGRect(x: rect.minX / dw, y: rect.minY / dh,
+                                      width: rect.width / dw, height: rect.height / dh)
+                })
             }
         }
     }
