@@ -19,12 +19,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.*
+import kotlinx.coroutines.*
+import java.awt.image.BufferedImage
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.imageio.ImageIO
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
+
+private val IO = Dispatchers.Default
 
 fun main() = application {
     Window(
@@ -38,6 +42,14 @@ fun main() = application {
     }
 }
 
+/** Load image in background, return immediately */
+private suspend fun loadImageAsync(file: File): androidx.compose.ui.graphics.ImageBitmap? = withContext(IO) {
+    try {
+        val img = ImageIO.read(file)
+        img?.toComposeImageBitmap()
+    } catch (_: Exception) { null }
+}
+
 data class Marker(val nx: Float, val ny: Float)
 data class CountRecord(val name: String, val count: Int, val time: String)
 
@@ -49,6 +61,8 @@ fun OpenCountApp() {
     var history by remember { mutableStateOf(listOf<CountRecord>()) }
     var showHistory by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column {
@@ -162,14 +176,19 @@ fun OpenCountApp() {
                             chooser.fileFilter = FileNameExtensionFilter("Images", "jpg", "jpeg", "png", "bmp", "gif")
                             if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
                                 val file = chooser.selectedFile
-                                val bufImg = ImageIO.read(file)
-                                if (bufImg != null) {
-                                    imageBitmap = bufImg.toComposeImageBitmap()
-                                    markers = emptyList()
+                                isLoading = true
+                                scope.launch {
+                                    val bitmap = loadImageAsync(file)
+                                    if (bitmap != null) { imageBitmap = bitmap; markers = emptyList() }
+                                    isLoading = false
                                 }
                             }
-                        }, modifier = Modifier.width(220.dp).height(48.dp)) {
-                            Text("📁 Open Image", fontSize = 16.sp)
+                        }, modifier = Modifier.width(220.dp).height(48.dp), enabled = !isLoading) {
+                            Text(if (isLoading) "Loading..." else "📁 Open Image", fontSize = 16.sp)
+                        }
+                        if (isLoading) {
+                            Spacer(Modifier.height(8.dp))
+                            LinearProgressIndicator(modifier = Modifier.width(200.dp))
                         }
                         Spacer(Modifier.height(12.dp))
                         Text("Unlimited • Free • On-Device", fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f))
@@ -188,10 +207,15 @@ fun OpenCountApp() {
                             chooser.dialogTitle = "Open Image"
                             chooser.fileFilter = FileNameExtensionFilter("Images", "jpg", "jpeg", "png", "bmp", "gif")
                             if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                                val bufImg = ImageIO.read(chooser.selectedFile)
-                                if (bufImg != null) { imageBitmap = bufImg.toComposeImageBitmap(); markers = emptyList() }
+                                val file = chooser.selectedFile
+                                isLoading = true
+                                scope.launch {
+                                    val bitmap = loadImageAsync(file)
+                                    if (bitmap != null) { imageBitmap = bitmap; markers = emptyList() }
+                                    isLoading = false
+                                }
                             }
-                        }) { Text("📁") }
+                        }, enabled = !isLoading) { Text(if (isLoading) "..." else "📁") }
 
                         Spacer(Modifier.width(8.dp))
 
