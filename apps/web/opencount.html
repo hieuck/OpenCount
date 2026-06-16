@@ -214,12 +214,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 <script>
 // ===== GUARD: Check if CDN loaded =====
 var COCOSSD_AVAILABLE = false;
-if (typeof cocoSsd === 'undefined') {
-  console.warn('OpenCount: COCO-SSD not available (adblocker/network). AI disabled.');
-  document.getElementById('dropZone').innerHTML = '<div class="upload-icon">📷</div><p>Click to upload image</p><div class="hint">AI will be available after page reload with stable internet</div>';
-} else {
+if (typeof cocoSsd !== 'undefined') {
   COCOSSD_AVAILABLE = true;
-  console.log('OpenCount: COCO-SSD library loaded');
+  console.log('OpenCount: COCO-SSD loaded');
+} else {
+  console.warn('OpenCount: COCO-SSD not found. AI disabled. Manual counting works.');
+}
+// Always pre-load model in background if available
+if (COCOSSD_AVAILABLE) {
+  cocoSsd.load().then(function(m) {
+    window.aiModel = m;
+    console.log('OpenCount: AI model ready');
+  }).catch(function(e) {
+    console.warn('OpenCount: AI model download failed:', e.message);
+    COCOSSD_AVAILABLE = false;
+  });
 }
 
 // ===== STATE =====
@@ -239,18 +248,8 @@ const img = $('previewImg');
 const overlayCanvas = $('overlayCanvas');
 const interactiveCanvas = $('interactiveCanvas');
 
-// ===== PRE-LOAD AI MODEL =====
-if (COCOSSD_AVAILABLE) {
-  console.log('OpenCount: Loading AI model...');
-  cocoSsd.load().then(m => {
-    aiModel = m;
-    console.log('OpenCount: AI model ready');
-  }).catch(e => {
-    console.error('OpenCount: Model load failed:', e.message);
-  });
-} else {
-  console.log('OpenCount: AI disabled - manual counting only');
-}
+// ===== AI MODEL REFERENCE =====
+// Stored on window for cross-function access
 
 // ===== FILE HANDLING =====
 function handleFile(file) {
@@ -313,33 +312,33 @@ function cancelUpload() {
 }
 
 async function waitForModel() {
+  if (window.aiModel) { runAI(); return; }
   if (!COCOSSD_AVAILABLE) {
-    $('statusText').textContent = 'AI not available - manual counting enabled';
+    $('statusText').textContent = 'Click on image to count manually';
     setTimeout(() => $('statusOverlay').style.display = 'none', 1500);
     return;
   }
   $('statusText').textContent = 'Loading AI model...';
   for (let i = 0; i < 60; i++) {
-    if (aiModel) { runAI(); return; }
+    if (window.aiModel) { runAI(); return; }
     await new Promise(r => setTimeout(r, 500));
   }
-  $('statusText').textContent = 'AI timeout - you can still tap to count manually';
-  console.error('OpenCount: Model load timeout');
+  $('statusText').textContent = 'AI timed out - tap manually to count';
   setTimeout(() => $('statusOverlay').style.display = 'none', 2000);
 }
 
 // ===== AI =====
 async function runAI() {
-  if (!currentImage || !aiModel) {
-    $('statusText').textContent = 'AI is not available';
-    setTimeout(() => $('statusOverlay').style.display = 'none', 1000);
+  if (!currentImage || !window.aiModel) {
+    $('statusText').textContent = 'Manual mode: tap the image to count';
+    setTimeout(() => $('statusOverlay').style.display = 'none', 1500);
     return;
   }
   isProcessing = true;
   $('statusText').textContent = 'Detecting objects...';
 
   try {
-    const predictions = await aiModel.detect(currentImage);
+    const predictions = await window.aiModel.detect(currentImage);
     console.log(`OpenCount: AI detected ${predictions.length} objects`);
     const good = predictions.filter(p => p.score > 0.3);
 
