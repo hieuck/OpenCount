@@ -2,380 +2,391 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>OpenCount - AI Object Counting</title>
+<title>OpenCount — AI Object Counting</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a0f;color:#fff;min-height:100vh}
+:root{--primary:#4f46e5;--primary-hover:#4338ca;--bg:#0f0f1a;--bg-card:#1a1a2e;--bg-body:#16162a;--border:#2a2a3e;--text:#fff;--text-muted:#8888aa;--shadow:0 4px 24px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .hidden{display:none!important}
-.container{max-width:1200px;margin:0 auto;padding:20px}
+.container{max-width:1100px;margin:0 auto;padding:0 20px}
 
 /* Header */
-header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:#0a0a0f;border-bottom:1px solid #1a1a2e}
-header .logo{font-size:20px;font-weight:700;color:#ff2d55}
-header nav{display:flex;gap:20px;align-items:center}
-header nav a{color:#888;text-decoration:none;font-size:14px;transition:color .2s}
-header nav a:hover{color:#fff}
-.lang-btn{background:transparent;border:1px solid #333;color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--bg);border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:8px;font-size:20px;font-weight:700;text-decoration:none;color:var(--text)}
+.logo-icon{width:36px;height:36px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700}
+.header-actions{display:flex;align-items:center;gap:12px}
+.btn-primary{background:var(--primary);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px)}
+.btn-secondary{background:transparent;color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px}
 
 /* Hero */
-.hero{text-align:center;padding:60px 20px 40px}
-.hero .icon{font-size:48px;margin-bottom:12px;display:flex;justify-content:center;gap:8px}
-.hero h1{font-size:32px;font-weight:700;margin-bottom:8px}
-.hero p{color:#888;font-size:16px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto}
+.hero{text-align:center;padding:48px 0 32px}
+.hero .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(79,70,229,.15);color:var(--primary);padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:16px}
+.hero h1{font-size:36px;font-weight:800;margin-bottom:12px;line-height:1.2}
+.hero p{font-size:16px;color:var(--text-muted);max-width:500px;margin:0 auto 32px;line-height:1.6}
 
 /* Drop zone */
-.drop-zone{max-width:600px;margin:0 auto;border:2px dashed #2a2a3e;border-radius:20px;padding:60px 20px;text-align:center;cursor:pointer;transition:border-color .3s,background .3s}
-.drop-zone:hover,.drop-zone.dragover{border-color:#ff2d55;background:rgba(255,45,85,.05)}
-.drop-zone .icon{font-size:48px;margin-bottom:16px}
-.drop-zone p{color:#888;font-size:14px;margin-bottom:4px}
-.drop-zone .hint{color:#555;font-size:12px}
+.drop-zone{max-width:560px;margin:0 auto;border:2px dashed var(--border);border-radius:16px;padding:48px 20px;text-align:center;cursor:pointer;transition:all .3s}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--primary);background:rgba(79,70,229,.05)}
+.drop-zone .upload-icon{font-size:48px;margin-bottom:12px;color:var(--primary)}
+.drop-zone p{font-size:16px;font-weight:600;margin-bottom:4px}
+.drop-zone .hint{font-size:13px;color:var(--text-muted)}
 
-/* Upload progress */
-.upload-progress{display:none;max-width:600px;margin:20px auto;background:#1a1a2e;border-radius:12px;padding:20px;text-align:center}
-.upload-progress .spinner{width:40px;height:40px;border:3px solid #2a2a3e;border-top-color:#ff2d55;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+/* Samples */
+.samples{margin-top:24px;text-align:center}
+.samples p{font-size:13px;color:var(--text-muted);margin-bottom:12px}
+.sample-grid{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.sample-item{cursor:pointer;text-align:center;transition:all .2s}
+.sample-item img{width:80px;height:80px;object-fit:cover;border-radius:10px;border:2px solid transparent;transition:all .2s}
+.sample-item span{display:block;font-size:11px;color:var(--text-muted);margin-top:4px}
+.sample-item:hover img{border-color:var(--primary);transform:scale(1.05)}
+
+/* Status overlay */
+.status-overlay{display:none;max-width:560px;margin:16px auto;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.status-overlay .status-img{width:100%;height:200px;object-fit:cover;opacity:.5}
+.status-overlay .status-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(0,0,0,.5)}
+.status-overlay .status-text{font-size:14px;color:var(--text-muted)}
+.status-overlay .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.upload-progress p{color:#888;font-size:14px}
-.upload-progress .cancel{background:transparent;border:1px solid #333;color:#888;padding:8px 24px;border-radius:8px;cursor:pointer;margin-top:12px;font-size:13px}
 
-/* Sample images */
-.samples{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:24px}
-.samples span{color:#666;font-size:13px;width:100%;text-align:center;margin-bottom:4px}
-.sample-btn{background:#1a1a2e;border:1px solid #2a2a3e;color:#aaa;padding:8px 18px;border-radius:20px;cursor:pointer;font-size:13px;transition:all .2s}
-.sample-btn:hover{background:#2a2a3e;color:#fff;border-color:#ff2d55}
+/* Result area */
+.result-area{display:none;max-width:900px;margin:0 auto;padding:0 0 40px}
+.result-area .info{display:flex;align-items:center;justify-content:center;gap:32px;padding:16px;flex-wrap:wrap}
+.result-area .info-item{text-align:center}
+.result-area .info-item .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px}
+.result-area .info-item .value{font-size:24px;font-weight:700;margin-top:4px}
+.result-area .info-item .value .accent{color:var(--primary)}
 
-/* Features bar */
-.features{display:flex;justify-content:center;gap:32px;margin-top:40px;flex-wrap:wrap}
-.features span{display:flex;align-items:center;gap:6px;color:#666;font-size:13px}
-.features span .check{color:#4caf50}
+/* Image wrapper */
+.preview-wrapper{position:relative;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border);margin-top:12px}
+.preview-wrapper img{width:100%;height:auto;display:block}
+.preview-wrapper canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.preview-wrapper canvas.interactive{pointer-events:auto;cursor:crosshair}
 
-/* Results area */
-.result-area{display:none;max-width:100%;margin:0 auto;background:#0a0a0f;position:relative}
-.result-area .image-container{position:relative;text-align:center;overflow:hidden;background:#0a0a0f;min-height:400px}
-.result-area .image-container img{max-width:100%;max-height:70vh;object-fit:contain;cursor:crosshair}
-.result-area .image-container canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
-
-/* Info bar */
-.info-bar{display:flex;align-items:center;justify-content:center;gap:40px;padding:16px 20px;background:#111;border-top:1px solid #1a1a2e;flex-wrap:wrap}
-.info-item{text-align:center}
-.info-item .label{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px}
-.info-item .value{font-size:22px;font-weight:700;color:#fff;margin-top:2px}
-.info-item .value .accent{color:#ff2d55}
-.info-item .confidence{display:flex;align-items:center;gap:8px;margin-top:4px}
-.info-item .confidence input[type=range]{width:100px;height:4px;-webkit-appearance:none;background:#2a2a3e;border-radius:2px;outline:none}
-.info-item .confidence input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#ff2d55;cursor:pointer}
+/* Confidence slider */
+.confidence-row{display:flex;align-items:center;gap:12px;justify-content:center;padding:12px;flex-wrap:wrap}
+.confidence-row span{font-size:11px;color:var(--text-muted)}
+.confidence-row input[type=range]{width:140px;height:4px;-webkit-appearance:none;background:linear-gradient(to right, #f59e0b, #10b981);border-radius:2px;outline:none}
+.confidence-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--primary);cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 
 /* Tools */
-.tools{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:#111;border-top:1px solid #1a1a2e;flex-wrap:wrap}
-.tools button{background:transparent;border:1px solid #2a2a3e;color:#aaa;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s;display:flex;align-items:center;gap:4px}
-.tools button:hover{background:#2a2a3e;color:#fff}
-.tools button.active{background:#ff2d55;color:#fff;border-color:#ff2d55}
-.tools button:disabled{opacity:.3;cursor:default;background:transparent}
-.tools .sep{width:1px;height:24px;background:#2a2a3e}
-.tools .view-group{display:flex;gap:2px}
-.tools .view-group button{padding:8px;font-size:16px;border-color:transparent}
+.toolbar{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;background:var(--bg-card);border-top:1px solid var(--border);flex-wrap:wrap}
+.toolbar button{background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .15s;display:flex;align-items:center;gap:4px}
+.toolbar button:hover{background:var(--bg-body);color:var(--text)}
+.toolbar button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.toolbar button:disabled{opacity:.3;cursor:default;background:transparent}
+.toolbar .sep{width:1px;height:20px;background:var(--border)}
+.toolbar .zoom-group{display:flex;gap:2px}
+.toolbar .zoom-group button{padding:8px 10px;font-size:16px;border-color:transparent}
 
-/* Select overlay */
-.select-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:10}
-
-/* Accuracy hint */
-.accuracy-hint{text-align:center;padding:20px;background:#111;border-top:1px solid #1a1a2e}
-.accuracy-hint p{color:#666;font-size:13px}
-.accuracy-hint button{background:transparent;border:1px solid #ff2d55;color:#ff2d55;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:14px;margin-top:8px;transition:all .2s}
-.accuracy-hint button:hover{background:rgba(255,45,85,.1)}
-
-/* Footer */
-footer{text-align:center;padding:40px 20px;border-top:1px solid #1a1a2e;margin-top:40px}
-footer p{color:#555;font-size:13px}
-
-/* Object type tag */
-.object-tag{position:absolute;top:16px;left:16px;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);border-radius:20px;padding:8px 16px;display:none;align-items:center;gap:8px;font-size:14px;border:1px solid rgba(255,255,255,.1);z-index:5}
-.object-tag .dot{width:8px;height:8px;border-radius:50%;background:#ff2d55}
+/* Object tag */
+.object-tag{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);border-radius:20px;padding:6px 14px;display:none;align-items:center;gap:6px;font-size:13px;z-index:5;border:1px solid rgba(255,255,255,.1)}
+.object-tag .dot{width:8px;height:8px;border-radius:50%;background:var(--primary)}
 
 /* Count badge */
-.count-badge{position:absolute;top:16px;right:16px;background:#ff2d55;color:#fff;width:56px;height:56px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:22px;font-weight:700;box-shadow:0 4px 20px rgba(255,45,85,.5);z-index:5}
+.count-badge{position:absolute;top:12px;right:12px;background:var(--primary);color:#fff;width:48px;height:48px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:18px;font-weight:700;box-shadow:0 4px 16px rgba(79,70,229,.4);z-index:5}
+
+/* Accuracy hint */
+.accuracy-hint{text-align:center;padding:20px;background:var(--bg-card);border-top:1px solid var(--border)}
+.accuracy-hint p{color:var(--text-muted);font-size:13px;margin-bottom:8px}
+.accuracy-hint button{background:transparent;border:1px solid var(--primary);color:var(--primary);padding:10px 24px;border-radius:10px;cursor:pointer;font-size:14px;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.accuracy-hint button:hover{background:rgba(79,70,229,.1)}
+
+/* Toggle switch */
+.switch{position:relative;display:inline-block;width:40px;height:22px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);transition:.3s;border-radius:22px}
+.slider:before{position:absolute;content:"";height:16px;width:16px;left:3px;bottom:3px;background:#fff;transition:.3s;border-radius:50%}
+.switch input:checked+.slider{background:var(--primary)}
+.switch input:checked+.slider:before{transform:translateX(18px)}
 
 @media(max-width:600px){
-  header{padding:10px 16px}
-  header nav{display:none}
   .hero h1{font-size:24px}
-  .drop-zone{padding:40px 16px}
-  .features{gap:16px}
-  .info-bar{gap:20px}
-  .info-item .value{font-size:18px}
-  .tools{gap:4px}
-  .tools button{font-size:12px;padding:6px 10px}
+  .hero p{font-size:14px}
+  .drop-zone{padding:32px 16px}
+  .sample-item img{width:60px;height:60px}
+  .result-area .info{gap:16px}
+  .toolbar{gap:4px}
+  .toolbar button{font-size:12px;padding:6px 10px}
 }
 </style>
 </head>
 <body>
 
-<!-- Header -->
 <header>
-  <span class="logo">OpenCount</span>
-  <nav>
-    <a href="#" onclick="showView('counter')">Counter</a>
-    <a href="#">Blog</a>
-    <a href="#">Contact</a>
-  </nav>
-  <button class="lang-btn" onclick="toggleLang()">VN</button>
+  <a href="#" class="logo"><span class="logo-icon">O</span>penCount</a>
+  <div class="header-actions">
+    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Start counting</button>
+  </div>
 </header>
 
-<!-- Main container -->
-<div class="container" id="view-counter">
+<main>
+  <div class="container">
+    <!-- Hero -->
+    <div class="hero" id="heroSection">
+      <div class="badge"><span>✓</span> AI-Powered Counting</div>
+      <h1>Count anything, instantly with AI</h1>
+      <p>Upload a photo and get instant counts — no templates, no setup. Powered by TensorFlow.js (runs in your browser).</p>
 
-  <!-- Hero -->
-  <div class="hero" id="heroSection">
-    <div class="icon">🔍</div>
-    <h1>AI-Powered Counting</h1>
-    <p>Count anything, instantly with AI. Upload a photo and get instant counts — no templates, no setup.</p>
-
-    <!-- Drop zone -->
-    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-      <div class="icon">☁️</div>
-      <p>Drop image here or click to upload</p>
-      <div class="hint">JPG, PNG, WebP (Max 10MB)</div>
-    </div>
-
-    <!-- Upload progress -->
-    <div class="upload-progress" id="uploadProgress">
-      <div class="spinner"></div>
-      <p id="progressText">Starting…</p>
-      <button class="cancel" onclick="cancelUpload()">Cancel</button>
-    </div>
-
-    <!-- Samples -->
-    <div class="samples">
-      <span>Or try one of these examples:</span>
-      <button class="sample-btn" onclick="loadSample('timber')">Timber</button>
-      <button class="sample-btn" onclick="loadSample('house')">House</button>
-      <button class="sample-btn" onclick="loadSample('logistics')">Logistics</button>
-      <button class="sample-btn" onclick="loadSample('construction')">Construction</button>
-    </div>
-  </div>
-
-  <!-- Features -->
-  <div class="features">
-    <span><span class="check">✓</span> No Setup Required</span>
-    <span><span class="check">✓</span> Instant Results</span>
-    <span><span class="check">✓</span> Free Web App</span>
-  </div>
-
-  <!-- Results -->
-  <div class="result-area" id="resultArea">
-    <div class="image-container" id="imageContainer">
-      <div class="object-tag" id="objectTag"><span class="dot"></span> <span id="objectName">Object</span></div>
-      <div class="count-badge" id="countBadge">0</div>
-      <img id="resultImage" onclick="handleImageClick(event)">
-      <canvas id="overlayCanvas"></canvas>
-    </div>
-
-    <!-- Info bar -->
-    <div class="info-bar">
-      <div class="info-item">
-        <div class="label">Detected</div>
-        <div class="value"><span id="detectedLabel">—</span></div>
+      <!-- Drop zone -->
+      <div class="drop-zone" id="dropZone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleDrop(event)" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">☁️</div>
+        <p>Drop image here or click to upload</p>
+        <div class="hint">JPG, PNG, WebP (Max 10MB)</div>
       </div>
-      <div class="info-item">
-        <div class="label">Counted</div>
-        <div class="value"><span class="accent" id="countedValue">0</span></div>
-      </div>
-      <div class="info-item">
-        <div class="label">Show Points</div>
-        <div class="confidence">
-          <span style="font-size:11px;color:#666">Low</span>
-          <input type="range" id="confidenceSlider" min="0" max="100" value="50" oninput="redrawMarkers()">
-          <span style="font-size:11px;color:#666">High</span>
+
+      <!-- Samples -->
+      <div class="samples">
+        <p>Or try one of these examples:</p>
+        <div class="sample-grid">
+          <div class="sample-item" onclick="loadSample('logs')"><img src="https://zapcount.com/img/demo/thumbs/logs-120.webp" alt="Timber"><span>Timber</span></div>
+          <div class="sample-item" onclick="loadSample('cows')"><img src="https://zapcount.com/img/demo/thumbs/cows-120.webp" alt="Livestock"><span>Livestock</span></div>
+          <div class="sample-item" onclick="loadSample('pipes')"><img src="https://zapcount.com/img/demo/thumbs/pipes_construction-120.webp" alt="Construction"><span>Construction</span></div>
+          <div class="sample-item" onclick="loadSample('cars')"><img src="https://zapcount.com/img/demo/thumbs/cars-120.webp" alt="Automotive"><span>Automotive</span></div>
         </div>
       </div>
     </div>
 
-    <!-- Tools -->
-    <div class="tools">
-      <button onclick="setTool('add')" class="active" id="toolAdd">＋ Add</button>
-      <button onclick="setTool('erase')" id="toolErase">✕ Erase</button>
-      <button onclick="undo()" id="undoBtn" disabled>↩ Undo</button>
-      <button onclick="clearAll()" id="clearBtn">🗑 Clear</button>
-      <div class="sep"></div>
-      <button onclick="saveImage()" id="saveBtn" disabled>⬇ Download</button>
+    <!-- Status overlay -->
+    <div class="status-overlay" id="statusOverlay">
+      <div style="padding:60px 20px;text-align:center">
+        <div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px"></div>
+        <p style="color:var(--text-muted);font-size:14px" id="statusText">AI is analyzing the image…</p>
+        <button class="btn-secondary" style="margin-top:16px" onclick="cancelUpload()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-area" id="resultArea">
+      <!-- Info -->
+      <div class="info">
+        <div class="info-item"><div class="label">Detected</div><div class="value" id="detectedLabel">—</div></div>
+        <div class="info-item"><div class="label">Counted</div><div class="value"><span class="accent" id="countedValue">0</span></div></div>
+        <div class="info-item">
+          <div class="label">Show Points</div>
+          <label class="switch"><input type="checkbox" id="showPoints" checked onchange="drawMarkers()"><span class="slider"></span></label>
+        </div>
+        <div class="info-item">
+          <div class="label">Confidence</div>
+          <div class="confidence-row">
+            <span>Low</span>
+            <input type="range" id="confSlider" min="0" max="1" step="0.05" value="0.3" oninput="drawMarkers()">
+            <span>High</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tools -->
+      <div class="toolbar">
+        <button class="active" id="toolAdd" onclick="setTool('add')">＋ Add</button>
+        <button id="toolErase" onclick="setTool('erase')">✕ Erase</button>
+        <div class="sep"></div>
+        <button id="undoBtn" onclick="undo()" disabled>↩ Undo</button>
+        <button onclick="clearAll()">🗑 Clear</button>
+        <div class="sep"></div>
+        <button id="saveBtn" onclick="saveImage()" disabled>⬇ Download</button>
+      </div>
+
+      <!-- Image -->
+      <div class="preview-wrapper">
+        <div class="object-tag" id="objectTag"><span class="dot"></span> <span id="objectName">Object</span></div>
+        <div class="count-badge" id="countBadge">0</div>
+        <img id="previewImg" onclick="handleClick(event)" style="width:100%;height:auto;display:block">
+        <canvas id="overlayCanvas"></canvas>
+        <canvas id="interactiveCanvas" class="interactive" onclick="handleClick(event)"></canvas>
+      </div>
+
+      <!-- Accuracy hint -->
+      <div class="accuracy-hint">
+        <p>Need better accuracy? Click on the image to add or remove markers manually.</p>
+      </div>
     </div>
   </div>
-</div>
+</main>
 
-<!-- Loading overlay -->
-<div id="loadingOverlay" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
-  <div style="width:48px;height:48px;border:4px solid #2a2a3e;border-top-color:#ff2d55;border-radius:50%;animation:spin .8s linear infinite"></div>
-  <p style="color:#888" id="loadingText">AI Processing…</p>
-</div>
-
-<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this)">
+<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
 
 <script>
 // ===== STATE =====
 let currentImage = null;
+let originalImageData = null;
 let markers = [];
 let count = 0;
-let detectedLabel = '';
-let isProcessing = false;
+let detectedLabel = 'objects';
 let toolMode = 'add';
 let canvas = null;
 let ctx = null;
+let imgWidth = 0, imgHeight = 0;
+let isProcessing = false;
 
-// ===== FILE UPLOAD =====
-function handleFile(input) {
-  const file = input.files[0];
-  if (!file) return;
-  startProcessing(file);
-  input.value = '';
+const $ = id => document.getElementById(id);
+const img = $('previewImg');
+const overlayCanvas = $('overlayCanvas');
+const interactiveCanvas = $('interactiveCanvas');
+
+// ===== FILE HANDLING =====
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = e => processImage(e.target.result);
+  reader.readAsDataURL(file);
+  $('fileInput').value = '';
 }
 
-function startProcessing(file) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      currentImage = img;
-      document.getElementById('dropZone').style.display = 'none';
-      document.getElementById('uploadProgress').style.display = 'block';
-      document.getElementById('progressText').textContent = 'AI is analyzing the image…';
+function handleDrop(e) {
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) handleFile(file);
+}
 
-      // Setup canvas
-      canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx = canvas.getContext('2d');
+function processImage(src) {
+  const imgEl = new Image();
+  imgEl.onload = () => {
+    currentImage = imgEl;
+    imgWidth = imgEl.naturalWidth;
+    imgHeight = imgEl.naturalHeight;
 
-      // Show result area
-      document.getElementById('resultArea').style.display = 'block';
-      document.getElementById('resultImage').src = e.target.result;
-      document.getElementById('heroSection').style.display = 'none';
+    // Setup canvases
+    overlayCanvas.width = imgWidth;
+    overlayCanvas.height = imgHeight;
+    overlayCanvas.style.width = '100%';
+    overlayCanvas.style.height = 'auto';
+    overlayCanvas.style.aspectRatio = `${imgWidth}/${imgHeight}`;
+    
+    interactiveCanvas.width = imgWidth;
+    interactiveCanvas.height = imgHeight;
+    interactiveCanvas.style.width = '100%';
+    interactiveCanvas.style.height = 'auto';
+    interactiveCanvas.style.aspectRatio = `${imgWidth}/${imgHeight}`;
 
-      // Run AI detection
-      setTimeout(() => runAI(), 600);
-    };
-    img.src = e.target.result;
+    ctx = overlayCanvas.getContext('2d');
+    
+    img.src = src;
+
+    // Show result area
+    $('dropZone').style.display = 'none';
+    $('samples') && ($('samples').style.display = 'none');
+    $('heroSection').style.display = 'none';
+    $('statusOverlay').style.display = 'block';
+    $('resultArea').style.display = 'block';
+
+    // Run AI
+    setTimeout(() => runAI(), 500);
   };
-  reader.readAsDataURL(file);
+  imgEl.src = src;
 }
 
 function cancelUpload() {
-  document.getElementById('uploadProgress').style.display = 'none';
-  document.getElementById('dropZone').style.display = 'block';
-  currentImage = null;
+  $('statusOverlay').style.display = 'none';
+  $('dropZone').style.display = 'block';
+  $('heroSection').style.display = 'block';
+  $('resultArea').style.display = 'none';
   isProcessing = false;
 }
 
-// ===== AI DETECTION =====
+// ===== AI =====
 async function runAI() {
+  if (!currentImage || isProcessing) return;
   isProcessing = true;
-  showLoading('AI is detecting objects…');
+  $('statusText').textContent = 'AI is analyzing the image…';
 
   try {
     const model = await cocoSsd.load();
-    const predictions = await model.detect(canvas);
-    const good = predictions.filter(p => p.score > 0.4);
+    const predictions = await model.detect(currentImage);
+    const good = predictions.filter(p => p.score > 0.3);
 
     if (good.length > 0) {
       // Find most common class
       const classes = {};
       good.forEach(p => { classes[p.class] = (classes[p.class] || 0) + 1; });
-      const topClass = Object.entries(classes).sort((a,b) => b[1] - a[1])[0][0];
-      detectedLabel = topClass;
+      detectedLabel = Object.entries(classes).sort((a,b) => b[1] - a[1])[0][0];
+      $('detectedLabel').textContent = detectedLabel;
+      $('objectName').textContent = detectedLabel;
+      $('objectTag').style.display = 'flex';
 
       markers = good.map(p => ({
-        x: (p.bbox[0] + p.bbox[2] / 2) / canvas.width,
-        y: (p.bbox[1] + p.bbox[3] / 2) / canvas.height,
+        x: (p.bbox[0] + p.bbox[2] / 2) / imgWidth,
+        y: (p.bbox[1] + p.bbox[3] / 2) / imgHeight,
+        score: p.score,
         label: p.class
       }));
-
-      count = markers.length;
-      document.getElementById('detectedLabel').textContent = topClass;
-      document.getElementById('objectName').textContent = topClass;
-      document.getElementById('objectTag').style.display = 'flex';
-
-      drawCanvas();
-      updateUI();
-      hideLoading();
     } else {
-      // No objects detected
-      document.getElementById('detectedLabel').textContent = 'No objects found';
-      document.getElementById('uploadProgress').style.display = 'none';
-      hideLoading();
+      $('detectedLabel').textContent = 'No objects found';
+      markers = [];
     }
+
+    count = markers.length;
+    $('countedValue').textContent = count;
+    drawMarkers();
+    updateUI();
+
   } catch(e) {
-    console.error('AI error:', e);
-    document.getElementById('detectedLabel').textContent = 'AI offline';
-    hideLoading();
-    document.getElementById('uploadProgress').style.display = 'none';
+    $('detectedLabel').textContent = 'AI model not loaded';
   }
 
+  $('statusOverlay').style.display = 'none';
   isProcessing = false;
-  document.getElementById('uploadProgress').style.display = 'none';
 }
 
-// ===== CANVAS DRAWING =====
-function drawCanvas() {
+// ===== DRAWING =====
+function drawMarkers() {
   if (!ctx || !currentImage) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(currentImage, 0, 0);
+  const show = $('showPoints').checked;
+  const threshold = parseFloat($('confSlider').value);
 
-  markers.forEach((m, i) => {
-    const x = m.x * canvas.width;
-    const y = m.y * canvas.height;
-    const r = Math.max(14, Math.min(canvas.width, canvas.height) / 60);
+  ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  
+  // Draw the original image as background on overlay
+  ctx.drawImage(currentImage, 0, 0, overlayCanvas.width, overlayCanvas.height);
 
-    // Circle
+  if (!show) return;
+
+  const filtered = markers.filter(m => m.score >= threshold);
+
+  filtered.forEach((m, i) => {
+    const x = m.x * overlayCanvas.width;
+    const y = m.y * overlayCanvas.height;
+    const r = Math.max(12, overlayCanvas.width / 120);
+
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 45, 85, 0.85)';
+    ctx.fillStyle = 'rgba(79, 70, 229, 0.85)';
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Number
     ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${Math.max(10, r * 0.75)}px sans-serif`;
+    ctx.font = `bold ${Math.max(10, r * 0.7)}px Inter, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText((i + 1).toString(), x, y);
   });
 
-  // Badge
-  if (count > 0) {
-    document.getElementById('countBadge').textContent = count;
-    document.getElementById('countBadge').style.display = 'flex';
-    document.getElementById('countedValue').textContent = count;
-  }
+  const visibleCount = filtered.length;
+  $('countedValue').textContent = visibleCount;
+  $('countBadge').textContent = visibleCount;
+  $('countBadge').style.display = visibleCount > 0 ? 'flex' : 'none';
 }
 
-function redrawMarkers() { drawCanvas(); }
-
-// ===== TOOLS =====
-function setTool(tool) {
-  toolMode = tool;
-  document.getElementById('toolAdd').className = tool === 'add' ? 'active' : '';
-  document.getElementById('toolErase').className = tool === 'erase' ? 'active' : '';
-  document.querySelector('.image-container').style.cursor = tool === 'add' ? 'crosshair' : 'default';
-}
-
-function handleImageClick(e) {
+// ===== INTERACTION =====
+function handleClick(e) {
   if (!currentImage) return;
-  const rect = e.target.getBoundingClientRect();
+  const rect = interactiveCanvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) / rect.width;
   const y = (e.clientY - rect.top) / rect.height;
-
   if (x < 0 || x > 1 || y < 0 || y > 1) return;
 
+  const scrollY = window.scrollY;
+  
   if (toolMode === 'add') {
-    markers.push({ x, y, label: detectedLabel });
+    markers.push({ x, y, score: 0.99, label: detectedLabel });
   } else {
-    // Erase mode: find nearest marker
-    const threshold = 30 / rect.width;
+    const threshold = 0.03;
     let nearest = -1, minDist = threshold;
     markers.forEach((m, i) => {
       const d = Math.hypot(m.x - x, m.y - y);
@@ -385,15 +396,22 @@ function handleImageClick(e) {
   }
 
   count = markers.length;
-  drawCanvas();
+  drawMarkers();
   updateUI();
+}
+
+function setTool(tool) {
+  toolMode = tool;
+  $('toolAdd').className = tool === 'add' ? 'active' : '';
+  $('toolErase').className = tool === 'erase' ? 'active' : '';
+  interactiveCanvas.style.cursor = tool === 'add' ? 'crosshair' : 'default';
 }
 
 function undo() {
   if (markers.length > 0) {
     markers.pop();
     count = markers.length;
-    drawCanvas();
+    drawMarkers();
     updateUI();
   }
 }
@@ -401,87 +419,61 @@ function undo() {
 function clearAll() {
   markers = [];
   count = 0;
-  drawCanvas();
+  drawMarkers();
   updateUI();
 }
 
 function updateUI() {
-  document.getElementById('undoBtn').disabled = markers.length === 0;
-  document.getElementById('saveBtn').disabled = count === 0;
-  document.getElementById('countBadge').textContent = count;
-  document.getElementById('countBadge').style.display = count > 0 ? 'flex' : 'none';
-  document.getElementById('countedValue').textContent = count;
+  $('undoBtn').disabled = markers.length === 0;
+  $('saveBtn').disabled = count === 0;
 }
 
 // ===== SAVE =====
 async function saveImage() {
-  if (!canvas || count === 0) return;
-
-  // Redraw with markers
-  drawCanvas();
-
+  if (!count) return;
+  drawMarkers();
   try {
-    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
-    const file = new File([blob], `opencount_${detectedLabel || 'objects'}_${count}.png`, { type: 'image/png' });
-
-    if (navigator.share && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'OpenCount', text: `${count} ${detectedLabel}` });
+    const blob = await new Promise(r => overlayCanvas.toBlob(r, 'image/png'));
+    const file = new File([blob], `opencount_${detectedLabel}_${count}.png`, {type:'image/png'});
+    if (navigator.share && navigator.canShare({files:[file]})) {
+      await navigator.share({files:[file], title:'OpenCount', text:`${count} ${detectedLabel}`});
     } else {
       const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = `opencount_${detectedLabel || 'objects'}_${count}.png`;
+      a.href = overlayCanvas.toDataURL('image/png');
+      a.download = `opencount_${detectedLabel}_${count}.png`;
       a.click();
     }
   } catch(e) {}
 }
 
-// ===== SAMPLE =====
-function loadSample(name) {
-  showLoading('Loading sample…');
-  const samples = {
-    timber: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#1a1a2e"/><text x="400" y="280" text-anchor="middle" fill="#555" font-size="20">Sample: Timber</text><text x="400" y="320" text-anchor="middle" fill="#444" font-size="14">(Load a real image to count)</text></svg>'),
-    house: '',
-    logistics: '',
-    construction: ''
+// ===== SAMPLES =====
+async function loadSample(name) {
+  const urls = {
+    logs: 'https://zapcount.com/img/demo/logs.jpg',
+    cows: 'https://zapcount.com/img/demo/cows.jpg',
+    pipes: 'https://zapcount.com/img/demo/pipes_construction.jpg',
+    cars: 'https://zapcount.com/img/demo/cars.jpg'
   };
-
-  // Convert SVG to blob
-  fetch(samples[name])
-    .then(r => r.blob())
-    .then(blob => {
-      const file = new File([blob], `${name}.svg`, { type: 'image/svg+xml' });
-      startProcessing(file);
-      hideLoading();
-    })
-    .catch(() => hideLoading());
+  const url = urls[name];
+  if (!url) return;
+  try {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    const file = new File([blob], `${name}.jpg`, {type:'image/jpeg'});
+    handleFile(file);
+  } catch(e) {
+    // Fallback: create a colored placeholder
+    const c = document.createElement('canvas');
+    c.width = 800; c.height = 600;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#1a1a2e'; cx.fillRect(0,0,800,600);
+    cx.fillStyle = '#555'; cx.font = '24px sans-serif'; cx.textAlign = 'center';
+    cx.fillText(`Sample: ${name}`, 400, 280);
+    cx.fillStyle = '#444'; cx.font = '14px sans-serif';
+    cx.fillText('Upload a real image to count', 400, 320);
+    c.toBlob(blob => handleFile(new File([blob], `${name}.png`, {type:'image/png'})), 'image/png');
+  }
 }
-
-// ===== LOADING =====
-function showLoading(text) {
-  document.getElementById('loadingText').textContent = text || 'Processing…';
-  document.getElementById('loadingOverlay').classList.remove('hidden');
-}
-
-function hideLoading() {
-  document.getElementById('loadingOverlay').classList.add('hidden');
-}
-
-// ===== MISC =====
-function toggleLang() { alert('Multi-language support coming soon'); }
-function showView(v) { document.querySelectorAll('.container').forEach(e => e.style.display = 'none'); document.getElementById('view-' + v).style.display = 'block'; }
-
-// Drag and drop
-document.addEventListener('DOMContentLoaded', () => {
-  const dz = document.getElementById('dropZone');
-  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
-  dz.addEventListener('drop', e => {
-    e.preventDefault();
-    dz.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) startProcessing(file);
-  });
-});
 </script>
 </body>
 </html>
