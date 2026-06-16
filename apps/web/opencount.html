@@ -1,256 +1,487 @@
 <!DOCTYPE html>
-<html manifest="cache.appcache">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
-<title>OpenCount</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>">
+<title>OpenCount - AI Object Counting</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;color:#fff;overflow:hidden;height:100dvh;height:100vh;position:fixed;width:100%;touch-action:none;user-select:none}
-#app{display:flex;flex-direction:column;height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a0f;color:#fff;min-height:100vh}
+.hidden{display:none!important}
+.container{max-width:1200px;margin:0 auto;padding:20px}
 
-/* Top bar */
-.top{display:flex;align-items:center;padding:8px 12px;background:#111;flex-shrink:0;min-height:44px}
-.top .logo{font-weight:700;font-size:16px;color:#ff2d55}
-.top .sep{color:#333;margin:0 8px}
-.top input{background:transparent;border:1px solid #333;color:#fff;padding:4px 8px;border-radius:6px;font-size:13px;width:90px;outline:none}
-.top .count{font-size:24px;font-weight:700;color:#ff2d55;margin-left:auto}
+/* Header */
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:#0a0a0f;border-bottom:1px solid #1a1a2e}
+header .logo{font-size:20px;font-weight:700;color:#ff2d55}
+header nav{display:flex;gap:20px;align-items:center}
+header nav a{color:#888;text-decoration:none;font-size:14px;transition:color .2s}
+header nav a:hover{color:#fff}
+.lang-btn{background:transparent;border:1px solid #333;color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px}
 
-/* Canvas area */
-.canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;background:#000;overflow:hidden}
-.canvas-wrap img{max-width:100%;max-height:100%;object-fit:contain;display:none;cursor:crosshair}
+/* Hero */
+.hero{text-align:center;padding:60px 20px 40px}
+.hero .icon{font-size:48px;margin-bottom:12px;display:flex;justify-content:center;gap:8px}
+.hero h1{font-size:32px;font-weight:700;margin-bottom:8px}
+.hero p{color:#888;font-size:16px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto}
 
-/* Welcome */
-.welcome{text-align:center;padding:20px;width:100%}
-.welcome .icon{font-size:56px;margin-bottom:10px}
-.welcome h2{font-size:22px;margin-bottom:6px}
-.welcome p{color:#666;margin-bottom:20px;font-size:13px}
-.welcome button{display:block;width:220px;margin:0 auto 10px;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer}
-.btn-pick{background:#ff2d55;color:#fff}
-.btn-cam{background:#1a1a2e;color:#fff;border:1px solid #333!important}
+/* Drop zone */
+.drop-zone{max-width:600px;margin:0 auto;border:2px dashed #2a2a3e;border-radius:20px;padding:60px 20px;text-align:center;cursor:pointer;transition:border-color .3s,background .3s}
+.drop-zone:hover,.drop-zone.dragover{border-color:#ff2d55;background:rgba(255,45,85,.05)}
+.drop-zone .icon{font-size:48px;margin-bottom:16px}
+.drop-zone p{color:#888;font-size:14px;margin-bottom:4px}
+.drop-zone .hint{color:#555;font-size:12px}
 
-/* Bottom bar */
-.bottom{display:none;background:#111;padding:6px 12px;flex-shrink:0;min-height:44px}
-.bottom .row{display:flex;gap:6px;align-items:center}
-.bottom button{padding:6px 12px;border:none;border-radius:6px;font-size:13px;cursor:pointer}
-.btn-ai{background:#ff2d55;color:#fff;font-weight:600}
-.btn-clear{background:#333;color:#fff}
-.btn-on{background:#333;color:#fff}
-.btn-off{background:#222;color:#555;cursor:default!important}
-
-/* Processing overlay */
-#processing{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:12px}
-#processing .spinner{width:40px;height:40px;border:4px solid #333;border-top-color:#ff2d55;border-radius:50%;animation:spin .8s linear infinite}
+/* Upload progress */
+.upload-progress{display:none;max-width:600px;margin:20px auto;background:#1a1a2e;border-radius:12px;padding:20px;text-align:center}
+.upload-progress .spinner{width:40px;height:40px;border:3px solid #2a2a3e;border-top-color:#ff2d55;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.upload-progress p{color:#888;font-size:14px}
+.upload-progress .cancel{background:transparent;border:1px solid #333;color:#888;padding:8px 24px;border-radius:8px;cursor:pointer;margin-top:12px;font-size:13px}
 
-/* Result panel */
-.result{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);backdrop-filter:blur(10px);border-radius:16px;padding:12px 24px;display:none;align-items:center;gap:16px;min-width:200px;justify-content:center;border:1px solid rgba(255,255,255,.1)}
-.result .icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.result .label{font-size:11px;color:#888}
-.result .val{font-size:18px;font-weight:700;color:#fff}
+/* Sample images */
+.samples{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:24px}
+.samples span{color:#666;font-size:13px;width:100%;text-align:center;margin-bottom:4px}
+.sample-btn{background:#1a1a2e;border:1px solid #2a2a3e;color:#aaa;padding:8px 18px;border-radius:20px;cursor:pointer;font-size:13px;transition:all .2s}
+.sample-btn:hover{background:#2a2a3e;color:#fff;border-color:#ff2d55}
+
+/* Features bar */
+.features{display:flex;justify-content:center;gap:32px;margin-top:40px;flex-wrap:wrap}
+.features span{display:flex;align-items:center;gap:6px;color:#666;font-size:13px}
+.features span .check{color:#4caf50}
+
+/* Results area */
+.result-area{display:none;max-width:100%;margin:0 auto;background:#0a0a0f;position:relative}
+.result-area .image-container{position:relative;text-align:center;overflow:hidden;background:#0a0a0f;min-height:400px}
+.result-area .image-container img{max-width:100%;max-height:70vh;object-fit:contain;cursor:crosshair}
+.result-area .image-container canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+
+/* Info bar */
+.info-bar{display:flex;align-items:center;justify-content:center;gap:40px;padding:16px 20px;background:#111;border-top:1px solid #1a1a2e;flex-wrap:wrap}
+.info-item{text-align:center}
+.info-item .label{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px}
+.info-item .value{font-size:22px;font-weight:700;color:#fff;margin-top:2px}
+.info-item .value .accent{color:#ff2d55}
+.info-item .confidence{display:flex;align-items:center;gap:8px;margin-top:4px}
+.info-item .confidence input[type=range]{width:100px;height:4px;-webkit-appearance:none;background:#2a2a3e;border-radius:2px;outline:none}
+.info-item .confidence input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#ff2d55;cursor:pointer}
+
+/* Tools */
+.tools{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:#111;border-top:1px solid #1a1a2e;flex-wrap:wrap}
+.tools button{background:transparent;border:1px solid #2a2a3e;color:#aaa;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s;display:flex;align-items:center;gap:4px}
+.tools button:hover{background:#2a2a3e;color:#fff}
+.tools button.active{background:#ff2d55;color:#fff;border-color:#ff2d55}
+.tools button:disabled{opacity:.3;cursor:default;background:transparent}
+.tools .sep{width:1px;height:24px;background:#2a2a3e}
+.tools .view-group{display:flex;gap:2px}
+.tools .view-group button{padding:8px;font-size:16px;border-color:transparent}
+
+/* Select overlay */
+.select-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:10}
+
+/* Accuracy hint */
+.accuracy-hint{text-align:center;padding:20px;background:#111;border-top:1px solid #1a1a2e}
+.accuracy-hint p{color:#666;font-size:13px}
+.accuracy-hint button{background:transparent;border:1px solid #ff2d55;color:#ff2d55;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:14px;margin-top:8px;transition:all .2s}
+.accuracy-hint button:hover{background:rgba(255,45,85,.1)}
+
+/* Footer */
+footer{text-align:center;padding:40px 20px;border-top:1px solid #1a1a2e;margin-top:40px}
+footer p{color:#555;font-size:13px}
 
 /* Object type tag */
-.tag{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);border-radius:20px;padding:6px 14px;display:none;align-items:center;gap:6px;font-size:13px;border:1px solid rgba(255,255,255,.1)}
+.object-tag{position:absolute;top:16px;left:16px;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);border-radius:20px;padding:8px 16px;display:none;align-items:center;gap:8px;font-size:14px;border:1px solid rgba(255,255,255,.1);z-index:5}
+.object-tag .dot{width:8px;height:8px;border-radius:50%;background:#ff2d55}
 
-/* Badge */
-.badge{position:absolute;top:12px;right:12px;background:#ff2d55;color:#fff;width:50px;height:50px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:20px;font-weight:700;box-shadow:0 2px 12px rgba(255,45,85,.4)}
+/* Count badge */
+.count-badge{position:absolute;top:16px;right:16px;background:#ff2d55;color:#fff;width:56px;height:56px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:22px;font-weight:700;box-shadow:0 4px 20px rgba(255,45,85,.5);z-index:5}
 
-/* Drag hint */
-.hint{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.4);font-size:12px;pointer-events:none;display:none}
+@media(max-width:600px){
+  header{padding:10px 16px}
+  header nav{display:none}
+  .hero h1{font-size:24px}
+  .drop-zone{padding:40px 16px}
+  .features{gap:16px}
+  .info-bar{gap:20px}
+  .info-item .value{font-size:18px}
+  .tools{gap:4px}
+  .tools button{font-size:12px;padding:6px 10px}
+}
 </style>
 </head>
 <body>
-<div id="app">
-<div class="top">
-<span class="logo">OpenCount</span><span class="sep">|</span>
-<input id="objName" value="Object" maxlength="20">
-<span class="count" id="countDisp">0</span>
+
+<!-- Header -->
+<header>
+  <span class="logo">OpenCount</span>
+  <nav>
+    <a href="#" onclick="showView('counter')">Counter</a>
+    <a href="#">Blog</a>
+    <a href="#">Contact</a>
+  </nav>
+  <button class="lang-btn" onclick="toggleLang()">VN</button>
+</header>
+
+<!-- Main container -->
+<div class="container" id="view-counter">
+
+  <!-- Hero -->
+  <div class="hero" id="heroSection">
+    <div class="icon">🔍</div>
+    <h1>AI-Powered Counting</h1>
+    <p>Count anything, instantly with AI. Upload a photo and get instant counts — no templates, no setup.</p>
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">☁️</div>
+      <p>Drop image here or click to upload</p>
+      <div class="hint">JPG, PNG, WebP (Max 10MB)</div>
+    </div>
+
+    <!-- Upload progress -->
+    <div class="upload-progress" id="uploadProgress">
+      <div class="spinner"></div>
+      <p id="progressText">Starting…</p>
+      <button class="cancel" onclick="cancelUpload()">Cancel</button>
+    </div>
+
+    <!-- Samples -->
+    <div class="samples">
+      <span>Or try one of these examples:</span>
+      <button class="sample-btn" onclick="loadSample('timber')">Timber</button>
+      <button class="sample-btn" onclick="loadSample('house')">House</button>
+      <button class="sample-btn" onclick="loadSample('logistics')">Logistics</button>
+      <button class="sample-btn" onclick="loadSample('construction')">Construction</button>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="features">
+    <span><span class="check">✓</span> No Setup Required</span>
+    <span><span class="check">✓</span> Instant Results</span>
+    <span><span class="check">✓</span> Free Web App</span>
+  </div>
+
+  <!-- Results -->
+  <div class="result-area" id="resultArea">
+    <div class="image-container" id="imageContainer">
+      <div class="object-tag" id="objectTag"><span class="dot"></span> <span id="objectName">Object</span></div>
+      <div class="count-badge" id="countBadge">0</div>
+      <img id="resultImage" onclick="handleImageClick(event)">
+      <canvas id="overlayCanvas"></canvas>
+    </div>
+
+    <!-- Info bar -->
+    <div class="info-bar">
+      <div class="info-item">
+        <div class="label">Detected</div>
+        <div class="value"><span id="detectedLabel">—</span></div>
+      </div>
+      <div class="info-item">
+        <div class="label">Counted</div>
+        <div class="value"><span class="accent" id="countedValue">0</span></div>
+      </div>
+      <div class="info-item">
+        <div class="label">Show Points</div>
+        <div class="confidence">
+          <span style="font-size:11px;color:#666">Low</span>
+          <input type="range" id="confidenceSlider" min="0" max="100" value="50" oninput="redrawMarkers()">
+          <span style="font-size:11px;color:#666">High</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tools -->
+    <div class="tools">
+      <button onclick="setTool('add')" class="active" id="toolAdd">＋ Add</button>
+      <button onclick="setTool('erase')" id="toolErase">✕ Erase</button>
+      <button onclick="undo()" id="undoBtn" disabled>↩ Undo</button>
+      <button onclick="clearAll()" id="clearBtn">🗑 Clear</button>
+      <div class="sep"></div>
+      <button onclick="saveImage()" id="saveBtn" disabled>⬇ Download</button>
+    </div>
+  </div>
 </div>
-<div class="canvas-wrap" id="canvasWrap">
-<img id="canvasImg" onclick="tap(event)">
-<div class="welcome" id="welcome">
-<div class="icon">📷</div>
-<h2>AI Object Counter</h2>
-<p>Unlimited • Free • On-Device</p>
-<button class="btn-pick" onclick="pick()">📁 Choose Photo</button>
-<button class="btn-cam" onclick="cam()">📸 Take Photo</button>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <div style="width:48px;height:48px;border:4px solid #2a2a3e;border-top-color:#ff2d55;border-radius:50%;animation:spin .8s linear infinite"></div>
+  <p style="color:#888" id="loadingText">AI Processing…</p>
 </div>
-<div class="tag" id="objTag"></div>
-<div class="badge" id="badge">0</div>
-<div class="result" id="result">
-<div class="icon" id="resultIcon" style="background:#ff2d55">✓</div>
-<div><div class="label" id="resultLabel">Detected</div><div class="val" id="resultVal">0</div></div>
-</div>
-<div class="hint" id="hint">Tap to place markers</div>
-<div id="processing"><div class="spinner"></div><div>AI Processing...</div></div>
-</div>
-<div class="bottom" id="bottom">
-<div class="row">
-<button onclick="pick()" style="background:none;color:#fff;font-size:18px;padding:4px">📁</button>
-<button id="undoBtn" onclick="undo()" class="btn-off">Undo</button>
-<button id="clearBtn" onclick="clr()" class="btn-off">Clear</button>
-<button class="btn-ai" onclick="ai()" id="aiBtn">AI</button>
-<button id="saveBtn" onclick="saveImg()" class="btn-off" style="margin-left:auto">💾 Save</button>
-</div>
-</div>
-</div>
-<input type="file" id="filePicker" accept="image/*" style="display:none">
-<input type="file" id="camPicker" accept="image/*" capture="environment" style="display:none">
+
+<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this)">
 
 <script>
-// State
-let markers=[],count=0,objName="Object",imgData=null,ctx=null,cvs=null,detectedClass="";
-const $=id=>document.getElementById(id);
-const img=$('canvasImg'),wel=$('welcome'),bot=$('bottom'),badge=$('badge'),objTag=$('objTag');
-const cnt=$('countDisp'),hint=$('hint'),proc=$('processing'),result=$('result');
-const rVal=$('resultVal'),rLabel=$('resultLabel'),rIcon=$('resultIcon');
-const uBtn=$('undoBtn'),cBtn=$('clearBtn'),sBtn=$('saveBtn'),aiBtn=$('aiBtn');
+// ===== STATE =====
+let currentImage = null;
+let markers = [];
+let count = 0;
+let detectedLabel = '';
+let isProcessing = false;
+let toolMode = 'add';
+let canvas = null;
+let ctx = null;
 
-$('filePicker').onchange=e=>load(e.target);
-$('camPicker').onchange=e=>load(e.target);
-$('objName').oninput=e=>{objName=e.target.value||'Object';update()};
+// ===== FILE UPLOAD =====
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  startProcessing(file);
+  input.value = '';
+}
 
-function load(inp){
-  const f=inp.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=e=>{
-    const i=new Image();
-    i.onload=()=>{
-      imgData=i;img.src=e.target.result;img.style.display='block';
-      wel.style.display='none';bot.style.display='flex';
-      markers=[];count=0;update();
-      cvs=document.createElement('canvas');
-      cvs.width=i.width;cvs.height=i.height;
-      ctx=cvs.getContext('2d');
-      draw();hint.style.display='block';
-      setTimeout(()=>hint.style.display='none',3000);
-      // Auto AI detect
-      ai();
+function startProcessing(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      currentImage = img;
+      document.getElementById('dropZone').style.display = 'none';
+      document.getElementById('uploadProgress').style.display = 'block';
+      document.getElementById('progressText').textContent = 'AI is analyzing the image…';
+
+      // Setup canvas
+      canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx = canvas.getContext('2d');
+
+      // Show result area
+      document.getElementById('resultArea').style.display = 'block';
+      document.getElementById('resultImage').src = e.target.result;
+      document.getElementById('heroSection').style.display = 'none';
+
+      // Run AI detection
+      setTimeout(() => runAI(), 600);
     };
-    i.src=e.target.result;
+    img.src = e.target.result;
   };
-  r.readAsDataURL(f);
-  inp.value='';
+  reader.readAsDataURL(file);
 }
 
-function pick(){$('filePicker').click()}
-function cam(){$('camPicker').click()}
-
-function tap(e){
-  if(!imgData)return;
-  const r=img.getBoundingClientRect();
-  const sx=img.naturalWidth/r.width,sy=img.naturalHeight/r.height;
-  const x=(e.clientX||e.touches[0].clientX-r.left)*sx/img.naturalWidth;
-  const y=(e.clientY||e.touches[0].clientY-r.top)*sy/img.naturalHeight;
-  if(x<0||x>1||y<0||y>1)return;
-  markers.push({x,y});count=markers.length;draw();update();
+function cancelUpload() {
+  document.getElementById('uploadProgress').style.display = 'none';
+  document.getElementById('dropZone').style.display = 'block';
+  currentImage = null;
+  isProcessing = false;
 }
 
-function draw(){
-  if(!ctx||!imgData)return;
-  ctx.drawImage(imgData,0,0);
-  markers.forEach((m,i)=>{
-    const x=m.x*cvs.width,y=m.y*cvs.height;
-    ctx.beginPath();ctx.arc(x,y,16,0,Math.PI*2);
-    ctx.fillStyle='#ff2d55';ctx.fill();
-    ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
-    ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(i+1,x,y);
-  });
-  if(count>0){
-    ctx.fillStyle='#ff2d55';
-    ctx.beginPath();ctx.arc(cvs.width-50,50,34,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#fff';ctx.font='bold 22px sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(count,cvs.width-50,50);
-  }
-  img.src=cvs.toDataURL();
-}
+// ===== AI DETECTION =====
+async function runAI() {
+  isProcessing = true;
+  showLoading('AI is detecting objects…');
 
-function update(){
-  cnt.textContent=count;badge.textContent=count;
-  badge.style.display=count>0?'flex':'none';
-  lbl.textContent=count>0?count+' '+objName:'';
-  uBtn.className=markers.length?'btn-on':'btn-off';
-  cBtn.className=markers.length?'btn-on':'btn-off';
-}
+  try {
+    const model = await cocoSsd.load();
+    const predictions = await model.detect(canvas);
+    const good = predictions.filter(p => p.score > 0.4);
 
-function undo(){if(markers.length){markers.pop();count=markers.length;draw();update()}}
-function clr(){markers=[];count=0;update();if(ctx&&imgData){ctx.drawImage(imgData,0,0);img.src=cvs.toDataURL()}}
+    if (good.length > 0) {
+      // Find most common class
+      const classes = {};
+      good.forEach(p => { classes[p.class] = (classes[p.class] || 0) + 1; });
+      const topClass = Object.entries(classes).sort((a,b) => b[1] - a[1])[0][0];
+      detectedLabel = topClass;
 
-async function ai(){
-  if(!imgData)return;
-  aiBtn.textContent='...';proc.style.display='flex';
-  try{
-    const model=await cocoSsd.load();
-    const predictions=await model.detect(cvs);
-    const good=predictions.filter(p=>p.score>0.5);
-    markers=good.map(p=>({
-      x:p.bbox[0]/cvs.width+p.bbox[2]/cvs.width/2,
-      y:p.bbox[1]/cvs.height+p.bbox[3]/cvs.height/2
-    }));
-    count=markers.length;draw();update();
-    if(good.length>0){
-      detectedClass=good[0].class;
-      objName=good[0].class;
-      $('objName').value=good[0].class;
-      objTag.style.display='flex';
-      objTag.innerHTML='<span style="color:#ff2d55">●</span> '+good[0].class;
-      showResult('Detected',count,'#ff2d55');
-    }else{
-      showResult('No objects found',0,'#888');
+      markers = good.map(p => ({
+        x: (p.bbox[0] + p.bbox[2] / 2) / canvas.width,
+        y: (p.bbox[1] + p.bbox[3] / 2) / canvas.height,
+        label: p.class
+      }));
+
+      count = markers.length;
+      document.getElementById('detectedLabel').textContent = topClass;
+      document.getElementById('objectName').textContent = topClass;
+      document.getElementById('objectTag').style.display = 'flex';
+
+      drawCanvas();
+      updateUI();
+      hideLoading();
+    } else {
+      // No objects detected
+      document.getElementById('detectedLabel').textContent = 'No objects found';
+      document.getElementById('uploadProgress').style.display = 'none';
+      hideLoading();
     }
-  }catch(e){
-    showResult('AI offline',0,'#888');
+  } catch(e) {
+    console.error('AI error:', e);
+    document.getElementById('detectedLabel').textContent = 'AI offline';
+    hideLoading();
+    document.getElementById('uploadProgress').style.display = 'none';
   }
-  proc.style.display='none';aiBtn.textContent='AI';
+
+  isProcessing = false;
+  document.getElementById('uploadProgress').style.display = 'none';
 }
 
-function showResult(label,val,color){
-  result.style.display='flex';
-  rIcon.style.background=color;
-  rLabel.textContent=label;
-  rVal.textContent=val;
-  setTimeout(()=>result.style.display='none',4000);
+// ===== CANVAS DRAWING =====
+function drawCanvas() {
+  if (!ctx || !currentImage) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(currentImage, 0, 0);
+
+  markers.forEach((m, i) => {
+    const x = m.x * canvas.width;
+    const y = m.y * canvas.height;
+    const r = Math.max(14, Math.min(canvas.width, canvas.height) / 60);
+
+    // Circle
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 45, 85, 0.85)';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Number
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.max(10, r * 0.75)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((i + 1).toString(), x, y);
+  });
+
+  // Badge
+  if (count > 0) {
+    document.getElementById('countBadge').textContent = count;
+    document.getElementById('countBadge').style.display = 'flex';
+    document.getElementById('countedValue').textContent = count;
+  }
 }
 
-// Save annotated image to iOS Photos
-async function saveImg(){
-  if(!cvs||count===0)return;
-  try{
-    // Draw current state to canvas (markers already drawn)
-    const blob=await new Promise(r=>cvs.toBlob(r,'image/png'));
-    const file=new File([blob],'opencount.png',{type:'image/png'});
-    if(navigator.share&&navigator.canShare({files:[file]})){
-      await navigator.share({files:[file],title:'OpenCount',text:count+' '+objName});
-    }else{
-      // Fallback: download
-      const a=document.createElement('a');
-      a.href=cvs.toDataURL('image/png');
-      a.download='opencount_'+objName+'.png';
+function redrawMarkers() { drawCanvas(); }
+
+// ===== TOOLS =====
+function setTool(tool) {
+  toolMode = tool;
+  document.getElementById('toolAdd').className = tool === 'add' ? 'active' : '';
+  document.getElementById('toolErase').className = tool === 'erase' ? 'active' : '';
+  document.querySelector('.image-container').style.cursor = tool === 'add' ? 'crosshair' : 'default';
+}
+
+function handleImageClick(e) {
+  if (!currentImage) return;
+  const rect = e.target.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+
+  if (x < 0 || x > 1 || y < 0 || y > 1) return;
+
+  if (toolMode === 'add') {
+    markers.push({ x, y, label: detectedLabel });
+  } else {
+    // Erase mode: find nearest marker
+    const threshold = 30 / rect.width;
+    let nearest = -1, minDist = threshold;
+    markers.forEach((m, i) => {
+      const d = Math.hypot(m.x - x, m.y - y);
+      if (d < minDist) { minDist = d; nearest = i; }
+    });
+    if (nearest >= 0) markers.splice(nearest, 1);
+  }
+
+  count = markers.length;
+  drawCanvas();
+  updateUI();
+}
+
+function undo() {
+  if (markers.length > 0) {
+    markers.pop();
+    count = markers.length;
+    drawCanvas();
+    updateUI();
+  }
+}
+
+function clearAll() {
+  markers = [];
+  count = 0;
+  drawCanvas();
+  updateUI();
+}
+
+function updateUI() {
+  document.getElementById('undoBtn').disabled = markers.length === 0;
+  document.getElementById('saveBtn').disabled = count === 0;
+  document.getElementById('countBadge').textContent = count;
+  document.getElementById('countBadge').style.display = count > 0 ? 'flex' : 'none';
+  document.getElementById('countedValue').textContent = count;
+}
+
+// ===== SAVE =====
+async function saveImage() {
+  if (!canvas || count === 0) return;
+
+  // Redraw with markers
+  drawCanvas();
+
+  try {
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    const file = new File([blob], `opencount_${detectedLabel || 'objects'}_${count}.png`, { type: 'image/png' });
+
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'OpenCount', text: `${count} ${detectedLabel}` });
+    } else {
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `opencount_${detectedLabel || 'objects'}_${count}.png`;
       a.click();
     }
-  }catch(e){console.log('Share cancelled')}
+  } catch(e) {}
 }
 
-// Update save button state
-function update(){
-  cnt.textContent=count;badge.textContent=count;
-  badge.style.display=count>0?'flex':'none';
-  sBtn.className=count>0?'btn-on':'btn-off';
-  uBtn.className=markers.length?'btn-on':'btn-off';
-  cBtn.className=markers.length?'btn-on':'btn-off';
+// ===== SAMPLE =====
+function loadSample(name) {
+  showLoading('Loading sample…');
+  const samples = {
+    timber: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#1a1a2e"/><text x="400" y="280" text-anchor="middle" fill="#555" font-size="20">Sample: Timber</text><text x="400" y="320" text-anchor="middle" fill="#444" font-size="14">(Load a real image to count)</text></svg>'),
+    house: '',
+    logistics: '',
+    construction: ''
+  };
+
+  // Convert SVG to blob
+  fetch(samples[name])
+    .then(r => r.blob())
+    .then(blob => {
+      const file = new File([blob], `${name}.svg`, { type: 'image/svg+xml' });
+      startProcessing(file);
+      hideLoading();
+    })
+    .catch(() => hideLoading());
 }
 
-// Touch support for mobile
-img.addEventListener('touchstart',e=>{e.preventDefault();tap(e)});
+// ===== LOADING =====
+function showLoading(text) {
+  document.getElementById('loadingText').textContent = text || 'Processing…';
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+// ===== MISC =====
+function toggleLang() { alert('Multi-language support coming soon'); }
+function showView(v) { document.querySelectorAll('.container').forEach(e => e.style.display = 'none'); document.getElementById('view-' + v).style.display = 'block'; }
+
+// Drag and drop
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) startProcessing(file);
+  });
+});
 </script>
 </body>
 </html>
