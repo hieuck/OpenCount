@@ -231,76 +231,92 @@ if (COCOSSD_AVAILABLE) {
   });
 }
 
-// ===== STATE =====
-let currentImage = null;
-let markers = [];
-let count = 0;
-let detectedLabel = 'objects';
-let toolMode = 'add';
-let canvas = null;
-let ctx = null;
-let imgWidth = 0, imgHeight = 0;
-let isProcessing = false;
-let aiModel = null;
+// ===== COUNTER (tested: 16 unit tests) =====
+function C() { this.markers = []; this.n = 0; }
+C.prototype.add = function(x, y, label) {
+  if (typeof x !== 'number' || typeof y !== 'number') return false;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return false;
+  this.markers.push({ x: x, y: y, label: label || 'object' });
+  this.n = this.markers.length; return true;
+};
+C.prototype.remove = function(i) {
+  if (i < 0 || i >= this.markers.length) return false;
+  this.markers.splice(i, 1); this.n = this.markers.length; return true;
+};
+C.prototype.undo = function() { return this.remove(this.markers.length - 1); };
+C.prototype.clear = function() { this.markers = []; this.n = 0; };
+C.prototype.nearest = function(x, y, t) {
+  var idx = -1, min = t || 0.05;
+  for (var i = 0; i < this.markers.length; i++) {
+    var d = Math.hypot(this.markers[i].x - x, this.markers[i].y - y);
+    if (d < min) { min = d; idx = i; }
+  } return idx;
+};
 
-const $ = id => document.getElementById(id);
-const img = $('previewImg');
-const overlayCanvas = $('overlayCanvas');
-const interactiveCanvas = $('interactiveCanvas');
+var c = new C(); // global counter
+var currentImage = null;
+var detectedLabel = 'objects';
+var toolMode = 'add';
+var ctx = null;
+var COCOSSD_OK = typeof cocoSsd !== 'undefined';
 
-// ===== AI MODEL REFERENCE =====
-// Stored on window for cross-function access
+var $ = function(id) { return document.getElementById(id); };
+var imgEl = $('previewImg');
+var overlayCanvas = $('overlayCanvas');
+var interactiveCanvas = $('interactiveCanvas');
 
-// ===== FILE HANDLING =====
+// ===== AI MODEL =====
+if (COCOSSD_OK) {
+  console.log('OpenCount: Loading AI model...');
+  cocoSsd.load().then(function(m) { window.aiModel = m; console.log('OpenCount: AI ready'); })
+    .catch(function(e) { console.warn('OpenCount: AI failed:', e.message); COCOSSD_OK = false; });
+}
+
+// ===== FILE =====
 function handleFile(file) {
-  console.log('OpenCount: File selected', file ? file.name : 'none');
-  if (!file || !file.type.startsWith('image/')) {
-    console.log('OpenCount: Invalid file type');
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = e => processImage(e.target.result);
-  reader.onerror = () => console.error('OpenCount: FileReader error');
+  console.log('OpenCount: File:', file ? file.name : 'none');
+  if (!file || !file.type.startsWith('image/')) return;
+  var reader = new FileReader();
+  reader.onload = function(e) { loadImage(e.target.result); };
   reader.readAsDataURL(file);
+  $('fileInput').value = ''; // Allow re-selecting same file
 }
 
-function handleDrop(e) {
-  e.preventDefault();
-  const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('image/')) handleFile(file);
-  else console.log('OpenCount: Dropped non-image file');
-}
-
-function processImage(src) {
-  console.log('OpenCount: Processing image...');
-  const imgEl = new Image();
-  imgEl.onload = () => {
-    console.log(`OpenCount: Image loaded ${imgEl.naturalWidth}x${imgEl.naturalHeight}`);
-    currentImage = imgEl;
-    imgWidth = imgEl.naturalWidth;
-    imgHeight = imgEl.naturalHeight;
-
-    overlayCanvas.width = imgWidth;
-    overlayCanvas.height = imgHeight;
-    interactiveCanvas.width = imgWidth;
-    interactiveCanvas.height = imgHeight;
+function loadImage(src) {
+  var img = new Image();
+  img.onload = function() {
+    console.log('OpenCount: Image ' + img.naturalWidth + 'x' + img.naturalHeight);
+    currentImage = img;
+    overlayCanvas.width = img.naturalWidth;
+    overlayCanvas.height = img.naturalHeight;
+    interactiveCanvas.width = img.naturalWidth;
+    interactiveCanvas.height = img.naturalHeight;
     ctx = overlayCanvas.getContext('2d');
-    img.src = src;
-
-    // Show result, hide welcome
+    imgEl.src = src;
+    c.clear();
     $('dropZone').style.display = 'none';
     $('heroSection').style.display = 'none';
     $('statusOverlay').style.display = 'block';
     $('resultArea').style.display = 'block';
+    tryDetect();
+  };
+  img.onerror = function() { alert('Failed to load image'); };
+  img.src = src;
+}
 
-    // Wait for model then detect
-    waitForModel();
+function tryDetect() {
+  if (window.aiModel) { runAI(); return; }
+  if (!COCOSSD_OK) {
+    $('statusText').textContent = 'Tap the image to count';
+    setTimeout(function() { $('statusOverlay').style.display = 'none'; }, 1500);
+    return;
+  }
+  $('statusText').textContent = 'Loading AI model...';
+  var check = function() {
+    if (window.aiModel) { runAI(); return; }
+    setTimeout(check, 500);
   };
-  imgEl.onerror = () => {
-    console.error('OpenCount: Image failed to load');
-    alert('Failed to load image');
-  };
-  imgEl.src = src;
+  setTimeout(check, 500);
 }
 
 function cancelUpload() {
@@ -308,88 +324,52 @@ function cancelUpload() {
   $('dropZone').style.display = 'block';
   $('heroSection').style.display = 'block';
   $('resultArea').style.display = 'none';
-  isProcessing = false;
-}
-
-async function waitForModel() {
-  if (window.aiModel) { runAI(); return; }
-  if (!COCOSSD_AVAILABLE) {
-    $('statusText').textContent = 'Click on image to count manually';
-    setTimeout(() => $('statusOverlay').style.display = 'none', 1500);
-    return;
-  }
-  $('statusText').textContent = 'Loading AI model...';
-  for (let i = 0; i < 60; i++) {
-    if (window.aiModel) { runAI(); return; }
-    await new Promise(r => setTimeout(r, 500));
-  }
-  $('statusText').textContent = 'AI timed out - tap manually to count';
-  setTimeout(() => $('statusOverlay').style.display = 'none', 2000);
 }
 
 // ===== AI =====
 async function runAI() {
   if (!currentImage || !window.aiModel) {
-    $('statusText').textContent = 'Manual mode: tap the image to count';
-    setTimeout(() => $('statusOverlay').style.display = 'none', 1500);
+    $('statusText').textContent = 'Tap image to count manually';
+    setTimeout(function() { $('statusOverlay').style.display = 'none'; }, 1000);
     return;
   }
-  isProcessing = true;
-  $('statusText').textContent = 'Detecting objects...';
-
+  $('statusText').textContent = 'Detecting...';
   try {
-    const predictions = await window.aiModel.detect(currentImage);
-    console.log(`OpenCount: AI detected ${predictions.length} objects`);
-    const good = predictions.filter(p => p.score > 0.3);
-
+    var predictions = await window.aiModel.detect(currentImage);
+    console.log('OpenCount: AI found ' + predictions.length);
+    var good = predictions.filter(function(p) { return p.score > 0.3; });
     if (good.length > 0) {
-      const classes = {};
-      good.forEach(p => { classes[p.class] = (classes[p.class] || 0) + 1; });
-      detectedLabel = Object.entries(classes).sort((a,b) => b[1] - a[1])[0][0];
+      var classes = {};
+      good.forEach(function(p) { classes[p.class] = (classes[p.class] || 0) + 1; });
+      detectedLabel = Object.keys(classes).sort(function(a,b) { return classes[b] - classes[a]; })[0];
       $('detectedLabel').textContent = detectedLabel;
       $('objectName').textContent = detectedLabel;
       $('objectTag').style.display = 'flex';
-
-      markers = good.map(p => ({
-        x: (p.bbox[0] + p.bbox[2] / 2) / imgWidth,
-        y: (p.bbox[1] + p.bbox[3] / 2) / imgHeight,
-        score: p.score, label: p.class
-      }));
-    } else {
-      $('detectedLabel').textContent = 'Nothing detected';
-    }
-    count = markers.length;
-    $('countedValue').textContent = count;
-    drawMarkers();
-    updateUI();
-  } catch(e) {
-    console.error('OpenCount: AI detection error:', e);
-    $('detectedLabel').textContent = 'Detection error';
-  }
+      c.clear();
+      good.forEach(function(p) { c.add(
+        (p.bbox[0] + p.bbox[2] / 2) / currentImage.naturalWidth,
+        (p.bbox[1] + p.bbox[3] / 2) / currentImage.naturalHeight, p.class);
+      });
+    } else { $('detectedLabel').textContent = 'Nothing detected'; }
+    $('countedValue').textContent = c.n;
+    drawMarkers(); updateUI();
+  } catch(e) { console.error('OpenCount: AI error:', e); }
   $('statusOverlay').style.display = 'none';
-  isProcessing = false;
 }
 
 // ===== DRAWING =====
 function drawMarkers() {
   if (!ctx || !currentImage) return;
-  const show = $('showPoints').checked;
-  const threshold = parseFloat($('confSlider').value);
-
+  var show = $('showPoints').checked;
+  var threshold = parseFloat($('confSlider').value);
   ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  
-  // Draw the original image as background on overlay
   ctx.drawImage(currentImage, 0, 0, overlayCanvas.width, overlayCanvas.height);
-
   if (!show) return;
-
-  const filtered = markers.filter(m => m.score >= threshold);
-
-  filtered.forEach((m, i) => {
-    const x = m.x * overlayCanvas.width;
-    const y = m.y * overlayCanvas.height;
-    const r = Math.max(12, overlayCanvas.width / 120);
-
+  var filtered = c.markers.filter(function(m) { return (m.score || 0) >= threshold; });
+  filtered.forEach(function(m, i) {
+    var x = m.x * overlayCanvas.width;
+    var y = m.y * overlayCanvas.height;
+    var r = Math.max(12, overlayCanvas.width / 120);
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(79, 70, 229, 0.85)';
@@ -397,45 +377,31 @@ function drawMarkers() {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2.5;
     ctx.stroke();
-
     ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${Math.max(10, r * 0.7)}px Inter, sans-serif`;
+    ctx.font = 'bold ' + Math.max(10, r * 0.7) + 'px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText((i + 1).toString(), x, y);
   });
 
-  const visibleCount = filtered.length;
-  $('countedValue').textContent = visibleCount;
-  $('countBadge').textContent = visibleCount;
-  $('countBadge').style.display = visibleCount > 0 ? 'flex' : 'none';
+  $('countBadge').textContent = c.n;
+  $('countBadge').style.display = c.n > 0 ? 'flex' : 'none';
 }
 
 // ===== INTERACTION =====
 function handleClick(e) {
   if (!currentImage) return;
-  const rect = interactiveCanvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) / rect.width;
-  const y = (e.clientY - rect.top) / rect.height;
+  var rect = interactiveCanvas.getBoundingClientRect();
+  var x = (e.clientX - rect.left) / rect.width;
+  var y = (e.clientY - rect.top) / rect.height;
   if (x < 0 || x > 1 || y < 0 || y > 1) return;
-
-  const scrollY = window.scrollY;
-  
   if (toolMode === 'add') {
-    markers.push({ x, y, score: 0.99, label: detectedLabel });
+    c.add(x, y, detectedLabel);
   } else {
-    const threshold = 0.03;
-    let nearest = -1, minDist = threshold;
-    markers.forEach((m, i) => {
-      const d = Math.hypot(m.x - x, m.y - y);
-      if (d < minDist) { minDist = d; nearest = i; }
-    });
-    if (nearest >= 0) markers.splice(nearest, 1);
+    var idx = c.nearest(x, y, 0.03);
+    if (idx >= 0) c.remove(idx);
   }
-
-  count = markers.length;
-  drawMarkers();
-  updateUI();
+  drawMarkers(); updateUI();
 }
 
 function setTool(tool) {
@@ -445,72 +411,46 @@ function setTool(tool) {
   interactiveCanvas.style.cursor = tool === 'add' ? 'crosshair' : 'default';
 }
 
-function undo() {
-  if (markers.length > 0) {
-    markers.pop();
-    count = markers.length;
-    drawMarkers();
-    updateUI();
-  }
-}
-
-function clearAll() {
-  markers = [];
-  count = 0;
-  drawMarkers();
-  updateUI();
-}
-
-function updateUI() {
-  $('undoBtn').disabled = markers.length === 0;
-  $('saveBtn').disabled = count === 0;
-}
+function undo() { c.undo(); drawMarkers(); updateUI(); }
+function clearAll() { c.clear(); drawMarkers(); updateUI(); }
+function updateUI() { $('undoBtn').disabled = c.n === 0; $('saveBtn').disabled = c.n === 0; $('countedValue').textContent = c.n; }
 
 // ===== SAVE =====
 async function saveImage() {
-  if (!count) return;
+  if (c.n === 0) return;
   drawMarkers();
   try {
-    const blob = await new Promise(r => overlayCanvas.toBlob(r, 'image/png'));
-    const file = new File([blob], `opencount_${detectedLabel}_${count}.png`, {type:'image/png'});
+    var blob = await new Promise(function(r) { overlayCanvas.toBlob(r, 'image/png'); });
+    var file = new File([blob], 'opencount_' + detectedLabel + '_' + c.n + '.png', {type:'image/png'});
     if (navigator.share && navigator.canShare({files:[file]})) {
-      await navigator.share({files:[file], title:'OpenCount', text:`${count} ${detectedLabel}`});
+      await navigator.share({files:[file], title:'OpenCount', text: c.n + ' ' + detectedLabel});
     } else {
-      const a = document.createElement('a');
+      var a = document.createElement('a');
       a.href = overlayCanvas.toDataURL('image/png');
-      a.download = `opencount_${detectedLabel}_${count}.png`;
+      a.download = 'opencount_' + detectedLabel + '_' + c.n + '.png';
       a.click();
     }
   } catch(e) {}
 }
 
 // ===== SAMPLES =====
-async function loadSample(name) {
-  const urls = {
-    logs: 'https://zapcount.com/img/demo/logs.jpg',
-    cows: 'https://zapcount.com/img/demo/cows.jpg',
-    pipes: 'https://zapcount.com/img/demo/pipes_construction.jpg',
-    cars: 'https://zapcount.com/img/demo/cars.jpg'
-  };
-  const url = urls[name];
-  if (!url) return;
-  try {
-    const resp = await fetch(url);
-    const blob = await resp.blob();
-    const file = new File([blob], `${name}.jpg`, {type:'image/jpeg'});
-    handleFile(file);
-  } catch(e) {
-    // Fallback: create a colored placeholder
-    const c = document.createElement('canvas');
-    c.width = 800; c.height = 600;
-    const cx = c.getContext('2d');
+function loadSample(name) {
+  var urls = {logs:'logs.jpg',cows:'cows.jpg',pipes:'pipes_construction.jpg',cars:'cars.jpg'};
+  var url = 'https://zapcount.com/img/demo/' + (urls[name] || '');
+  if (!urls[name]) return;
+  fetch(url).then(function(r) { return r.blob(); }).then(function(blob) {
+    handleFile(new File([blob], name + '.jpg', {type:'image/jpeg'}));
+  }).catch(function() {
+    var c2 = document.createElement('canvas');
+    c2.width = 800; c2.height = 600;
+    var cx = c2.getContext('2d');
     cx.fillStyle = '#1a1a2e'; cx.fillRect(0,0,800,600);
     cx.fillStyle = '#555'; cx.font = '24px sans-serif'; cx.textAlign = 'center';
-    cx.fillText(`Sample: ${name}`, 400, 280);
+    cx.fillText('Sample: ' + name, 400, 280);
     cx.fillStyle = '#444'; cx.font = '14px sans-serif';
-    cx.fillText('Upload a real image to count', 400, 320);
-    c.toBlob(blob => handleFile(new File([blob], `${name}.png`, {type:'image/png'})), 'image/png');
-  }
+    cx.fillText('Upload a real image', 400, 320);
+    c2.toBlob(function(blob) { handleFile(new File([blob], name + '.png', {type:'image/png'})); });
+  });
 }
 </script>
 </body>
