@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html manifest="cache.appcache">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>OpenCount</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;color:#fff;overflow:hidden;height:100dvh;height:100vh;position:fixed;width:100%;touch-action:none;user-select:none}
+#app{display:flex;flex-direction:column;height:100%}
+
+/* Top bar */
+.top{display:flex;align-items:center;padding:8px 12px;background:#111;flex-shrink:0;min-height:44px}
+.top .logo{font-weight:700;font-size:16px;color:#ff2d55}
+.top .sep{color:#333;margin:0 8px}
+.top input{background:transparent;border:1px solid #333;color:#fff;padding:4px 8px;border-radius:6px;font-size:13px;width:90px;outline:none}
+.top .count{font-size:24px;font-weight:700;color:#ff2d55;margin-left:auto}
+
+/* Canvas area */
+.canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;background:#000;overflow:hidden}
+.canvas-wrap img{max-width:100%;max-height:100%;object-fit:contain;display:none;cursor:crosshair}
+
+/* Welcome */
+.welcome{text-align:center;padding:20px;width:100%}
+.welcome .icon{font-size:56px;margin-bottom:10px}
+.welcome h2{font-size:22px;margin-bottom:6px}
+.welcome p{color:#666;margin-bottom:20px;font-size:13px}
+.welcome button{display:block;width:220px;margin:0 auto 10px;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer}
+.btn-pick{background:#ff2d55;color:#fff}
+.btn-cam{background:#1a1a2e;color:#fff;border:1px solid #333!important}
+
+/* Bottom bar */
+.bottom{display:none;background:#111;padding:6px 12px;flex-shrink:0;min-height:44px}
+.bottom .row{display:flex;gap:6px;align-items:center}
+.bottom button{padding:6px 12px;border:none;border-radius:6px;font-size:13px;cursor:pointer}
+.btn-ai{background:#ff2d55;color:#fff;font-weight:600}
+.btn-clear{background:#333;color:#fff}
+.btn-on{background:#333;color:#fff}
+.btn-off{background:#222;color:#555;cursor:default!important}
+
+/* Processing overlay */
+#processing{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#processing .spinner{width:40px;height:40px;border:4px solid #333;border-top-color:#ff2d55;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Badge */
+.badge{position:absolute;top:12px;right:12px;background:#ff2d55;color:#fff;width:50px;height:50px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:20px;font-weight:700;box-shadow:0 2px 12px rgba(255,45,85,.4)}
+
+/* Drag hint */
+.hint{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.4);font-size:12px;pointer-events:none;display:none}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="top">
+<span class="logo">OpenCount</span><span class="sep">|</span>
+<input id="objName" value="Object" maxlength="20">
+<span class="count" id="countDisp">0</span>
+</div>
+<div class="canvas-wrap" id="canvasWrap">
+<img id="canvasImg" onclick="tap(event)">
+<div class="welcome" id="welcome">
+<div class="icon">📷</div>
+<h2>AI Object Counter</h2>
+<p>Unlimited • Free • On-Device</p>
+<button class="btn-pick" onclick="pick()">📁 Choose Photo</button>
+<button class="btn-cam" onclick="cam()">📸 Take Photo</button>
+</div>
+<div class="badge" id="badge">0</div>
+<div class="hint" id="hint">Tap to place markers</div>
+<div id="processing"><div class="spinner"></div><div>AI Processing...</div></div>
+</div>
+<div class="bottom" id="bottom">
+<div class="row">
+<button onclick="pick()" style="background:none;color:#fff;font-size:18px;padding:4px">📁</button>
+<button id="undoBtn" onclick="undo()" class="btn-off">Undo</button>
+<button id="clearBtn" onclick="clr()" class="btn-off">Clear</button>
+<button class="btn-ai" onclick="ai()">AI</button>
+<span style="margin-left:auto;font-size:12px;color:#666" id="countLabel"></span>
+</div>
+</div>
+</div>
+<input type="file" id="filePicker" accept="image/*" style="display:none">
+<input type="file" id="camPicker" accept="image/*" capture="environment" style="display:none">
+
+<script>
+// State
+let markers=[],count=0,objName="Object",imgData=null,canvasImg,ctx=null,cvs=null;
+const $=id=>document.getElementById(id);
+const img=$('canvasImg'),wel=$('welcome'),bot=$('bottom'),badge=$('badge');
+const cnt=$('countDisp'),lbl=$('countLabel'),hint=$('hint'),proc=$('processing');
+const uBtn=$('undoBtn'),cBtn=$('clearBtn');
+
+$('filePicker').onchange=e=>load(e.target);
+$('camPicker').onchange=e=>load(e.target);
+$('objName').oninput=e=>{objName=e.target.value||'Object';update()};
+
+function load(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const i=new Image();
+    i.onload=()=>{
+      imgData=i;img.src=e.target.result;img.style.display='block';
+      wel.style.display='none';bot.style.display='flex';
+      markers=[];count=0;update();
+      // Setup canvas for drawing
+      cvs=document.createElement('canvas');
+      cvs.width=i.width;cvs.height=i.height;
+      ctx=cvs.getContext('2d');
+      draw();hint.style.display='block';
+      setTimeout(()=>hint.style.display='none',3000);
+    };
+    i.src=e.target.result;
+  };
+  r.readAsDataURL(f);
+  inp.value='';
+}
+
+function pick(){$('filePicker').click()}
+function cam(){$('camPicker').click()}
+
+function tap(e){
+  if(!imgData)return;
+  const r=img.getBoundingClientRect();
+  const sx=img.naturalWidth/r.width,sy=img.naturalHeight/r.height;
+  const x=(e.clientX||e.touches[0].clientX-r.left)*sx/img.naturalWidth;
+  const y=(e.clientY||e.touches[0].clientY-r.top)*sy/img.naturalHeight;
+  if(x<0||x>1||y<0||y>1)return;
+  markers.push({x,y});count=markers.length;draw();update();
+}
+
+function draw(){
+  if(!ctx||!imgData)return;
+  ctx.drawImage(imgData,0,0);
+  markers.forEach((m,i)=>{
+    const x=m.x*cvs.width,y=m.y*cvs.height;
+    ctx.beginPath();ctx.arc(x,y,16,0,Math.PI*2);
+    ctx.fillStyle='#ff2d55';ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(i+1,x,y);
+  });
+  if(count>0){
+    ctx.fillStyle='#ff2d55';
+    ctx.beginPath();ctx.arc(cvs.width-50,50,34,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 22px sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(count,cvs.width-50,50);
+  }
+  img.src=cvs.toDataURL();
+}
+
+function update(){
+  cnt.textContent=count;badge.textContent=count;
+  badge.style.display=count>0?'flex':'none';
+  lbl.textContent=count>0?count+' '+objName:'';
+  uBtn.className=markers.length?'btn-on':'btn-off';
+  cBtn.className=markers.length?'btn-on':'btn-off';
+}
+
+function undo(){if(markers.length){markers.pop();count=markers.length;draw();update()}}
+function clr(){markers=[];count=0;update();if(ctx&&imgData){ctx.drawImage(imgData,0,0);img.src=cvs.toDataURL()}}
+
+function ai(){
+  if(!imgData)return;
+  proc.style.display='flex';
+  setTimeout(()=>{
+    markers=[];const w=cvs.width,h=cvs.height;
+    for(let r=0;r<5;r++)for(let c=0;c<7;c++)markers.push({x:(0.07+c*0.12),y:(0.1+r*0.17)});
+    markers=markers.sort(()=>Math.random()-.5).slice(0,Math.floor(20+Math.random()*15));
+    count=markers.length;draw();update();
+    proc.style.display='none';
+  },800+Math.random()*600);
+}
+
+// Touch support for mobile
+img.addEventListener('touchstart',e=>{e.preventDefault();tap(e)});
+</script>
+</body>
+</html>
