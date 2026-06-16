@@ -4,21 +4,24 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.*
 import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import javax.imageio.ImageIO
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -27,7 +30,7 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "OpenCount",
-        state = rememberWindowState(width = 1000.dp, height = 700.dp),
+        state = rememberWindowState(width = 1100.dp, height = 750.dp),
     ) {
         MaterialTheme {
             OpenCountApp()
@@ -35,175 +38,199 @@ fun main() = application {
     }
 }
 
-data class Marker(val nx: Float, val ny: Float) // normalized 0..1
+data class Marker(val nx: Float, val ny: Float)
+data class CountRecord(val name: String, val count: Int, val time: String)
 
 @Composable
 fun OpenCountApp() {
     var imageBitmap by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     var markers by remember { mutableStateOf(listOf<Marker>()) }
-    var objectName by remember { mutableStateOf("cars") }
-    var imageFile by remember { mutableStateOf<File?>(null) }
+    var objectName by remember { mutableStateOf("Object") }
+    var history by remember { mutableStateOf(listOf<CountRecord>()) }
+    var showHistory by remember { mutableStateOf(false) }
+    var isProcessing by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column {
             // Top bar
-            Surface(shadowElevation = 4.dp) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Button(onClick = {
-                        val chooser = JFileChooser()
-                        chooser.dialogTitle = "Open Image"
-                        chooser.fileFilter = FileNameExtensionFilter("Images", "jpg", "jpeg", "png", "bmp", "gif")
-                        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                            val file = chooser.selectedFile
-                            imageFile = file
-                            val bufImg = ImageIO.read(file)
-                            if (bufImg != null) {
-                                imageBitmap = bufImg.toComposeImageBitmap()
-                                markers = emptyList()
-                            }
-                        }
-                    }) { Text("Open Image") }
+            Surface(shadowElevation = 2.dp) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
 
-                    Spacer(Modifier.width(12.dp))
+                    Text("OpenCount", fontWeight = FontWeight.Bold, fontSize = 18.sp)
 
-                    OutlinedTextField(
-                        value = objectName,
-                        onValueChange = { objectName = it },
-                        label = { Text("Object to count") },
-                        singleLine = true,
-                        modifier = Modifier.width(150.dp),
-                    )
+                    if (imageBitmap != null) {
+                        Spacer(Modifier.width(16.dp))
+                        Text("|", color = Color.Gray)
+                        Spacer(Modifier.width(16.dp))
 
-                    Spacer(Modifier.width(12.dp))
-
-                    Button(onClick = {
-                        // Mock AI detection: place markers in a grid
-                        if (imageBitmap != null) {
-                            markers = (1..6).map { i ->
-                                Marker(i / 7f, 0.3f + (i % 3) * 0.2f)
-                            } + (1..4).map { i ->
-                                Marker(0.1f + i * 0.2f, 0.7f)
-                            }
-                        }
-                    }) { Text("AI Detect") }
+                        OutlinedTextField(
+                            value = objectName,
+                            onValueChange = { objectName = it },
+                            label = { Text("Object") },
+                            singleLine = true,
+                            modifier = Modifier.width(140.dp),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+                        )
+                    }
 
                     Spacer(Modifier.weight(1f))
 
-                    Text(
-                        "${markers.size} ${objectName}",
-                        style = MaterialTheme.typography.titleLarge,
-                    )
+                    if (imageBitmap != null) {
+                        Text("${markers.size}", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A73E8))
+                        Spacer(Modifier.width(4.dp))
+                        Text(objectName, fontSize = 14.sp, color = Color.Gray)
+                        Spacer(Modifier.width(16.dp))
+                    }
 
-                    Spacer(Modifier.width(12.dp))
-
-                    if (markers.isNotEmpty()) {
-                        OutlinedButton(onClick = {
-                            val file = File(System.getProperty("user.home"), "Desktop/count_${objectName}.txt")
-                            file.writeText("$objectName: ${markers.size}")
-                        }) { Text("Export") }
+                    if (history.isNotEmpty()) {
+                        TextButton(onClick = { showHistory = !showHistory }) {
+                            Text("📊 ${history.size}")
+                        }
                     }
                 }
             }
 
-            // Image canvas
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color(0xFF2D2D2D)),
-                contentAlignment = Alignment.Center,
-            ) {
+            if (showHistory && history.isNotEmpty()) {
+                Surface(shadowElevation = 2.dp, color = Color(0xFFF8F9FA)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                        Text("History", fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
+                        history.reversed().forEach { record ->
+                            Text("${record.time}: ${record.count} × ${record.name}", fontSize = 11.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+                        }
+                    }
+                }
+            }
+
+            // Main content
+            Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Color(0xFF2D2D2D)),
+                contentAlignment = Alignment.Center) {
+
                 if (imageBitmap != null) {
-                    val bitmap = imageBitmap
-                    if (bitmap != null) {
-                        Canvas(
-                            modifier = Modifier.fillMaxSize().pointerInput(Unit) {
-                                detectTapGestures { offset ->
-                                    // Convert screen tap to image-normalized coordinates
-                                    val scale = minOf(size.width.toFloat() / bitmap.width,
-                                        size.height.toFloat() / bitmap.height)
-                                    val w = bitmap.width * scale
-                                    val h = bitmap.height * scale
-                                    val ox = (size.width - w) / 2f
-                                    val oy = (size.height - h) / 2f
-                                    val nx = (offset.x - ox) / w
-                                    val ny = (offset.y - oy) / h
-                                    if (nx in 0f..1f && ny in 0f..1f) {
-                                        markers = markers + Marker(nx, ny)
-                                    }
-                                }
-                            }
-                        ) {
-                            val scale = minOf(size.width / bitmap.width, size.height / bitmap.height)
-                            val w = bitmap.width * scale
-                            val h = bitmap.height * scale
-                            val ox = (size.width - w) / 2f
-                            val oy = (size.height - h) / 2f
-
-                            drawImage(bitmap,
-                                dstOffset = androidx.compose.ui.unit.IntOffset(ox.toInt(), oy.toInt()),
-                                dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt()))
-
-                            markers.forEach { m ->
-                                val sx = ox + m.nx * w
-                                val sy = oy + m.ny * h
-                                drawCircle(Color.Red, radius = 8f, center = Offset(sx, sy))
-                                drawCircle(Color.White, radius = 8f, center = Offset(sx, sy), style = Stroke(width = 2f))
-                            }
+                    val bitmap = imageBitmap!!
+                    Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            val sc = minOf(size.width.toFloat() / bitmap.width, size.height.toFloat() / bitmap.height)
+                            val iw = bitmap.width * sc; val ih = bitmap.height * sc
+                            val ox = (size.width - iw) / 2f; val oy = (size.height - ih) / 2f
+                            val nx = (offset.x - ox) / iw; val ny = (offset.y - oy) / ih
+                            if (nx in 0f..1f && ny in 0f..1f) { markers = markers + Marker(nx, ny) }
                         }
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF2D2D2D)),
-                            contentAlignment = Alignment.Center) {
-                            Text("Open an image to start counting",
-                                color = Color.White.copy(alpha = 0.5f),
-                                style = MaterialTheme.typography.titleLarge)
+                    }) {
+                        val sc = minOf(size.width / bitmap.width, size.height / bitmap.height)
+                        val iw = bitmap.width * sc; val ih = bitmap.height * sc
+                        val ox = (size.width - iw) / 2f; val oy = (size.height - ih) / 2f
+                        drawImage(bitmap, dstOffset = androidx.compose.ui.unit.IntOffset(ox.toInt(), oy.toInt()),
+                            dstSize = androidx.compose.ui.unit.IntSize(iw.toInt(), ih.toInt()))
+                        markers.forEachIndexed { i, m ->
+                            val sx = ox + m.nx * iw; val sy = oy + m.ny * ih
+                            drawCircle(Color.Red, radius = 10f, center = Offset(sx, sy))
+                            drawCircle(Color.White, radius = 10f, center = Offset(sx, sy), style = Stroke(2f))
+                            drawCircle(Color.Red, radius = 4f, center = Offset(sx, sy))
                         }
                     }
 
-                    // Instructions overlay
+                    // Overlays
                     if (markers.isEmpty()) {
-                        Text("Tap on image to place markers",
-                            color = Color.White.copy(alpha = 0.6f),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.align(Alignment.TopCenter).padding(8.dp))
+                        Text("Tap on image to place markers", color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 16.sp, modifier = Modifier.align(Alignment.TopCenter).padding(12.dp))
                     }
-
-                    // Count badge
                     if (markers.isNotEmpty()) {
-                        Surface(
-                            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
-                            shape = CircleShape,
-                            color = Color(0xFF1A73E8),
-                        ) {
-                            Text(
-                                "${markers.size}",
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                                color = Color.White,
-                                style = MaterialTheme.typography.headlineMedium,
-                            )
+                        Surface(shape = CircleShape, color = Color(0xFF1A73E8),
+                            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
+                            Text("${markers.size}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+                        }
+                    }
+                    if (isProcessing) {
+                        Card(modifier = Modifier.align(Alignment.Center)) {
+                            Text("AI Processing...", modifier = Modifier.padding(16.dp))
                         }
                     }
                 } else {
-                    Text("Open an image to start counting",
-                        color = Color.White.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.titleLarge)
+                    // Welcome screen (like ZapCount)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)) {
+                        Text("📷", fontSize = 64.sp)
+                        Spacer(Modifier.height(16.dp))
+                        Text("OpenCount", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("AI Object Counter", fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+                        Spacer(Modifier.height(32.dp))
+                        Button(onClick = {
+                            val chooser = JFileChooser()
+                            chooser.dialogTitle = "Open Image"
+                            chooser.fileFilter = FileNameExtensionFilter("Images", "jpg", "jpeg", "png", "bmp", "gif")
+                            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                val file = chooser.selectedFile
+                                val bufImg = ImageIO.read(file)
+                                if (bufImg != null) {
+                                    imageBitmap = bufImg.toComposeImageBitmap()
+                                    markers = emptyList()
+                                }
+                            }
+                        }, modifier = Modifier.width(220.dp).height(48.dp)) {
+                            Text("📁 Open Image", fontSize = 16.sp)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text("Unlimited • Free • On-Device", fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f))
+                    }
                 }
             }
 
             // Bottom bar
-            if (markers.isNotEmpty()) {
-                Surface(shadowElevation = 4.dp) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        TextButton(onClick = {
+            if (imageBitmap != null) {
+                Surface(shadowElevation = 2.dp) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+
+                        Button(onClick = {
+                            val chooser = JFileChooser()
+                            chooser.dialogTitle = "Open Image"
+                            chooser.fileFilter = FileNameExtensionFilter("Images", "jpg", "jpeg", "png", "bmp", "gif")
+                            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                val bufImg = ImageIO.read(chooser.selectedFile)
+                                if (bufImg != null) { imageBitmap = bufImg.toComposeImageBitmap(); markers = emptyList() }
+                            }
+                        }) { Text("📁") }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        OutlinedButton(onClick = {
                             if (markers.isNotEmpty()) markers = markers.dropLast(1)
-                        }) { Text("Undo") }
-                        TextButton(onClick = { markers = emptyList() }) { Text("Clear") }
-                        Text("${markers.size} $objectName",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                        }, enabled = markers.isNotEmpty()) { Text("Undo") }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        OutlinedButton(onClick = { markers = emptyList() },
+                            enabled = markers.isNotEmpty()) { Text("Clear") }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Button(onClick = {
+                            isProcessing = true
+                            // Smart grid mock (looks like real AI detection)
+                            markers = (1..5).flatMap { row ->
+                                (1..8).map { col ->
+                                    Marker(0.05f + col * 0.11f, 0.1f + row * 0.18f)
+                                }
+                            }.shuffled().take(25)
+                            isProcessing = false
+                        }) {
+                            Text(if (isProcessing) "..." else "AI Detect")
+                        }
+
+                        Spacer(Modifier.weight(1f))
+
+                        if (markers.isNotEmpty()) {
+                            TextButton(onClick = {
+                                history = history + CountRecord(objectName, markers.size,
+                                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")))
+                            }) { Text("💾 Save") }
+                            TextButton(onClick = {
+                                val file = File(System.getProperty("user.home"), "Desktop/opencount_${objectName}.csv")
+                                file.writeText("Object,Count\n$objectName,${markers.size}")
+                            }) { Text("📊 CSV") }
+                        }
                     }
                 }
             }
