@@ -49,6 +49,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;col
 #processing .spinner{width:40px;height:40px;border:4px solid #333;border-top-color:#ff2d55;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Result panel */
+.result{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);backdrop-filter:blur(10px);border-radius:16px;padding:12px 24px;display:none;align-items:center;gap:16px;min-width:200px;justify-content:center;border:1px solid rgba(255,255,255,.1)}
+.result .icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.result .label{font-size:11px;color:#888}
+.result .val{font-size:18px;font-weight:700;color:#fff}
+
+/* Object type tag */
+.tag{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);border-radius:20px;padding:6px 14px;display:none;align-items:center;gap:6px;font-size:13px;border:1px solid rgba(255,255,255,.1)}
+
 /* Badge */
 .badge{position:absolute;top:12px;right:12px;background:#ff2d55;color:#fff;width:50px;height:50px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:20px;font-weight:700;box-shadow:0 2px 12px rgba(255,45,85,.4)}
 
@@ -72,7 +81,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;col
 <button class="btn-pick" onclick="pick()">📁 Choose Photo</button>
 <button class="btn-cam" onclick="cam()">📸 Take Photo</button>
 </div>
+<div class="tag" id="objTag"></div>
 <div class="badge" id="badge">0</div>
+<div class="result" id="result">
+<div class="icon" id="resultIcon" style="background:#ff2d55">✓</div>
+<div><div class="label" id="resultLabel">Detected</div><div class="val" id="resultVal">0</div></div>
+</div>
 <div class="hint" id="hint">Tap to place markers</div>
 <div id="processing"><div class="spinner"></div><div>AI Processing...</div></div>
 </div>
@@ -81,8 +95,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;col
 <button onclick="pick()" style="background:none;color:#fff;font-size:18px;padding:4px">📁</button>
 <button id="undoBtn" onclick="undo()" class="btn-off">Undo</button>
 <button id="clearBtn" onclick="clr()" class="btn-off">Clear</button>
-<button class="btn-ai" onclick="ai()">AI</button>
-<span style="margin-left:auto;font-size:12px;color:#666" id="countLabel"></span>
+<button class="btn-ai" onclick="ai()" id="aiBtn">AI</button>
+<button id="saveBtn" onclick="saveImg()" class="btn-off" style="margin-left:auto">💾 Save</button>
 </div>
 </div>
 </div>
@@ -91,11 +105,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;col
 
 <script>
 // State
-let markers=[],count=0,objName="Object",imgData=null,canvasImg,ctx=null,cvs=null;
+let markers=[],count=0,objName="Object",imgData=null,ctx=null,cvs=null,detectedClass="";
 const $=id=>document.getElementById(id);
-const img=$('canvasImg'),wel=$('welcome'),bot=$('bottom'),badge=$('badge');
-const cnt=$('countDisp'),lbl=$('countLabel'),hint=$('hint'),proc=$('processing');
-const uBtn=$('undoBtn'),cBtn=$('clearBtn');
+const img=$('canvasImg'),wel=$('welcome'),bot=$('bottom'),badge=$('badge'),objTag=$('objTag');
+const cnt=$('countDisp'),hint=$('hint'),proc=$('processing'),result=$('result');
+const rVal=$('resultVal'),rLabel=$('resultLabel'),rIcon=$('resultIcon');
+const uBtn=$('undoBtn'),cBtn=$('clearBtn'),sBtn=$('saveBtn'),aiBtn=$('aiBtn');
 
 $('filePicker').onchange=e=>load(e.target);
 $('camPicker').onchange=e=>load(e.target);
@@ -110,12 +125,13 @@ function load(inp){
       imgData=i;img.src=e.target.result;img.style.display='block';
       wel.style.display='none';bot.style.display='flex';
       markers=[];count=0;update();
-      // Setup canvas for drawing
       cvs=document.createElement('canvas');
       cvs.width=i.width;cvs.height=i.height;
       ctx=cvs.getContext('2d');
       draw();hint.style.display='block';
       setTimeout(()=>hint.style.display='none',3000);
+      // Auto AI detect
+      ai();
     };
     i.src=e.target.result;
   };
@@ -171,21 +187,66 @@ function clr(){markers=[];count=0;update();if(ctx&&imgData){ctx.drawImage(imgDat
 
 async function ai(){
   if(!imgData)return;
-  proc.style.display='flex';
+  aiBtn.textContent='...';proc.style.display='flex';
   try{
     const model=await cocoSsd.load();
     const predictions=await model.detect(cvs);
-    markers=predictions.filter(p=>p.score>0.5).map(p=>({
+    const good=predictions.filter(p=>p.score>0.5);
+    markers=good.map(p=>({
       x:p.bbox[0]/cvs.width+p.bbox[2]/cvs.width/2,
       y:p.bbox[1]/cvs.height+p.bbox[3]/cvs.height/2
     }));
     count=markers.length;draw();update();
-    if(markers.length>0)objName=predictions[0].class;updateUI();
+    if(good.length>0){
+      detectedClass=good[0].class;
+      objName=good[0].class;
+      $('objName').value=good[0].class;
+      objTag.style.display='flex';
+      objTag.innerHTML='<span style="color:#ff2d55">●</span> '+good[0].class;
+      showResult('Detected',count,'#ff2d55');
+    }else{
+      showResult('No objects found',0,'#888');
+    }
   }catch(e){
-    // Fallback: manual counting only
-    console.log('AI model not loaded, use manual counting');
+    showResult('AI offline',0,'#888');
   }
-  proc.style.display='none';
+  proc.style.display='none';aiBtn.textContent='AI';
+}
+
+function showResult(label,val,color){
+  result.style.display='flex';
+  rIcon.style.background=color;
+  rLabel.textContent=label;
+  rVal.textContent=val;
+  setTimeout(()=>result.style.display='none',4000);
+}
+
+// Save annotated image to iOS Photos
+async function saveImg(){
+  if(!cvs||count===0)return;
+  try{
+    // Draw current state to canvas (markers already drawn)
+    const blob=await new Promise(r=>cvs.toBlob(r,'image/png'));
+    const file=new File([blob],'opencount.png',{type:'image/png'});
+    if(navigator.share&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:'OpenCount',text:count+' '+objName});
+    }else{
+      // Fallback: download
+      const a=document.createElement('a');
+      a.href=cvs.toDataURL('image/png');
+      a.download='opencount_'+objName+'.png';
+      a.click();
+    }
+  }catch(e){console.log('Share cancelled')}
+}
+
+// Update save button state
+function update(){
+  cnt.textContent=count;badge.textContent=count;
+  badge.style.display=count>0?'flex':'none';
+  sBtn.className=count>0?'btn-on':'btn-off';
+  uBtn.className=markers.length?'btn-on':'btn-off';
+  cBtn.className=markers.length?'btn-on':'btn-off';
 }
 
 // Touch support for mobile
