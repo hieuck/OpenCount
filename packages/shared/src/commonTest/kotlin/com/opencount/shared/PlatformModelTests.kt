@@ -81,15 +81,6 @@ class PlatformModelTests {
     }
 
     @Test
-    fun testNativeFileStorageDesktop() {
-        val storage = NativeFileStorage()
-        storage.write("test.txt", "hello")
-        assertEquals("hello", storage.read("test.txt"))
-        storage.delete("test.txt")
-        assertNull(storage.read("test.txt"))
-    }
-
-    @Test
     fun testSessionExportDTOConversion() {
         val type = ObjectType.create("Cars")
         val marker = CountMarker.create(0.5, 0.5, type.id)

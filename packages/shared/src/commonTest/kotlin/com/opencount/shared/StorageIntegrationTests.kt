@@ -9,7 +9,7 @@ import kotlin.test.*
 
 class StorageIntegrationTests {
     @Test
-    fun `save and load session`() {
+    fun saveAndLoadSession() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
         val session = CountSession.create("Test 1")
@@ -23,7 +23,7 @@ class StorageIntegrationTests {
     }
 
     @Test
-    fun `save and load multiple sessions`() {
+    fun saveAndLoadMultipleSessions() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
 
@@ -36,7 +36,7 @@ class StorageIntegrationTests {
     }
 
     @Test
-    fun `delete session`() {
+    fun deleteSession() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
         val session = CountSession.create("To Delete")
@@ -50,7 +50,7 @@ class StorageIntegrationTests {
     }
 
     @Test
-    fun `save overwrites existing`() {
+    fun saveOverwritesExisting() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
         val session = CountSession.create("Original")
@@ -65,7 +65,7 @@ class StorageIntegrationTests {
     }
 
     @Test
-    fun `load non-existent returns null`() {
+    fun loadNonExistentReturnsNull() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
 
@@ -74,7 +74,7 @@ class StorageIntegrationTests {
     }
 
     @Test
-    fun `json serialization round trip`() {
+    fun jsonSerializationRoundTrip() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
         val typeA = ObjectType.create("Cars")
@@ -92,7 +92,7 @@ class StorageIntegrationTests {
     }
 
     @Test
-    fun `fake platform tracks operations`() {
+    fun fakePlatformTracksOperations() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
 
@@ -109,7 +109,7 @@ class StorageIntegrationTests {
     }
 
     @Test
-    fun `empty storage returns empty list`() {
+    fun emptyStorageReturnsEmptyList() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
 
@@ -117,7 +117,7 @@ class StorageIntegrationTests {
     }
 
     @Test
-    fun `bulk operations with many sessions`() {
+    fun bulkOperationsWithManySessions() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
 

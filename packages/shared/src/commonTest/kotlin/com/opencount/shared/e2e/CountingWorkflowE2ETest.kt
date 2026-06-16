@@ -24,7 +24,7 @@ class CountingWorkflowE2ETest {
     }
 
     @Test
-    fun `user_counts_objects_and_exports_end_to_end`() {
+    fun userCountsObjectsAndExportsEndToEnd() {
         // Step 1: User creates a new counting session
         val session = CountSession.create("Warehouse Day 1")
         assertEquals("Warehouse Day 1", session.name)
@@ -129,7 +129,7 @@ class CountingWorkflowE2ETest {
     }
 
     @Test
-    fun `user_toggles_between_counting_modes`() {
+    fun userTogglesBetweenCountingModes() {
         val type = ObjectType.create("Items")
         val tallyModeMarkers = (1..10).map {
             CountMarker.create(0.1 * it, 0.1 * it, type.id)

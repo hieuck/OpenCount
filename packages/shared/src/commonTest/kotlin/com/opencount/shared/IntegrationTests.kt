@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  */
 class IntegrationTests {
     @Test
-    fun `full counting workflow`() {
+    fun fullCountingWorkflow() {
         // 1. Create session
         val session = CountSession.create("Warehouse Inventory")
         assertEquals("Warehouse Inventory", session.name)
@@ -57,7 +57,7 @@ class IntegrationTests {
     }
 
     @Test
-    fun `duplicate detection integration`() {
+    fun duplicateDetectionIntegration() {
         val typeA = ObjectType.create("Type A")
         val markers = listOf(
             CountMarker.create(0.5, 0.5, typeA.id),
@@ -74,7 +74,7 @@ class IntegrationTests {
     }
 
     @Test
-    fun `formula evaluation integration`() {
+    fun formulaEvaluationIntegration() {
         val typeA = ObjectType.create("Cars")
         val typeB = ObjectType.create("Trucks")
         val formula = CountFormula(
@@ -100,7 +100,7 @@ class IntegrationTests {
     }
 
     @Test
-    fun `region counting integration`() {
+    fun regionCountingIntegration() {
         val typeA = ObjectType.create("Items")
         val region = CountRegion(
             id = "r1", name = "Zone A",
@@ -129,7 +129,7 @@ class IntegrationTests {
     }
 
     @Test
-    fun `AI detection integration`() {
+    fun aiDetectionIntegration() {
         val rect = NormalizedRect(0.1, 0.1, 0.3, 0.3)
         val detection = AIDetection(
             id = "d1",

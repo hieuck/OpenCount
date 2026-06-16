@@ -9,7 +9,7 @@ import kotlin.test.*
 
 class StressTests {
     @Test
-    fun `large session with 10000 markers`() {
+    fun largeSessionWith10000Markers() {
         val type = ObjectType.create("Items")
         val markers = (1..10000).map { i ->
             CountMarker.create(i.toDouble() / 10000, (i % 100).toDouble() / 100, type.id)
@@ -24,7 +24,7 @@ class StressTests {
     }
 
     @Test
-    fun `large session with many types`() {
+    fun largeSessionWithManyTypes() {
         val types = (1..100).map { ObjectType.create("Type $it") }
         val markers = types.flatMap { type ->
             (1..10).map { CountMarker.create(0.5, 0.5, type.id) }
@@ -40,7 +40,7 @@ class StressTests {
     }
 
     @Test
-    fun `duplicate detection on 5000 markers`() {
+    fun duplicateDetectionOn5000Markers() {
         val markers = (1..5000).map { i ->
             CountMarker.create(i.toDouble() / 5000, i.toDouble() / 5000, "t1")
         }
@@ -49,7 +49,7 @@ class StressTests {
     }
 
     @Test
-    fun `stress formula evaluation`() {
+    fun stressFormulaEvaluation() {
         val formula = CountFormula(id = "f1", name = "Complex", expression = "a + b * c - d / e")
         val tally = mapOf("a" to 100, "b" to 200, "c" to 300, "d" to 400, "e" to 500)
         val results = (1..1000).map { FormulaEvaluator.evaluate(formula, tally) }
@@ -58,7 +58,7 @@ class StressTests {
     }
 
     @Test
-    fun `region tally with 1000 markers`() {
+    fun regionTallyWith1000Markers() {
         val type = ObjectType.create("Items")
         val region = CountRegion(
             id = "r1", name = "Zone", shapeType = RegionShapeType.Rectangle,
@@ -77,7 +77,7 @@ class StressTests {
     }
 
     @Test
-    fun `export large session`() {
+    fun exportLargeSession() {
         val cars = ObjectType.create("Cars")
         val trucks = ObjectType.create("Trucks")
         val markers = (1..500).map { i ->
@@ -96,7 +96,7 @@ class StressTests {
     }
 
     @Test
-    fun `storage fake with 1000 sessions`() {
+    fun storageFakeWith1000Sessions() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
         (1..1000).forEach { i ->
@@ -110,7 +110,7 @@ class StressTests {
     }
 
     @Test
-    fun `large marker with ai derived mix`() {
+    fun largeMarkerWithAiDerivedMix() {
         val type = ObjectType.create("Items")
         val markers = (1..2000).map { i ->
             CountMarker.create(0.5, 0.5, type.id, isAIDerived = i % 3 == 0)

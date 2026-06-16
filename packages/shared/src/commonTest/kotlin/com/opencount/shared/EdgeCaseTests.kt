@@ -9,32 +9,32 @@ import kotlin.test.*
 
 class EdgeCaseTests {
     @Test
-    fun `region contains polygon with 2 points`() {
+    fun regionContainsPolygonWith2Points() {
         val region = CountRegion(id = "r1", name = "Bad", shapeType = RegionShapeType.Polygon,
             normalizedPoints = listOf(NormalizedPoint(0.1, 0.1), NormalizedPoint(0.9, 0.9)))
         assertFalse(region.contains(NormalizedPoint(0.5, 0.5)))
     }
 
     @Test
-    fun `region contains ellipse with 1 point`() {
+    fun regionContainsEllipseWith1Point() {
         val region = CountRegion(id = "r1", name = "Bad", shapeType = RegionShapeType.Ellipse,
             normalizedPoints = listOf(NormalizedPoint(0.5, 0.5)))
         assertFalse(region.contains(NormalizedPoint(0.5, 0.5)))
     }
 
     @Test
-    fun `duplicate detection empty list`() {
+    fun duplicateDetectionEmptyList() {
         assertTrue(DuplicateDetector.findDuplicates(emptyList()).isEmpty())
     }
 
     @Test
-    fun `duplicate detection single marker`() {
+    fun duplicateDetectionSingleMarker() {
         val marker = CountMarker.create(0.5, 0.5, "t1")
         assertTrue(DuplicateDetector.findDuplicates(listOf(marker)).isEmpty())
     }
 
     @Test
-    fun `counter empty session`() {
+    fun counterEmptySession() {
         val session = CountSession.create("Empty")
         assertEquals(0, Counter.totalCount(session))
         assertTrue(Counter.tallyByType(session).isEmpty())
@@ -43,7 +43,7 @@ class EdgeCaseTests {
     }
 
     @Test
-    fun `export empty session`() {
+    fun exportEmptySession() {
         val session = CountSession.create("Empty")
         val export = ExportService()
         val csv = export.exportToCsv(session)
@@ -53,33 +53,33 @@ class EdgeCaseTests {
     }
 
     @Test
-    fun `nms with single detection`() {
+    fun nmsWithSingleDetection() {
         val d = AIDetection("1", NormalizedRect(0.0, 0.0, 0.5, 0.5), "obj", 0.9f)
         val result = NMS.nonMaximumSuppression(listOf(d))
         assertEquals(1, result.size)
     }
 
     @Test
-    fun `nms with zero confidence`() {
+    fun nmsWithZeroConfidence() {
         val d = AIDetection("1", NormalizedRect(0.0, 0.0, 0.5, 0.5), "obj", 0.0f)
         val result = NMS.nonMaximumSuppression(listOf(d))
         assertTrue(result.isEmpty())
     }
 
     @Test
-    fun `session with special characters in name`() {
+    fun sessionWithSpecialCharactersInName() {
         val session = CountSession.create("Test: \"Quoted\", <Tag> & More!")
         assertEquals("Test: \"Quoted\", <Tag> & More!", session.name)
     }
 
     @Test
-    fun `object type with empty name`() {
+    fun objectTypeWithEmptyName() {
         val type = ObjectType.create("")
         assertEquals("", type.name)
     }
 
     @Test
-    fun `counter respects object type boundaries`() {
+    fun counterRespectsObjectTypeBoundaries() {
         val a = ObjectType.create("A")
         val b = ObjectType.create("B")
         val markers = listOf(
@@ -96,14 +96,14 @@ class EdgeCaseTests {
     }
 
     @Test
-    fun `duplicate detection across type boundaries`() {
+    fun duplicateDetectionAcrossTypeBoundaries() {
         val a = CountMarker.create(0.5, 0.5, "typeA")
         val b = CountMarker.create(0.51, 0.51, "typeB")
         assertFalse(DuplicateDetector.isDuplicate(b, listOf(a), threshold = 0.05))
     }
 
     @Test
-    fun `region boundary contains`() {
+    fun regionBoundaryContains() {
         val region = CountRegion(id = "r1", name = "R", shapeType = RegionShapeType.Rectangle,
             normalizedPoints = listOf(NormalizedPoint(0.0, 0.0), NormalizedPoint(0.5, 0.5)))
         assertFalse(region.contains(NormalizedPoint(0.5, 0.5)))
@@ -111,7 +111,7 @@ class EdgeCaseTests {
     }
 
     @Test
-    fun `storage round trip with all fields`() {
+    fun storageRoundTripWithAllFields() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
         val type = ObjectType.create("Test")

@@ -8,7 +8,7 @@ import kotlin.test.*
 
 class PropertyBasedTests {
     @Test
-    fun `tally total equals marker count`() {
+    fun tallyTotalEqualsMarkerCount() {
         val type = ObjectType.create("Items")
         val markers = (1..50).map { CountMarker.create(it * 0.01, it * 0.01, type.id) }
         val session = CountSession.create("Test").copy(
@@ -21,7 +21,7 @@ class PropertyBasedTests {
     }
 
     @Test
-    fun `marker count sums to manual plus ai`() {
+    fun markerCountSumsToManualPlusAi() {
         val type = ObjectType.create("Items")
         val markers = (1..30).map {
             CountMarker.create(it * 0.01, it * 0.01, type.id, isAIDerived = it % 2 == 0)
@@ -35,7 +35,7 @@ class PropertyBasedTests {
     }
 
     @Test
-    fun `adding marker to empty session`() {
+    fun addingMarkerToEmptySession() {
         val type = ObjectType.create("Items")
         val marker = CountMarker.create(0.5, 0.5, type.id)
         val session = CountSession.create("Test").copy(
@@ -47,7 +47,7 @@ class PropertyBasedTests {
     }
 
     @Test
-    fun `duplicate threshold property`() {
+    fun duplicateThresholdProperty() {
         val markers = (1..10).map { CountMarker.create(it * 0.1, it * 0.1, "t1") }
         // Within threshold 0.15, consecutive markers may be duplicates
         val withClose = markers + CountMarker.create(0.101, 0.101, "t1")
@@ -56,7 +56,7 @@ class PropertyBasedTests {
     }
 
     @Test
-    fun `duplicate detection symmetric`() {
+    fun duplicateDetectionSymmetric() {
         val a = CountMarker.create(0.5, 0.5, "t1")
         val b = CountMarker.create(0.51, 0.51, "t1")
         val existing = listOf(a)
@@ -64,7 +64,7 @@ class PropertyBasedTests {
     }
 
     @Test
-    fun `count by region distributes correctly`() {
+    fun countByRegionDistributesCorrectly() {
         val type = ObjectType.create("Items")
         val regionA = CountRegion(id = "ra", name = "A", shapeType = RegionShapeType.Rectangle,
             normalizedPoints = listOf(NormalizedPoint(0.0, 0.0), NormalizedPoint(0.3, 0.3)))
@@ -87,7 +87,7 @@ class PropertyBasedTests {
     }
 
     @Test
-    fun `formula commutative property`() {
+    fun formulaCommutativeProperty() {
         val ab = mapOf("a" to 5, "b" to 3)
         val ba = mapOf("b" to 3, "a" to 5)
         val formula = CountFormula(id = "f", name = "Sum", expression = "a + b")
@@ -98,7 +98,7 @@ class PropertyBasedTests {
     }
 
     @Test
-    fun `formula identity`() {
+    fun formulaIdentity() {
         val cases = listOf(
             CountFormula(id = "f1", name = "Zero", expression = "0") to 0.0,
             CountFormula(id = "f2", name = "One", expression = "1") to 1.0,
@@ -111,7 +111,7 @@ class PropertyBasedTests {
     }
 
     @Test
-    fun `tally after delete property`() {
+    fun tallyAfterDeleteProperty() {
         val type = ObjectType.create("Items")
         val markers = (1..20).map { CountMarker.create(it * 0.01, it * 0.01, type.id) }
         val kept = markers.drop(5)

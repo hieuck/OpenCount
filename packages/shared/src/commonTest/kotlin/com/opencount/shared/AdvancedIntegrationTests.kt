@@ -9,7 +9,7 @@ import kotlin.test.*
 
 class AdvancedIntegrationTests {
     @Test
-    fun `smart count and counter integration`() {
+    fun smartCountAndCounterIntegration() {
         val smart = SmartCountService(duplicateRadius = 0.05)
         val type = ObjectType.create("Cells")
         val markers = (1..20).map { i ->
@@ -25,7 +25,7 @@ class AdvancedIntegrationTests {
     }
 
     @Test
-    fun `export and reimport workflow`() {
+    fun exportAndReimportWorkflow() {
         val type = ObjectType.create("Items")
         val session = CountSession.create("Export Cycle").copy(
             objectTypes = listOf(type),
@@ -44,7 +44,7 @@ class AdvancedIntegrationTests {
     }
 
     @Test
-    fun `template apply and count`() {
+    fun templateApplyAndCount() {
         val template = SessionTemplate(
             id = "t1", name = "Demo", description = "",
             createdAt = kotlinx.datetime.Clock.System.now(),
@@ -62,7 +62,7 @@ class AdvancedIntegrationTests {
     }
 
     @Test
-    fun `seed then smart suggest`() {
+    fun seedThenSmartSuggest() {
         val suggest = SmartSuggestionsService()
         val session = SampleSessionSeeder.createSampleSession()
         val suggestions = suggest.suggestions(listOf(session), limit = 3)
@@ -71,7 +71,7 @@ class AdvancedIntegrationTests {
     }
 
     @Test
-    fun `crash recovery with session export`() {
+    fun crashRecoveryWithSessionExport() {
         val fs = FakeFileStorage()
         val type = ObjectType.create("Widgets")
         val session = CountSession.create("Recovery").copy(
@@ -89,7 +89,7 @@ class AdvancedIntegrationTests {
     }
 
     @Test
-    fun `full workflow with regions and formulas`() {
+    fun fullWorkflowWithRegionsAndFormulas() {
         val cars = ObjectType.create("Cars")
         val trucks = ObjectType.create("Trucks")
         val region = CountRegion(
@@ -118,7 +118,7 @@ class AdvancedIntegrationTests {
     }
 
     @Test
-    fun `velocity fatigue integration`() {
+    fun velocityFatigueIntegration() {
         val tracker = CountingVelocityTracker(windowSeconds = 10)
         val count = 15
         repeat(count) { tracker.recordMarker() }
@@ -126,14 +126,14 @@ class AdvancedIntegrationTests {
     }
 
     @Test
-    fun `smart count grid suggestion`() {
+    fun smartCountGridSuggestion() {
         val smart = SmartCountService()
         val density = smart.suggestGridDensity(1920.0, 1080.0)
         assertTrue(density in 3..20)
     }
 
     @Test
-    fun `multiple session export workflow`() {
+    fun multipleSessionExportWorkflow() {
         val typeA = ObjectType.create("A")
         val typeB = ObjectType.create("B")
         val s1 = CountSession.create("S1").copy(

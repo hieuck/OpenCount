@@ -9,14 +9,14 @@ import kotlin.test.*
 
 class MoreEdgeCaseTests {
     @Test
-    fun `counter empty object types`() {
+    fun counterEmptyObjectTypes() {
         val session = CountSession.create("NoTypes").copy(markers = listOf(CountMarker.create(0.5, 0.5, "t1")))
         val tally = Counter.tallyByType(session)
         assertEquals(1, tally["Unknown"])
     }
 
     @Test
-    fun `region polygon with 3 points`() {
+    fun regionPolygonWith3Points() {
         val r = CountRegion(id = "r1", name = "Tri", shapeType = RegionShapeType.Polygon,
             normalizedPoints = listOf(NormalizedPoint(0.0, 0.0), NormalizedPoint(1.0, 0.0), NormalizedPoint(0.0, 1.0)))
         assertTrue(r.contains(NormalizedPoint(0.1, 0.1)))
@@ -24,7 +24,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `tally history entry serialization`() {
+    fun tallyHistoryEntrySerialization() {
         val entry = TallyHistoryEntry(timestamp = kotlinx.datetime.Clock.System.now(), objectTypeName = "Cars", delta = 5)
         val json = kotlinx.serialization.json.Json { prettyPrint = true }
         val encoded = json.encodeToString(TallyHistoryEntry.serializer(), entry)
@@ -34,7 +34,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `coco export with multiple images`() {
+    fun cocoExportWithMultipleImages() {
         val type = ObjectType.create("Car")
         val session = CountSession.create("COCO Multi").copy(
             objectTypes = listOf(type),
@@ -50,7 +50,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `session marker region consistency`() {
+    fun sessionMarkerRegionConsistency() {
         val region = CountRegion(id = "r1", name = "R1", shapeType = RegionShapeType.Rectangle,
             normalizedPoints = listOf(NormalizedPoint(0.0, 0.0), NormalizedPoint(0.5, 0.5)))
         val type = ObjectType.create("T")
@@ -61,7 +61,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `duplicate detection different threshold`() {
+    fun duplicateDetectionDifferentThreshold() {
         val a = CountMarker.create(0.5, 0.5, "t1")
         val b = CountMarker.create(0.55, 0.55, "t1")
         assertTrue(DuplicateDetector.findDuplicates(listOf(a, b), threshold = 0.1).isNotEmpty())
@@ -69,7 +69,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `session count after filtering`() {
+    fun sessionCountAfterFiltering() {
         val type = ObjectType.create("X")
         val markers = (1..100).map { CountMarker.create(0.5, 0.5, type.id) }
         val filtered = markers.filterIndexed { i, _ -> i % 2 == 0 }
@@ -80,7 +80,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `polygon contains point on edge`() {
+    fun polygonContainsPointOnEdge() {
         val r = CountRegion(id = "r1", name = "R", shapeType = RegionShapeType.Polygon,
             normalizedPoints = listOf(NormalizedPoint(0.0, 0.0), NormalizedPoint(1.0, 0.0),
                 NormalizedPoint(1.0, 1.0), NormalizedPoint(0.0, 1.0)))
@@ -88,7 +88,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `nms order preservation`() {
+    fun nmsOrderPreservation() {
         val detections = listOf(
             AIDetection("a", NormalizedRect(0.0, 0.0, 0.1, 0.1), "x", 0.9f),
             AIDetection("b", NormalizedRect(0.0, 0.0, 0.1, 0.1), "x", 0.8f),
@@ -98,14 +98,14 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `sample session has correct marker count`() {
+    fun sampleSessionHasCorrectMarkerCount() {
         val s = SampleSessionSeeder.createSampleSession()
         assertEquals(6, Counter.totalCount(s))
         assertEquals(3, Counter.tallyByType(s).size)
     }
 
     @Test
-    fun `session with description roundtrip`() {
+    fun sessionWithDescriptionRoundtrip() {
         val s = CountSession.create("Test").copy(sessionDescription = "Hello World")
         val export = ExportService()
         val json = export.exportToJson(s)
@@ -116,7 +116,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `auto-naming after many sessions`() {
+    fun autoNamingAfterManySessions() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
         (1..25).forEach { storage.save(CountSession.create("S$it")) }
@@ -124,7 +124,7 @@ class MoreEdgeCaseTests {
     }
 
     @Test
-    fun `session image without extension`() {
+    fun sessionImageWithoutExtension() {
         val img = SessionImage.create("test")
         assertNotNull(img.id)
         assertEquals("test", img.filename)

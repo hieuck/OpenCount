@@ -8,8 +8,7 @@ import kotlin.test.Test
 import kotlin.test.*
 
 class AdditionalEdgeCaseTests {
-    @Test
-    fun `serialize session with all optional fields null`() {
+    @Test fun serializeSessionAllNullFields() {
         val s = CountSession.create("Minimal")
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         val encoded = json.encodeToString(CountSession.serializer(), s)
@@ -17,8 +16,7 @@ class AdditionalEdgeCaseTests {
         assertEquals(s.name, decoded.name)
     }
 
-    @Test
-    fun `count markers with same coordinates`() {
+    @Test fun countMarkersSameCoordinates() {
         val type = ObjectType.create("Same")
         val markers = (1..10).map { CountMarker.create(0.5, 0.5, type.id) }
         val session = CountSession.create("Duplicates").copy(
@@ -27,22 +25,19 @@ class AdditionalEdgeCaseTests {
         assertEquals(10, Counter.totalCount(session))
     }
 
-    @Test
-    fun `region with no points`() {
+    @Test fun regionNoPoints() {
         val r = CountRegion(id = "r1", name = "Empty", shapeType = RegionShapeType.Rectangle)
         assertFalse(r.contains(NormalizedPoint(0.5, 0.5)))
     }
 
-    @Test
-    fun `export service handles null sessionDescription`() {
+    @Test fun exportServiceNullDescription() {
         val s = CountSession.create("Null Desc").copy(sessionDescription = null)
         val export = ExportService()
         val json = export.exportToJson(s)
         assertTrue(json.contains("Null Desc"))
     }
 
-    @Test
-    fun `nms with identical boxes`() {
+    @Test fun nmsIdenticalBoxes() {
         val d1 = AIDetection("1", NormalizedRect(0.0, 0.0, 1.0, 1.0), "a", 0.9f)
         val d2 = AIDetection("2", NormalizedRect(0.0, 0.0, 1.0, 1.0), "b", 0.8f)
         val result = NMS.nonMaximumSuppression(listOf(d1, d2), iouThreshold = 0.5f)
@@ -50,14 +45,12 @@ class AdditionalEdgeCaseTests {
         assertEquals("1", result[0].id)
     }
 
-    @Test
-    fun `iou computation edge cases`() {
+    @Test fun iouEdgeCases() {
         assertEquals(0f, NMS.iou(NormalizedRect(0.0, 0.0, 0.0, 0.0), NormalizedRect(0.5, 0.5, 0.1, 0.1)))
         assertEquals(0f, NMS.iou(NormalizedRect(0.5, 0.5, 0.1, 0.1), NormalizedRect(0.0, 0.0, 0.0, 0.0)))
     }
 
-    @Test
-    fun `smart suggestions handles empty type names`() {
+    @Test fun smartSuggestionsEmptyNames() {
         val service = SmartSuggestionsService()
         val sessions = listOf(CountSession.create("S").copy(
             objectTypes = listOf(ObjectType.create(""), ObjectType.create("Named"))
@@ -66,15 +59,13 @@ class AdditionalEdgeCaseTests {
         assertTrue(suggestions.any { it.name == "Named" })
     }
 
-    @Test
-    fun `velocity tracker handles rapid markers`() {
+    @Test fun velocityTrackerRapid() {
         val tracker = CountingVelocityTracker(windowSeconds = 60)
         repeat(100) { tracker.recordMarker() }
         assertTrue(tracker.markersPerMinute() > 0)
     }
 
-    @Test
-    fun `template library handles empty session`() {
+    @Test fun templateLibraryEmptySession() {
         val lib = TemplateLibraryService()
         val session = CountSession.create("Empty")
         lib.saveAsTemplate("Empty Template", "", session)
@@ -83,8 +74,7 @@ class AdditionalEdgeCaseTests {
         assertEquals(0, loaded[0].objectTypeData.size)
     }
 
-    @Test
-    fun `storage service handles re-save`() {
+    @Test fun storageServiceReSave() {
         val fake = FakePlatformStorage()
         val storage = StorageService(fake)
         val s = CountSession.create("Original")
@@ -96,8 +86,7 @@ class AdditionalEdgeCaseTests {
         assertEquals("Updated", loaded.name)
     }
 
-    @Test
-    fun `count by type with unknown marker IDs`() {
+    @Test fun countByTypeUnknownIDs() {
         val session = CountSession.create("Test").copy(
             markers = listOf(CountMarker.create(0.5, 0.5, "non-existent-id")),
         )
@@ -105,8 +94,7 @@ class AdditionalEdgeCaseTests {
         assertEquals(1, tally["Unknown"])
     }
 
-    @Test
-    fun `detect clusters with all same point`() {
+    @Test fun detectClustersSamePoint() {
         val service = SmartCountService()
         val markers = (1..20).map { CountMarker.create(0.5, 0.5, "t1") }
         val clusters = service.detectClusters(markers, clusterRadius = 0.01)
@@ -114,15 +102,13 @@ class AdditionalEdgeCaseTests {
         assertEquals(20, clusters[0].size)
     }
 
-    @Test
-    fun `formula with unicode variable names`() {
+    @Test fun formulaUnicodeNames() {
         val formula = CountFormula(id = "f1", name = "U", expression = "Carrés + Trüks")
         val result = FormulaEvaluator.evaluate(formula, mapOf("Carrés" to 5, "Trüks" to 3))
         assertEquals(8.0, result)
     }
 
-    @Test
-    fun `count by region with unassigned markers`() {
+    @Test fun countByRegionUnassigned() {
         val type = ObjectType.create("Item")
         val region = CountRegion(id = "r1", name = "Zone", shapeType = RegionShapeType.Rectangle,
             normalizedPoints = listOf(NormalizedPoint(0.0, 0.0), NormalizedPoint(0.5, 0.5)))
@@ -138,8 +124,7 @@ class AdditionalEdgeCaseTests {
         assertTrue(byRegion.containsKey("None") || byRegion.size == 2)
     }
 
-    @Test
-    fun `panorama tiler no overlap`() {
+    @Test fun panoramaTilerNoOverlap() {
         val tiles = PanoramaTiler.tile(100.0, 100.0)
         assertEquals(1, tiles.size)
         assertEquals(0.0, tiles[0].offsetX)
