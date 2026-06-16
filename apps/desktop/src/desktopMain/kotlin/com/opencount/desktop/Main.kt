@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -20,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.*
 import kotlinx.coroutines.*
+import java.awt.datatransfer.DataFlavor
+import java.awt.dnd.*
 import java.awt.image.BufferedImage
 import java.io.File
 import java.time.LocalDateTime
@@ -30,14 +33,47 @@ import javax.swing.filechooser.FileNameExtensionFilter
 
 private val IO = Dispatchers.Default
 
+/** List of image file extensions */
+private val IMAGE_EXTS = setOf("jpg", "jpeg", "png", "bmp", "gif", "webp")
+
+/** Open file chooser dialog */
+private fun openFileDialog(): File? {
+    val chooser = JFileChooser()
+    chooser.dialogTitle = "Open Image"
+    chooser.fileFilter = FileNameExtensionFilter("Images", *IMAGE_EXTS.toTypedArray())
+    return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) chooser.selectedFile else null
+}
+
 fun main() = application {
+    var droppedFile by remember { mutableStateOf<File?>(null) }
+
     Window(
         onCloseRequest = ::exitApplication,
         title = "OpenCount",
         state = rememberWindowState(width = 1100.dp, height = 750.dp),
     ) {
+        // Drag & drop: accept image files from OS
+        DisposableEffect(Unit) {
+            val dt = DropTarget()
+            dt.addDropTargetListener(object : DropTargetAdapter() {
+                override fun drop(e: DropTargetDropEvent) {
+                    e.acceptDrop(DnDConstants.ACTION_COPY)
+                    try {
+                        @Suppress("UNCHECKED_CAST")
+                        val files = e.transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<File>
+                        val imgFile = files.firstOrNull { it.extension.lowercase() in IMAGE_EXTS }
+                        if (imgFile != null) droppedFile = imgFile
+                    } catch (_: Exception) {}
+                    e.dropComplete(true)
+                }
+                override fun dragEnter(e: DropTargetDragEvent) { e.acceptDrag(DnDConstants.ACTION_COPY) }
+            })
+            window.dropTarget = dt
+            onDispose { window.dropTarget = null }
+        }
+
         MaterialTheme {
-            OpenCountApp()
+            OpenCountApp(droppedFile = droppedFile, onDroppedHandled = { droppedFile = null })
         }
     }
 }
@@ -54,7 +90,7 @@ data class Marker(val nx: Float, val ny: Float)
 data class CountRecord(val name: String, val count: Int, val time: String)
 
 @Composable
-fun OpenCountApp() {
+fun OpenCountApp(droppedFile: File? = null, onDroppedHandled: () -> Unit = {}) {
     var imageBitmap by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     var markers by remember { mutableStateOf(listOf<Marker>()) }
     var objectName by remember { mutableStateOf("Object") }
@@ -63,6 +99,23 @@ fun OpenCountApp() {
     var isProcessing by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // Handle dropped file
+    LaunchedEffect(droppedFile) {
+        if (droppedFile != null) {
+            isLoading = true
+            val bitmap = loadImageAsync(droppedFile)
+            if (bitmap != null) { imageBitmap = bitmap; markers = emptyList() }
+            isLoading = false
+            onDroppedHandled()
+        }
+    }
+
+    // Drag & drop support
+    LaunchedEffect(Unit) {
+        // Find the AWT window from Compose's local window info
+        // and add a DropTarget listener
+    }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column {
