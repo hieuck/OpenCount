@@ -8,6 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>OpenCount</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#000;color:#fff;overflow:hidden;height:100dvh;height:100vh;position:fixed;width:100%;touch-action:none;user-select:none}
@@ -167,16 +169,23 @@ function update(){
 function undo(){if(markers.length){markers.pop();count=markers.length;draw();update()}}
 function clr(){markers=[];count=0;update();if(ctx&&imgData){ctx.drawImage(imgData,0,0);img.src=cvs.toDataURL()}}
 
-function ai(){
+async function ai(){
   if(!imgData)return;
   proc.style.display='flex';
-  setTimeout(()=>{
-    markers=[];const w=cvs.width,h=cvs.height;
-    for(let r=0;r<5;r++)for(let c=0;c<7;c++)markers.push({x:(0.07+c*0.12),y:(0.1+r*0.17)});
-    markers=markers.sort(()=>Math.random()-.5).slice(0,Math.floor(20+Math.random()*15));
+  try{
+    const model=await cocoSsd.load();
+    const predictions=await model.detect(cvs);
+    markers=predictions.filter(p=>p.score>0.5).map(p=>({
+      x:p.bbox[0]/cvs.width+p.bbox[2]/cvs.width/2,
+      y:p.bbox[1]/cvs.height+p.bbox[3]/cvs.height/2
+    }));
     count=markers.length;draw();update();
-    proc.style.display='none';
-  },800+Math.random()*600);
+    if(markers.length>0)objName=predictions[0].class;updateUI();
+  }catch(e){
+    // Fallback: manual counting only
+    console.log('AI model not loaded, use manual counting');
+  }
+  proc.style.display='none';
 }
 
 // Touch support for mobile

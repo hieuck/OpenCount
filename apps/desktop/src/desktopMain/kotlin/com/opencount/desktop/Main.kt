@@ -284,16 +284,10 @@ fun OpenCountApp(droppedFile: File? = null, onDroppedHandled: () -> Unit = {}) {
                         Spacer(Modifier.width(8.dp))
 
                         Button(onClick = {
-                            isProcessing = true
-                            // Smart grid mock (looks like real AI detection)
-                            markers = (1..5).flatMap { row ->
-                                (1..8).map { col ->
-                                    Marker(0.05f + col * 0.11f, 0.1f + row * 0.18f)
-                                }
-                            }.shuffled().take(25)
-                            isProcessing = false
-                        }) {
-                            Text(if (isProcessing) "..." else "AI Detect")
+                            // TODO: Add real AI detection with OpenCV/TensorFlow
+                            // For now, manual counting only
+                        }, enabled = false) {
+                            Text("AI (coming soon)")
                         }
 
                         Spacer(Modifier.weight(1f))
