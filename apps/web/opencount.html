@@ -214,7 +214,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 <script>
 // ===== STATE =====
 let currentImage = null;
-let originalImageData = null;
 let markers = [];
 let count = 0;
 let detectedLabel = 'objects';
@@ -223,59 +222,72 @@ let canvas = null;
 let ctx = null;
 let imgWidth = 0, imgHeight = 0;
 let isProcessing = false;
+let aiModel = null;
 
 const $ = id => document.getElementById(id);
 const img = $('previewImg');
 const overlayCanvas = $('overlayCanvas');
 const interactiveCanvas = $('interactiveCanvas');
 
+// ===== PRE-LOAD AI MODEL =====
+// Show loading status immediately
+console.log('OpenCount: Loading AI model...');
+cocoSsd.load().then(m => {
+  aiModel = m;
+  console.log('OpenCount: AI model loaded');
+  $('statusText') && ($('statusText').textContent = 'AI model ready ✓');
+}).catch(e => {
+  console.error('OpenCount: AI model failed to load:', e);
+});
+
 // ===== FILE HANDLING =====
 function handleFile(file) {
-  if (!file || !file.type.startsWith('image/')) return;
+  console.log('OpenCount: File selected', file ? file.name : 'none');
+  if (!file || !file.type.startsWith('image/')) {
+    console.log('OpenCount: Invalid file type');
+    return;
+  }
   const reader = new FileReader();
   reader.onload = e => processImage(e.target.result);
+  reader.onerror = () => console.error('OpenCount: FileReader error');
   reader.readAsDataURL(file);
-  $('fileInput').value = '';
 }
 
 function handleDrop(e) {
+  e.preventDefault();
   const file = e.dataTransfer.files[0];
   if (file && file.type.startsWith('image/')) handleFile(file);
+  else console.log('OpenCount: Dropped non-image file');
 }
 
 function processImage(src) {
+  console.log('OpenCount: Processing image...');
   const imgEl = new Image();
   imgEl.onload = () => {
+    console.log(`OpenCount: Image loaded ${imgEl.naturalWidth}x${imgEl.naturalHeight}`);
     currentImage = imgEl;
     imgWidth = imgEl.naturalWidth;
     imgHeight = imgEl.naturalHeight;
 
-    // Setup canvases
     overlayCanvas.width = imgWidth;
     overlayCanvas.height = imgHeight;
-    overlayCanvas.style.width = '100%';
-    overlayCanvas.style.height = 'auto';
-    overlayCanvas.style.aspectRatio = `${imgWidth}/${imgHeight}`;
-    
     interactiveCanvas.width = imgWidth;
     interactiveCanvas.height = imgHeight;
-    interactiveCanvas.style.width = '100%';
-    interactiveCanvas.style.height = 'auto';
-    interactiveCanvas.style.aspectRatio = `${imgWidth}/${imgHeight}`;
-
     ctx = overlayCanvas.getContext('2d');
-    
     img.src = src;
 
-    // Show result area
+    // Show result, hide welcome
     $('dropZone').style.display = 'none';
-    $('samples') && ($('samples').style.display = 'none');
     $('heroSection').style.display = 'none';
     $('statusOverlay').style.display = 'block';
     $('resultArea').style.display = 'block';
 
-    // Run AI
-    setTimeout(() => runAI(), 500);
+    // Wait for model then detect
+    waitForModel();
+  };
+  imgEl.onerror = () => {
+    console.error('OpenCount: Image failed to load');
+    alert('Failed to load image');
   };
   imgEl.src = src;
 }
@@ -288,19 +300,30 @@ function cancelUpload() {
   isProcessing = false;
 }
 
+async function waitForModel() {
+  $('statusText').textContent = 'Loading AI model...';
+  // Wait up to 30 seconds for model
+  for (let i = 0; i < 60; i++) {
+    if (aiModel) { runAI(); return; }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  $('statusText').textContent = 'AI model failed to load. Try refreshing.';
+  console.error('OpenCount: Model load timeout');
+  setTimeout(() => $('statusOverlay').style.display = 'none', 2000);
+}
+
 // ===== AI =====
 async function runAI() {
-  if (!currentImage || isProcessing) return;
+  if (!currentImage || !aiModel) return;
   isProcessing = true;
-  $('statusText').textContent = 'AI is analyzing the image…';
+  $('statusText').textContent = 'Detecting objects...';
 
   try {
-    const model = await cocoSsd.load();
-    const predictions = await model.detect(currentImage);
+    const predictions = await aiModel.detect(currentImage);
+    console.log(`OpenCount: AI detected ${predictions.length} objects`);
     const good = predictions.filter(p => p.score > 0.3);
 
     if (good.length > 0) {
-      // Find most common class
       const classes = {};
       good.forEach(p => { classes[p.class] = (classes[p.class] || 0) + 1; });
       detectedLabel = Object.entries(classes).sort((a,b) => b[1] - a[1])[0][0];
@@ -311,23 +334,19 @@ async function runAI() {
       markers = good.map(p => ({
         x: (p.bbox[0] + p.bbox[2] / 2) / imgWidth,
         y: (p.bbox[1] + p.bbox[3] / 2) / imgHeight,
-        score: p.score,
-        label: p.class
+        score: p.score, label: p.class
       }));
     } else {
-      $('detectedLabel').textContent = 'No objects found';
-      markers = [];
+      $('detectedLabel').textContent = 'Nothing detected';
     }
-
     count = markers.length;
     $('countedValue').textContent = count;
     drawMarkers();
     updateUI();
-
   } catch(e) {
-    $('detectedLabel').textContent = 'AI model not loaded';
+    console.error('OpenCount: AI detection error:', e);
+    $('detectedLabel').textContent = 'Detection error';
   }
-
   $('statusOverlay').style.display = 'none';
   isProcessing = false;
 }
