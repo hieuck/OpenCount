@@ -212,6 +212,16 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
 
 <script>
+// ===== GUARD: Check if CDN loaded =====
+var COCOSSD_AVAILABLE = false;
+if (typeof cocoSsd === 'undefined') {
+  console.warn('OpenCount: COCO-SSD not available (adblocker/network). AI disabled.');
+  document.getElementById('dropZone').innerHTML = '<div class="upload-icon">📷</div><p>Click to upload image</p><div class="hint">AI will be available after page reload with stable internet</div>';
+} else {
+  COCOSSD_AVAILABLE = true;
+  console.log('OpenCount: COCO-SSD library loaded');
+}
+
 // ===== STATE =====
 let currentImage = null;
 let markers = [];
@@ -230,15 +240,17 @@ const overlayCanvas = $('overlayCanvas');
 const interactiveCanvas = $('interactiveCanvas');
 
 // ===== PRE-LOAD AI MODEL =====
-// Show loading status immediately
-console.log('OpenCount: Loading AI model...');
-cocoSsd.load().then(m => {
-  aiModel = m;
-  console.log('OpenCount: AI model loaded');
-  $('statusText') && ($('statusText').textContent = 'AI model ready ✓');
-}).catch(e => {
-  console.error('OpenCount: AI model failed to load:', e);
-});
+if (COCOSSD_AVAILABLE) {
+  console.log('OpenCount: Loading AI model...');
+  cocoSsd.load().then(m => {
+    aiModel = m;
+    console.log('OpenCount: AI model ready');
+  }).catch(e => {
+    console.error('OpenCount: Model load failed:', e.message);
+  });
+} else {
+  console.log('OpenCount: AI disabled - manual counting only');
+}
 
 // ===== FILE HANDLING =====
 function handleFile(file) {
@@ -301,20 +313,28 @@ function cancelUpload() {
 }
 
 async function waitForModel() {
+  if (!COCOSSD_AVAILABLE) {
+    $('statusText').textContent = 'AI not available - manual counting enabled';
+    setTimeout(() => $('statusOverlay').style.display = 'none', 1500);
+    return;
+  }
   $('statusText').textContent = 'Loading AI model...';
-  // Wait up to 30 seconds for model
   for (let i = 0; i < 60; i++) {
     if (aiModel) { runAI(); return; }
     await new Promise(r => setTimeout(r, 500));
   }
-  $('statusText').textContent = 'AI model failed to load. Try refreshing.';
+  $('statusText').textContent = 'AI timeout - you can still tap to count manually';
   console.error('OpenCount: Model load timeout');
   setTimeout(() => $('statusOverlay').style.display = 'none', 2000);
 }
 
 // ===== AI =====
 async function runAI() {
-  if (!currentImage || !aiModel) return;
+  if (!currentImage || !aiModel) {
+    $('statusText').textContent = 'AI is not available';
+    setTimeout(() => $('statusOverlay').style.display = 'none', 1000);
+    return;
+  }
   isProcessing = true;
   $('statusText').textContent = 'Detecting objects...';
 
